@@ -105,14 +105,14 @@
 			<!-- Workout Templates -->
 			{#if workoutState.templates.length > 0}
 				<div class="flex flex-col gap-3">
-					<h3 class="text-sm tracking-wide uppercase text-text-secondary">Quick Start Templates</h3>
+					<h3 class="text-sm tracking-wide uppercase text-text-secondary">Quick Start</h3>
 					<div class="flex flex-col gap-3">
 						{#each workoutState.templates as template (template.id)}
 							<button 
 								class="flex items-center gap-3 p-4 text-left transition-all duration-200 border-2 rounded-lg cursor-pointer bg-bg-secondary border-bg-tertiary hover:border-primary hover:bg-bg-tertiary group"
 								onclick={() => handleStartWorkout(template.id)}
 							>
-								<span class="text-2xl">📋</span>
+							   	<span class="text-3xl">⚡</span>
 								<span class="text-lg tracking-wide text-text-primary font-display group-hover:text-primary">{template.name}</span>
 								<span class="ml-auto text-xs tracking-widest uppercase text-primary font-display">Start →</span>
 							</button>
@@ -128,9 +128,8 @@
 					class="flex items-center gap-4 p-4 text-left transition-all duration-200 border-2 border-dashed rounded-lg cursor-pointer bg-bg-secondary/50 border-bg-elevated hover:border-primary hover:bg-bg-tertiary"
 					onclick={() => handleStartWorkout()}
 				>
-					<span class="text-2xl">🔥</span>
 					<div class="flex-1">
-						<span class="block text-lg tracking-wide text-text-primary font-display">Free Workout</span>
+						<span class="block text-lg tracking-wide text-text-primary font-display">Custom Workout</span>
 						<span class="block text-xs text-text-muted">Add exercises as you go</span>
 					</div>
 					<span class="text-xs tracking-widest uppercase text-text-secondary font-display">Start →</span>
@@ -157,14 +156,14 @@
 
 			<div class="flex flex-col gap-4">
 				<button class="flex items-center gap-4 p-6 text-left transition-all duration-200 border rounded-lg cursor-pointer bg-bg-secondary border-bg-tertiary hover:border-primary hover:bg-bg-tertiary" onclick={() => currentView = 'bands'}>
-					<span class="text-3xl">🎯</span>
+					<span class="text-3xl">🪢</span>
 					<div>
 						<span class="block text-lg tracking-wide text-text-primary font-display">Manage Bands</span>
 						<span class="block text-xs text-text-muted">Add or remove resistance bands</span>
 					</div>
 				</button>
 				<button class="flex items-center gap-4 p-6 text-left transition-all duration-200 border rounded-lg cursor-pointer bg-bg-secondary border-bg-tertiary hover:border-primary hover:bg-bg-tertiary" onclick={() => currentView = 'exercises'}>
-					<span class="text-3xl">💪</span>
+					<span class="text-3xl">🏋🏻</span>
 					<div>
 						<span class="block text-lg tracking-wide text-text-primary font-display">Manage Exercises</span>
 						<span class="block text-xs text-text-muted">Customize your exercise list</span>
