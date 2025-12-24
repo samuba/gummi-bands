@@ -1,2 +1,262 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
+
+@theme {
+	/* Core palette - energetic sporty theme */
+	--color-primary: #FF3D00;
+	--color-primary-dark: #DD2C00;
+	--color-primary-light: #FF6E40;
+	
+	--color-secondary: #00E676;
+	--color-secondary-dark: #00C853;
+	
+	--color-accent: #FFD600;
+	
+	/* Dark theme base */
+	--color-bg-primary: #0D0D0D;
+	--color-bg-secondary: #1A1A1A;
+	--color-bg-tertiary: #262626;
+	--color-bg-elevated: #333333;
+	
+	/* Text colors */
+	--color-text-primary: #FFFFFF;
+	--color-text-secondary: #B3B3B3;
+	--color-text-muted: #666666;
+	
+	/* Status colors */
+	--color-success: #00E676;
+	--color-warning: #FFD600;
+	--color-error: #FF5252;
+	
+	/* Shadows */
+	--shadow-glow: 0 0 20px rgba(255, 61, 0, 0.3);
+	--shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
+	
+	/* Spacing overrides if needed, but Tailwind defaults are usually fine */
+	
+	/* Border radius */
+	--radius-sm: 0.375rem;
+	--radius-md: 0.75rem;
+	--radius-lg: 1rem;
+	--radius-xl: 1.5rem;
+	
+	/* Typography */
+	--font-display: 'Bebas Neue', sans-serif;
+	--font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+	@keyframes fade-in {
+		from { opacity: 0; }
+		to { opacity: 1; }
+	}
+	--animate-fade-in: fade-in 0.2s ease-out;
+}
+
+@font-face {
+	font-family: 'Bebas Neue';
+	src: url('https://fonts.gstatic.com/s/bebasneue/v14/JTUSjIg69CK48gW7PXoo9Wlhyw.woff2') format('woff2');
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Inter';
+	src: url('https://fonts.gstatic.com/s/inter/v18/UcCo3FwrK3iLTcviYwY.woff2') format('woff2');
+	font-weight: 400 700;
+	font-style: normal;
+	font-display: swap;
+}
+
+:root {
+	/* Gradients */
+	--gradient-fire: linear-gradient(135deg, #FF3D00 0%, #FF6E40 50%, #FFD600 100%);
+	--gradient-energy: linear-gradient(135deg, #00E676 0%, #00BFA5 100%);
+	--gradient-dark: linear-gradient(180deg, #1A1A1A 0%, #0D0D0D 100%);
+	
+	/* Maintain variables for non-tailwind usage if needed */
+	--color-primary: #FF3D00;
+	--color-primary-dark: #DD2C00;
+	--color-primary-light: #FF6E40;
+	--color-secondary: #00E676;
+	--color-secondary-dark: #00C853;
+	--color-accent: #FFD600;
+	--color-bg-primary: #0D0D0D;
+	--color-bg-secondary: #1A1A1A;
+	--color-bg-tertiary: #262626;
+	--color-bg-elevated: #333333;
+	--color-text-primary: #FFFFFF;
+	--color-text-secondary: #B3B3B3;
+	--color-text-muted: #666666;
+	--color-success: #00E676;
+	--color-warning: #FFD600;
+	--color-error: #FF5252;
+	
+	--space-xs: 0.25rem;
+	--space-sm: 0.5rem;
+	--space-md: 1rem;
+	--space-lg: 1.5rem;
+	--space-xl: 2rem;
+	--space-2xl: 3rem;
+
+	--radius-sm: 0.375rem;
+	--radius-md: 0.75rem;
+	--radius-lg: 1rem;
+	--radius-xl: 1.5rem;
+	--radius-full: 9999px;
+
+	--font-display: 'Bebas Neue', sans-serif;
+	--font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html {
+	font-family: var(--font-body);
+	background: var(--color-bg-primary);
+	color: var(--color-text-primary);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+body {
+	margin: 0;
+	min-height: 100vh;
+	background: var(--gradient-dark);
+	background-attachment: fixed;
+}
+
+/* Background pattern */
+body::before {
+	content: '';
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-image: 
+		radial-gradient(circle at 20% 80%, rgba(255, 61, 0, 0.08) 0%, transparent 50%),
+		radial-gradient(circle at 80% 20%, rgba(0, 230, 118, 0.06) 0%, transparent 50%);
+	pointer-events: none;
+	z-index: 0;
+}
+
+/* Primary button */
+.btn-primary {
+	@apply inline-flex items-center justify-center gap-2 px-8 py-4 text-lg tracking-widest uppercase cursor-pointer transition-all duration-200 text-white;
+	background: var(--gradient-fire);
+	font-family: var(--font-display);
+	border-radius: var(--radius-md);
+	box-shadow: 0 0 20px rgba(255, 61, 0, 0.3);
+}
+
+.btn-primary:hover {
+	@apply -translate-y-0.5;
+	box-shadow: 0 0 30px rgba(255, 61, 0, 0.5);
+}
+
+.btn-primary:active {
+	@apply translate-y-0;
+}
+
+/* Secondary button */
+.btn-secondary {
+	@apply inline-flex items-center justify-center gap-2 px-8 py-4 text-base tracking-widest uppercase cursor-pointer transition-all duration-200 border-2 bg-bg-elevated border-bg-tertiary text-text-primary;
+	font-family: var(--font-display);
+	border-radius: var(--radius-md);
+}
+
+.btn-secondary:hover {
+	@apply border-primary bg-bg-tertiary;
+}
+
+/* Ghost button */
+.btn-ghost {
+	@apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm transition-all duration-200 bg-transparent text-text-secondary rounded-sm cursor-pointer;
+}
+
+.btn-ghost:hover {
+	@apply text-text-primary bg-bg-tertiary;
+}
+
+/* Card styles */
+.card {
+	@apply bg-bg-secondary border border-bg-tertiary rounded-lg p-6 shadow-card;
+}
+
+.card-elevated {
+	@apply bg-bg-elevated;
+}
+
+/* Input styles */
+input[type="text"],
+input[type="number"],
+select {
+	@apply w-full p-4 text-base transition-colors duration-200 border-2 bg-bg-tertiary border-bg-elevated text-text-primary rounded-md focus:outline-none focus:border-primary;
+}
+
+input[type="text"]::placeholder {
+	@apply text-text-muted;
+}
+
+/* Chip / Tag styles */
+.chip {
+	@apply inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-bg-tertiary text-text-secondary;
+}
+
+.chip-primary {
+	@apply bg-primary text-white;
+}
+
+/* Badge for resistance */
+.badge {
+	@apply inline-flex items-center justify-center min-w-8 h-6 px-2 text-xs font-semibold rounded-sm bg-bg-tertiary;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+	@apply w-2 h-2;
+}
+
+::-webkit-scrollbar-track {
+	@apply bg-bg-secondary;
+}
+
+::-webkit-scrollbar-thumb {
+	@apply rounded-full bg-bg-elevated hover:bg-text-muted;
+}
+
+/* Animations */
+@keyframes pulse-glow {
+	0%, 100% {
+		box-shadow: 0 0 20px rgba(255, 61, 0, 0.3);
+	}
+	50% {
+		box-shadow: 0 0 40px rgba(255, 61, 0, 0.6);
+	}
+}
+
+.animate-pulse-glow {
+	animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes slide-up {
+	from {
+		opacity: 0;
+		transform: translateY(20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.animate-slide-up {
+	animation: slide-up 0.3s ease-out;
+}
+
+.animate-fade-in {
+	animation: fade-in 0.2s ease-out;
+}
+
