@@ -1,16 +1,21 @@
 import { browser } from '$app/environment';
 import { initDatabase, getClient, getDb } from '$lib/db/client';
 import { bands, exercises, workoutSessions, loggedExercises, loggedExerciseBands } from '$lib/db/schema';
-import type { Band, Exercise, WorkoutSession, LoggedExercise } from '$lib/db/schema';
+import type { Band, Exercise, WorkoutSession, LoggedExercise, WorkoutTemplate } from '$lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
+
+// Template with exercises type
+export type TemplateWithExercises = WorkoutTemplate & { exercises: Exercise[] };
 
 // Reactive state
 let isInitialized = $state(false);
 let allBands = $state<Band[]>([]);
 let allExercises = $state<Exercise[]>([]);
+let allTemplates = $state<TemplateWithExercises[]>([]);
 let currentSession = $state<WorkoutSession | null>(null);
 let sessionLogs = $state<(LoggedExercise & { exercise: Exercise; bands: Band[] })[]>([]);
 let recentSessions = $state<WorkoutSession[]>([]);
+let suggestedExercises = $state<Exercise[]>([]);
 
 // Initialize the database and load initial data
 export async function initialize() {
@@ -20,6 +25,7 @@ export async function initialize() {
 	await initDatabase();
 	await refreshBands();
 	await refreshExercises();
+	await refreshTemplates();
 	await refreshRecentSessions();
 	isInitialized = true;
 }
@@ -42,6 +48,39 @@ export async function refreshExercises() {
 	
 	const result = await db.select().from(exercises).orderBy(exercises.name);
 	allExercises = result;
+}
+
+// Refresh templates from database
+export async function refreshTemplates() {
+	if (!browser) return;
+	const client = getClient();
+	if (!client) return;
+	
+	// Get all templates
+	const templatesResult = await client.query<{ id: string; name: string; created_at: Date }>(
+		`SELECT id, name, created_at FROM workout_templates ORDER BY name`
+	);
+	
+	// Get exercises for each template
+	const templatesWithExercises: TemplateWithExercises[] = await Promise.all(
+		templatesResult.rows.map(async (template) => {
+			const exercisesResult = await client.query<Exercise>(`
+				SELECT e.* FROM exercises e
+				JOIN workout_template_exercises wte ON e.id = wte.exercise_id
+				WHERE wte.template_id = $1
+				ORDER BY wte.sort_order
+			`, [template.id]);
+			
+			return {
+				id: template.id,
+				name: template.name,
+				createdAt: template.created_at,
+				exercises: exercisesResult.rows
+			};
+		})
+	);
+	
+	allTemplates = templatesWithExercises;
 }
 
 // Refresh recent sessions
@@ -95,14 +134,27 @@ export async function deleteExercise(id: string) {
 }
 
 // Start a new workout session
-export async function startSession() {
+export async function startSession(templateId?: string) {
 	if (!browser) return;
 	const db = getDb();
 	if (!db) return;
 	
-	const [session] = await db.insert(workoutSessions).values({}).returning();
+	const [session] = await db.insert(workoutSessions).values({
+		templateId: templateId || null
+	}).returning();
 	currentSession = session;
 	sessionLogs = [];
+	
+	// If a template was selected, set suggested exercises
+	if (templateId) {
+		const template = allTemplates.find(t => t.id === templateId);
+		if (template) {
+			suggestedExercises = template.exercises;
+		}
+	} else {
+		suggestedExercises = [];
+	}
+	
 	return session;
 }
 
@@ -118,6 +170,7 @@ export async function endSession() {
 	
 	currentSession = null;
 	sessionLogs = [];
+	suggestedExercises = [];
 	await refreshRecentSessions();
 }
 
@@ -245,8 +298,10 @@ export function getState() {
 		get isInitialized() { return isInitialized; },
 		get bands() { return allBands; },
 		get exercises() { return allExercises; },
+		get templates() { return allTemplates; },
 		get currentSession() { return currentSession; },
 		get sessionLogs() { return sessionLogs; },
-		get recentSessions() { return recentSessions; }
+		get recentSessions() { return recentSessions; },
+		get suggestedExercises() { return suggestedExercises; }
 	};
 }

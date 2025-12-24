@@ -16,9 +16,29 @@ export const exercises = pgTable('exercises', {
 	createdAt: timestamp('created_at').defaultNow().notNull()
 });
 
+// Workout session templates
+export const workoutTemplates = pgTable('workout_templates', {
+	id: uuid('id').primaryKey().defaultRandom(),
+	name: text('name').notNull(),
+	createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+// Junction table for exercises in templates
+export const workoutTemplateExercises = pgTable('workout_template_exercises', {
+	id: uuid('id').primaryKey().defaultRandom(),
+	templateId: uuid('template_id')
+		.notNull()
+		.references(() => workoutTemplates.id, { onDelete: 'cascade' }),
+	exerciseId: uuid('exercise_id')
+		.notNull()
+		.references(() => exercises.id, { onDelete: 'cascade' }),
+	sortOrder: integer('sort_order').notNull().default(0)
+});
+
 // Workout sessions
 export const workoutSessions = pgTable('workout_sessions', {
 	id: uuid('id').primaryKey().defaultRandom(),
+	templateId: uuid('template_id').references(() => workoutTemplates.id),
 	startedAt: timestamp('started_at').defaultNow().notNull(),
 	endedAt: timestamp('ended_at'),
 	notes: text('notes')
@@ -64,4 +84,10 @@ export type NewLoggedExercise = typeof loggedExercises.$inferInsert;
 
 export type LoggedExerciseBand = typeof loggedExerciseBands.$inferSelect;
 export type NewLoggedExerciseBand = typeof loggedExerciseBands.$inferInsert;
+
+export type WorkoutTemplate = typeof workoutTemplates.$inferSelect;
+export type NewWorkoutTemplate = typeof workoutTemplates.$inferInsert;
+
+export type WorkoutTemplateExercise = typeof workoutTemplateExercises.$inferSelect;
+export type NewWorkoutTemplateExercise = typeof workoutTemplateExercises.$inferInsert;
 

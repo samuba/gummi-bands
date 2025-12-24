@@ -44,8 +44,22 @@ export async function initDatabase() {
 				created_at TIMESTAMP DEFAULT NOW() NOT NULL
 			);
 
+			CREATE TABLE IF NOT EXISTS workout_templates (
+				id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+				name TEXT NOT NULL,
+				created_at TIMESTAMP DEFAULT NOW() NOT NULL
+			);
+
+			CREATE TABLE IF NOT EXISTS workout_template_exercises (
+				id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+				template_id UUID NOT NULL REFERENCES workout_templates(id) ON DELETE CASCADE,
+				exercise_id UUID NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+				sort_order INTEGER NOT NULL DEFAULT 0
+			);
+
 			CREATE TABLE IF NOT EXISTS workout_sessions (
 				id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+				template_id UUID REFERENCES workout_templates(id),
 				started_at TIMESTAMP DEFAULT NOW() NOT NULL,
 				ended_at TIMESTAMP,
 				notes TEXT
@@ -67,6 +81,18 @@ export async function initDatabase() {
 			);
 		`);
 
+		// Migration: Add template_id column to workout_sessions if it doesn't exist
+		const columnCheck = await client.query<{ column_name: string }>(`
+			SELECT column_name FROM information_schema.columns 
+			WHERE table_name = 'workout_sessions' AND column_name = 'template_id'
+		`);
+		if (columnCheck.rows.length === 0) {
+			await client.exec(`
+				ALTER TABLE workout_sessions 
+				ADD COLUMN template_id UUID REFERENCES workout_templates(id)
+			`);
+		}
+
 		// Seed default bands if none exist
 		const existingBands = await client.query<{ count: number }>('SELECT COUNT(*) as count FROM bands');
 		if (Number(existingBands.rows[0].count) === 0) {
@@ -86,17 +112,84 @@ export async function initDatabase() {
 		if (Number(existingExercises.rows[0].count) === 0) {
 			await client.exec(`
 				INSERT INTO exercises (name) VALUES
-				('Bicep Curls'),
-				('Tricep Extensions'),
-				('Shoulder Press'),
-				('Lateral Raises'),
 				('Chest Press'),
-				('Rows'),
-				('Squats'),
-				('Deadlifts'),
+				('Chest Press (Pec Crossover)'),
+				('Overhead Press'),
+				('Tricep Press'),
+				('Squat (Front)'),
+				('Deadlift'),
+				('Bicep Curl'),
+				('Row (Bent)'),
+				('Calf Raise'),
+				('Lateral Raises'),
 				('Lunges'),
 				('Leg Curls');
 			`);
+		} else {
+			// Ensure required exercises for templates exist
+			const requiredExercises = [
+				'Chest Press', 'Chest Press (Pec Crossover)', 'Overhead Press', 'Tricep Press', 'Squat (Front)',
+				'Deadlift', 'Bicep Curl', 'Row (Bent)', 'Calf Raise'
+			];
+			for (const name of requiredExercises) {
+				const exists = await client.query<{ id: string }>(`SELECT id FROM exercises WHERE name = $1`, [name]);
+				if (exists.rows.length === 0) {
+					await client.exec(`INSERT INTO exercises (name) VALUES ('${name}')`);
+				}
+			}
+		}
+
+		// Seed default workout templates and their exercises
+		const templateDefinitions = [
+			{
+				name: 'Push Day',
+				exercises: ['Chest Press', 'Chest Press (Pec Crossover)', 'Overhead Press', 'Tricep Press', 'Squat (Front)']
+			},
+			{
+				name: 'Pull Day',
+				exercises: ['Deadlift', 'Bicep Curl', 'Row (Bent)', 'Calf Raise']
+			}
+		];
+
+		for (const templateDef of templateDefinitions) {
+			// Check if template exists
+			const templateResult = await client.query<{ id: string }>(
+				`SELECT id FROM workout_templates WHERE name = $1`,
+				[templateDef.name]
+			);
+
+			let templateId: string;
+			if (templateResult.rows.length === 0) {
+				// Create template
+				const insertResult = await client.query<{ id: string }>(
+					`INSERT INTO workout_templates (name) VALUES ($1) RETURNING id`,
+					[templateDef.name]
+				);
+				templateId = insertResult.rows[0].id;
+			} else {
+				templateId = templateResult.rows[0].id;
+			}
+
+			// Link any missing exercises to template
+			for (let i = 0; i < templateDef.exercises.length; i++) {
+				const exerciseResult = await client.query<{ id: string }>(
+					`SELECT id FROM exercises WHERE name = $1`,
+					[templateDef.exercises[i]]
+				);
+				if (exerciseResult.rows[0]) {
+					// Check if this specific exercise is already linked
+					const linkExists = await client.query<{ id: string }>(
+						`SELECT id FROM workout_template_exercises WHERE template_id = $1 AND exercise_id = $2`,
+						[templateId, exerciseResult.rows[0].id]
+					);
+					if (linkExists.rows.length === 0) {
+						await client.query(
+							`INSERT INTO workout_template_exercises (template_id, exercise_id, sort_order) VALUES ($1, $2, $3)`,
+							[templateId, exerciseResult.rows[0].id, i]
+						);
+					}
+				}
+			}
 		}
 	})();
 	

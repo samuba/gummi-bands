@@ -33,8 +33,8 @@
 		isLoading = false;
 	});
 
-	async function handleStartWorkout() {
-		await workout.startSession();
+	async function handleStartWorkout(templateId?: string) {
+		await workout.startSession(templateId);
 		currentView = 'workout';
 	}
 
@@ -81,18 +81,52 @@
 		<div class="flex flex-col gap-6" in:fade={{ duration: 200 }}>
 			<Header />
 			
-			<div class="flex flex-col items-center gap-8 py-8 text-center">
+			<div class="flex flex-col items-center gap-4 py-6 text-center">
 				<div class="flex flex-col gap-2">
 					<h2 class="text-3xl tracking-wide uppercase bg-clip-text text-transparent font-display" style="background-image: var(--gradient-fire)">Ready to Stretch Your Limits?</h2>
-					<p class="text-sm text-text-secondary">Track your rubber band workout with precision</p>
+					<p class="text-sm text-text-secondary">Choose a workout template or go freestyle</p>
 				</div>
+			</div>
+
+			<!-- Workout Templates -->
+			{#if workoutState.templates.length > 0}
+				<div class="flex flex-col gap-3">
+					<h3 class="text-sm tracking-wide uppercase text-text-secondary">Quick Start Templates</h3>
+					<div class="flex flex-col gap-3">
+						{#each workoutState.templates as template (template.id)}
+							<button 
+								class="flex flex-col gap-2 p-4 text-left transition-all duration-200 border-2 rounded-lg cursor-pointer bg-bg-secondary border-bg-tertiary hover:border-primary hover:bg-bg-tertiary group"
+								onclick={() => handleStartWorkout(template.id)}
+							>
+								<div class="flex items-center gap-3">
+									<span class="text-2xl">📋</span>
+									<span class="text-lg tracking-wide text-text-primary font-display group-hover:text-primary">{template.name}</span>
+									<span class="ml-auto text-xs tracking-widest uppercase text-primary font-display">Start →</span>
+								</div>
+								<div class="flex flex-wrap gap-2 pl-9">
+									{#each template.exercises as exercise (exercise.id)}
+										<span class="px-2 py-0.5 text-xs rounded-full bg-bg-tertiary text-text-muted">{exercise.name}</span>
+									{/each}
+								</div>
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
+			<!-- Freestyle Option -->
+			<div class="flex flex-col gap-3">
+				<h3 class="text-sm tracking-wide uppercase text-text-secondary">Or Go Freestyle</h3>
 				<button 
-					class="flex items-center gap-4 px-12 py-6 text-2xl tracking-widest text-white transition-transform duration-200 border-none cursor-pointer rounded-xl font-display animate-pulse-glow hover:scale-105" 
-					style="background-image: var(--gradient-fire)"
-					onclick={handleStartWorkout}
+					class="flex items-center gap-4 p-4 text-left transition-all duration-200 border-2 border-dashed rounded-lg cursor-pointer bg-bg-secondary/50 border-bg-elevated hover:border-primary hover:bg-bg-tertiary"
+					onclick={() => handleStartWorkout()}
 				>
-					<span class="text-3xl">🔥</span>
-					Start Workout
+					<span class="text-2xl">🔥</span>
+					<div class="flex-1">
+						<span class="block text-lg tracking-wide text-text-primary font-display">Free Workout</span>
+						<span class="block text-xs text-text-muted">Add exercises as you go</span>
+					</div>
+					<span class="text-xs tracking-widest uppercase text-text-secondary font-display">Start →</span>
 				</button>
 			</div>
 
@@ -144,6 +178,29 @@
 			</div>
 
 			<div class="flex flex-col gap-6 card">
+				<!-- Quick-select exercises from template -->
+				{#if workoutState.suggestedExercises.length > 0}
+					<div class="flex flex-col gap-2">
+						<span class="text-sm font-medium text-text-secondary">Template Exercises</span>
+						<div class="flex flex-wrap gap-2">
+							{#each workoutState.suggestedExercises as exercise (exercise.id)}
+								<button
+									class="px-3 py-2 text-sm transition-all duration-150 border-2 rounded-lg cursor-pointer"
+									class:bg-primary={selectedExerciseId === exercise.id}
+									class:border-primary={selectedExerciseId === exercise.id}
+									class:text-white={selectedExerciseId === exercise.id}
+									class:bg-bg-tertiary={selectedExerciseId !== exercise.id}
+									class:border-transparent={selectedExerciseId !== exercise.id}
+									class:text-text-primary={selectedExerciseId !== exercise.id}
+									onclick={() => selectedExerciseId = exercise.id}
+								>
+									{exercise.name}
+								</button>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
 				<ExerciseSelector 
 					exercises={workoutState.exercises}
 					selectedId={selectedExerciseId}
@@ -240,7 +297,7 @@
 			<div class="flex flex-col gap-2">
 				{#each workoutState.bands as band (band.id)}
 					<div class="flex items-center gap-4 p-4 border rounded-md bg-bg-secondary border-bg-tertiary" transition:slide={{ duration: 150 }}>
-						<div class="flex-shrink-0 w-6 h-6 rounded-sm" style:background={band.color || '#666'}></div>
+						<div class="shrink-0 w-6 h-6 rounded-sm" style:background={band.color || '#666'}></div>
 						<div class="flex flex-col flex-1 gap-0.5">
 							<span class="text-sm text-text-primary">{band.name}</span>
 							<span class="text-xs text-text-muted">{band.resistance} lbs</span>
