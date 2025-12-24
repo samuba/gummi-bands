@@ -292,6 +292,65 @@ export async function resumeSession(sessionId: string) {
 	}
 }
 
+// Add an exercise to the suggested exercises list
+export function addSuggestedExercise(exercise: Exercise) {
+	if (!suggestedExercises.some(e => e.id === exercise.id)) {
+		suggestedExercises = [...suggestedExercises, exercise];
+	}
+}
+
+// Get previous exercise data (most recent log for this exercise)
+export type PreviousExerciseData = {
+	bandIds: string[];
+	bandNames: string[];
+	fullReps: number;
+	partialReps: number;
+} | null;
+
+export async function getPreviousExerciseData(exerciseId: string): Promise<PreviousExerciseData> {
+	if (!browser) return null;
+	const client = getClient();
+	if (!client) return null;
+
+	// Get the most recent logged exercise for this exercise ID (excluding current session)
+	const result = await client.query<{
+		id: string;
+		full_reps: number;
+		partial_reps: number;
+	}>(`
+		SELECT le.id, le.full_reps, le.partial_reps
+		FROM logged_exercises le
+		JOIN workout_sessions ws ON le.session_id = ws.id
+		WHERE le.exercise_id = $1
+		${currentSession ? `AND le.session_id != $2` : ''}
+		ORDER BY le.logged_at DESC
+		LIMIT 1
+	`, currentSession ? [exerciseId, currentSession.id] : [exerciseId]);
+
+	if (result.rows.length === 0) return null;
+
+	const log = result.rows[0];
+
+	// Get bands for this logged exercise
+	const bandsResult = await client.query<{ id: string; name: string }>(`
+		SELECT b.id, b.name FROM bands b
+		JOIN logged_exercise_bands leb ON b.id = leb.band_id
+		WHERE leb.logged_exercise_id = $1
+	`, [log.id]);
+
+	return {
+		bandIds: bandsResult.rows.map(b => b.id),
+		bandNames: bandsResult.rows.map(b => b.name),
+		fullReps: log.full_reps,
+		partialReps: log.partial_reps
+	};
+}
+
+// Get current session log for an exercise
+export function getSessionLogForExercise(exerciseId: string) {
+	return sessionLogs.find(log => log.exerciseId === exerciseId);
+}
+
 // Get state accessors
 export function getState() {
 	return {

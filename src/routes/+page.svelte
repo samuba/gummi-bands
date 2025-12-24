@@ -2,23 +2,16 @@
 	import { onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import Header from '$lib/components/Header.svelte';
-	import BandSelector from '$lib/components/BandSelector.svelte';
-	import ExerciseSelector from '$lib/components/ExerciseSelector.svelte';
-	import RepCounter from '$lib/components/RepCounter.svelte';
-	import LoggedExerciseCard from '$lib/components/LoggedExerciseCard.svelte';
 	import WorkoutTimer from '$lib/components/WorkoutTimer.svelte';
+	import AddExerciseDialog from '$lib/components/AddExerciseDialog.svelte';
+	import LogExerciseDialog from '$lib/components/LogExerciseDialog.svelte';
 	import * as workout from '$lib/stores/workout.svelte';
+	import type { Exercise } from '$lib/db/schema';
 
 	type View = 'home' | 'workout' | 'bands' | 'exercises';
 
 	let currentView = $state<View>('home');
 	let workoutState = workout.getState();
-
-	// Form state for logging exercise
-	let selectedExerciseId = $state<string | null>(null);
-	let selectedBandIds = $state<string[]>([]);
-	let fullReps = $state(0);
-	let partialReps = $state(0);
 
 	// Form state for adding bands/exercises
 	let newBandName = $state('');
@@ -43,14 +36,15 @@
 		currentView = 'home';
 	}
 
-	async function handleLogExercise() {
-		if (!selectedExerciseId || selectedBandIds.length === 0) return;
-		
-		await workout.logExercise(selectedExerciseId, selectedBandIds, fullReps, partialReps);
-		
-		// Reset form but keep bands selected for convenience
-		fullReps = 0;
-		partialReps = 0;
+	async function handleLogExercise(exerciseId: string, bandIds: string[], fullReps: number, partialReps: number) {
+		// Check if there's already a log for this exercise in current session
+		const existingLog = workoutState.sessionLogs.find(log => log.exerciseId === exerciseId);
+		if (existingLog) {
+			// Remove existing log first
+			await workout.removeLoggedExercise(existingLog.id);
+		}
+		// Log the new data
+		await workout.logExercise(exerciseId, bandIds, fullReps, partialReps);
 	}
 
 	async function handleAddBand() {
@@ -66,8 +60,24 @@
 		newExerciseName = '';
 	}
 
-	function canLogExercise(): boolean {
-		return selectedExerciseId !== null && selectedBandIds.length > 0 && (fullReps > 0 || partialReps > 0);
+	// Get current log for an exercise
+	function getExerciseLog(exerciseId: string) {
+		const log = workoutState.sessionLogs.find(l => l.exerciseId === exerciseId);
+		if (!log) return undefined;
+		return {
+			fullReps: log.fullReps,
+			partialReps: log.partialReps,
+			bands: log.bands
+		};
+	}
+
+	// Format workout date
+	function formatDate(date: Date): string {
+		return new Intl.DateTimeFormat('en-GB', {
+			day: 'numeric',
+			month: 'numeric',
+			year: 'numeric'
+		}).format(date).replace(/\//g, '.');
 	}
 </script>
 
@@ -95,19 +105,12 @@
 					<div class="flex flex-col gap-3">
 						{#each workoutState.templates as template (template.id)}
 							<button 
-								class="flex flex-col gap-2 p-4 text-left transition-all duration-200 border-2 rounded-lg cursor-pointer bg-bg-secondary border-bg-tertiary hover:border-primary hover:bg-bg-tertiary group"
+								class="flex items-center gap-3 p-4 text-left transition-all duration-200 border-2 rounded-lg cursor-pointer bg-bg-secondary border-bg-tertiary hover:border-primary hover:bg-bg-tertiary group"
 								onclick={() => handleStartWorkout(template.id)}
 							>
-								<div class="flex items-center gap-3">
-									<span class="text-2xl">📋</span>
-									<span class="text-lg tracking-wide text-text-primary font-display group-hover:text-primary">{template.name}</span>
-									<span class="ml-auto text-xs tracking-widest uppercase text-primary font-display">Start →</span>
-								</div>
-								<div class="flex flex-wrap gap-2 pl-9">
-									{#each template.exercises as exercise (exercise.id)}
-										<span class="px-2 py-0.5 text-xs rounded-full bg-bg-tertiary text-text-muted">{exercise.name}</span>
-									{/each}
-								</div>
+								<span class="text-2xl">📋</span>
+								<span class="text-lg tracking-wide text-text-primary font-display group-hover:text-primary">{template.name}</span>
+								<span class="ml-auto text-xs tracking-widest uppercase text-primary font-display">Start →</span>
 							</button>
 						{/each}
 					</div>
@@ -168,90 +171,51 @@
 
 	{:else if currentView === 'workout'}
 		<div class="flex flex-col gap-6" in:fly={{ x: 20, duration: 200 }}>
-			<div class="flex flex-col gap-2">
-				<Header title="Workout" showBack onback={() => currentView = 'home'} />
-				{#if workoutState.currentSession}
-					<div class="flex justify-center">
-						<WorkoutTimer startedAt={workoutState.currentSession.startedAt} />
-					</div>
-				{/if}
-			</div>
+			<Header title="Workout" showBack onback={() => currentView = 'home'} />
 
-			<div class="flex flex-col gap-6 card">
-				<!-- Quick-select exercises from template -->
-				{#if workoutState.suggestedExercises.length > 0}
-					<div class="flex flex-col gap-2">
-						<span class="text-sm font-medium text-text-secondary">Template Exercises</span>
-						<div class="flex flex-wrap gap-2">
-							{#each workoutState.suggestedExercises as exercise (exercise.id)}
-								<button
-									class="px-3 py-2 text-sm transition-all duration-150 border-2 rounded-lg cursor-pointer"
-									class:bg-primary={selectedExerciseId === exercise.id}
-									class:border-primary={selectedExerciseId === exercise.id}
-									class:text-white={selectedExerciseId === exercise.id}
-									class:bg-bg-tertiary={selectedExerciseId !== exercise.id}
-									class:border-transparent={selectedExerciseId !== exercise.id}
-									class:text-text-primary={selectedExerciseId !== exercise.id}
-									onclick={() => selectedExerciseId = exercise.id}
-								>
-									{exercise.name}
-								</button>
-							{/each}
-						</div>
-					</div>
-				{/if}
-
-				<ExerciseSelector 
-					exercises={workoutState.exercises}
-					selectedId={selectedExerciseId}
-					onchange={(id) => selectedExerciseId = id}
-				/>
-
-				<BandSelector
-					bands={workoutState.bands}
-					selectedIds={selectedBandIds}
-					onchange={(ids) => selectedBandIds = ids}
-				/>
-
-				<div class="flex justify-center gap-8">
-					<RepCounter
-						label="Full Reps"
-						value={fullReps}
-						onchange={(v) => fullReps = v}
-					/>
-					<RepCounter
-						label="Partial Reps"
-						value={partialReps}
-						onchange={(v) => partialReps = v}
-						accent
-					/>
-				</div>
-
-				<button 
-					class="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
-					disabled={!canLogExercise()}
-					onclick={handleLogExercise}
-				>
-					Log Exercise
-				</button>
-			</div>
-
-			{#if workoutState.sessionLogs.length > 0}
-				<div class="flex flex-col gap-4" transition:slide={{ duration: 200 }}>
-					<h3 class="text-base font-medium text-text-secondary">Today's Progress</h3>
-					<div class="flex flex-col gap-4">
-						{#each workoutState.sessionLogs as log (log.id)}
-							<LoggedExerciseCard 
-								{log}
-								onremove={() => workout.removeLoggedExercise(log.id)}
-							/>
-						{/each}
-					</div>
+			<!-- Date -->
+			{#if workoutState.currentSession}
+				<div class="flex items-baseline gap-3">
+					<span class="text-xs tracking-widest uppercase text-text-muted">Date</span>
+					<span class="text-2xl font-display text-text-primary">{formatDate(workoutState.currentSession.startedAt)}</span>
 				</div>
 			{/if}
 
-			<button class="mt-4 btn-secondary" onclick={handleEndWorkout}>
-				End Workout
+			<!-- Timer -->
+			<div class="flex flex-col gap-2">
+				<span class="text-xs tracking-widest uppercase text-text-muted">Timer</span>
+				{#if workoutState.currentSession}
+					<WorkoutTimer startedAt={workoutState.currentSession.startedAt} />
+				{/if}
+			</div>
+
+			<!-- Exercises List -->
+			<div class="flex flex-col gap-2">
+				<span class="text-xs tracking-widest uppercase text-text-muted">Exercises</span>
+				<div class="overflow-hidden border rounded-lg bg-bg-secondary border-bg-tertiary">
+					{#each workoutState.suggestedExercises as exercise (exercise.id)}
+						<LogExerciseDialog
+							{exercise}
+							bands={workoutState.bands}
+							currentLog={getExerciseLog(exercise.id)}
+							onlog={(bandIds, fullReps, partialReps) => handleLogExercise(exercise.id, bandIds, fullReps, partialReps)}
+						/>
+					{/each}
+					
+					<!-- Add Exercise Button -->
+					<div class="p-2">
+						<AddExerciseDialog 
+							exercises={workoutState.exercises}
+							excludeIds={workoutState.suggestedExercises.map(e => e.id)}
+							onselect={(exercise: Exercise) => workout.addSuggestedExercise(exercise)}
+						/>
+					</div>
+				</div>
+			</div>
+
+			<!-- Save/End Button -->
+			<button class="w-full py-4 mt-4 text-lg font-semibold btn-primary" onclick={handleEndWorkout}>
+				Save Workout
 			</button>
 		</div>
 

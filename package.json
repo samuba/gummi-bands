@@ -51,6 +51,6 @@
 	},
 	"dependencies": {
 		"@electric-sql/pglite": "^0.3.14",
-		"@makisuo/pglite-drizzle": "npm:@jsr/makisuo__pglite-drizzle"
+		"bits-ui": "^2.14.4"
 	}
 }
