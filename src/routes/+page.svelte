@@ -8,10 +8,12 @@
 	import * as workout from '$lib/stores/workout.svelte';
 	import type { Exercise } from '$lib/db/schema';
 
-	type View = 'home' | 'workout' | 'bands' | 'exercises';
+	type View = 'home' | 'workout' | 'bands' | 'exercises' | 'history';
 
 	let currentView = $state<View>('home');
 	let workoutState = workout.getState();
+	let sessionHistory = $state<workout.DetailedSession[]>([]);
+	let isEditingSession = $state(false);
 
 	// Form state for adding bands/exercises
 	let newBandName = $state('');
@@ -30,13 +32,33 @@
 	async function handleStartWorkout(templateId?: string) {
 		await workout.startSession(templateId);
 		sessionNotes = '';
+		isEditingSession = false;
 		currentView = 'workout';
 	}
 
 	async function handleEndWorkout() {
-		await workout.endSession(sessionNotes.trim() || undefined);
+		if (isEditingSession) {
+			await workout.saveEditedSession(sessionNotes.trim() || undefined);
+		} else {
+			await workout.endSession(sessionNotes.trim() || undefined);
+		}
 		sessionNotes = '';
+		isEditingSession = false;
 		currentView = 'home';
+	}
+
+	async function handleViewHistory() {
+		sessionHistory = await workout.getDetailedSessionHistory();
+		currentView = 'history';
+	}
+
+	async function handleEditSession(sessionId: string) {
+		const session = await workout.editSession(sessionId);
+		if (session) {
+			sessionNotes = session.notes || '';
+			isEditingSession = true;
+			currentView = 'workout';
+		}
 	}
 
 	async function handleLogExercise(exerciseId: string, bandIds: string[], fullReps: number, partialReps: number, notes?: string) {
@@ -156,6 +178,13 @@
 			</div>
 
 			<div class="flex flex-col gap-4">
+				<button class="flex items-center gap-4 p-6 text-left transition-all duration-200 border rounded-lg cursor-pointer bg-bg-secondary border-bg-tertiary hover:border-primary hover:bg-bg-tertiary" onclick={handleViewHistory}>
+					<span class="text-3xl">📊</span>
+					<div>
+						<span class="block text-lg tracking-wide text-text-primary font-display">Workout History</span>
+						<span class="block text-xs text-text-muted">View and edit past sessions</span>
+					</div>
+				</button>
 				<button class="flex items-center gap-4 p-6 text-left transition-all duration-200 border rounded-lg cursor-pointer bg-bg-secondary border-bg-tertiary hover:border-primary hover:bg-bg-tertiary" onclick={() => currentView = 'bands'}>
 					<span class="text-3xl">🎯</span>
 					<div>
@@ -175,7 +204,16 @@
 
 	{:else if currentView === 'workout'}
 		<div class="flex flex-col gap-6" in:fly={{ x: 20, duration: 200 }}>
-			<Header title="Workout" showBack onback={() => currentView = 'home'} />
+			<Header title={isEditingSession ? "Edit Workout" : "Workout"} showBack onback={() => {
+				if (isEditingSession) {
+					workout.saveEditedSession(sessionNotes.trim() || undefined);
+					sessionNotes = '';
+					isEditingSession = false;
+					handleViewHistory();
+				} else {
+					currentView = 'home';
+				}
+			}} />
 
 			<!-- Date -->
 			{#if workoutState.currentSession}
@@ -230,7 +268,7 @@
 
 			<!-- Save/End Button -->
 			<button class="w-full py-4 mt-4 text-lg font-semibold btn-primary" onclick={handleEndWorkout}>
-				Save Workout
+				{isEditingSession ? 'Save Changes' : 'Save Workout'}
 			</button>
 		</div>
 
@@ -326,6 +364,101 @@
 					</div>
 				{/each}
 			</div>
+		</div>
+
+	{:else if currentView === 'history'}
+		<div class="flex flex-col gap-6" in:fly={{ x: 20, duration: 200 }}>
+			<Header title="History" showBack onback={() => currentView = 'home'} />
+
+			{#if sessionHistory.length === 0}
+				<div class="flex flex-col items-center justify-center gap-4 py-12 text-center">
+					<span class="text-5xl">📭</span>
+					<p class="text-text-secondary">No workout sessions yet</p>
+					<button class="btn-primary" onclick={() => handleStartWorkout()}>
+						Start Your First Workout
+					</button>
+				</div>
+			{:else}
+				<div class="flex flex-col gap-4">
+					{#each sessionHistory as session (session.id)}
+						<div class="relative overflow-hidden border rounded-lg bg-bg-secondary border-bg-tertiary" transition:slide={{ duration: 150 }}>
+							<!-- Session Header -->
+							<div class="flex items-start justify-between p-4 border-b border-bg-tertiary">
+								<div class="flex flex-col gap-1">
+									<div class="flex items-center gap-2">
+										<span class="text-lg font-semibold text-text-primary font-display">
+											{formatDate(session.startedAt)}
+										</span>
+										{#if !session.endedAt}
+											<span class="px-2 py-0.5 text-[0.65rem] font-medium tracking-wider uppercase rounded-full bg-primary/20 text-primary">
+												In Progress
+											</span>
+										{/if}
+									</div>
+									{#if session.templateName}
+										<span class="text-sm text-primary">{session.templateName}</span>
+									{:else}
+										<span class="text-sm italic text-text-muted">Free Workout</span>
+									{/if}
+								</div>
+								<button
+									class="flex items-center justify-center w-8 h-8 transition-colors rounded-lg text-text-muted hover:text-primary hover:bg-bg-tertiary"
+									onclick={() => handleEditSession(session.id)}
+									aria-label="Edit session"
+								>
+									<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+										<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+										<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+									</svg>
+								</button>
+							</div>
+
+							<!-- Exercises -->
+							{#if session.logs.length > 0}
+								<div class="flex flex-col divide-y divide-bg-tertiary">
+									{#each session.logs as log (log.id)}
+										<div class="flex items-center justify-between px-4 py-3">
+											<div class="flex flex-col gap-1">
+												<span class="text-sm font-medium text-text-primary">{log.exerciseName}</span>
+												{#if log.bands.length > 0}
+													<div class="flex flex-wrap gap-1">
+														{#each log.bands as band (band.id)}
+															<span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[0.65rem] rounded bg-bg-tertiary text-text-muted">
+																<span class="w-1.5 h-1.5 rounded-full" style:background-color={band.color || '#666'}></span>
+																{band.resistance}lb
+															</span>
+														{/each}
+													</div>
+												{/if}
+												{#if log.notes}
+													<p class="text-xs italic text-text-muted">{log.notes}</p>
+												{/if}
+											</div>
+											<div class="flex items-baseline gap-1">
+												<span class="text-xl font-bold text-primary font-display">{log.fullReps}</span>
+												{#if log.partialReps > 0}
+													<span class="text-sm text-text-muted">+{log.partialReps}</span>
+												{/if}
+											</div>
+										</div>
+									{/each}
+								</div>
+							{:else}
+								<div class="px-4 py-3 text-sm italic text-text-muted">
+									No exercises logged
+								</div>
+							{/if}
+
+							<!-- Session Notes -->
+							{#if session.notes}
+								<div class="px-4 py-3 border-t border-bg-tertiary bg-bg-tertiary/30">
+									<p class="text-xs italic text-text-secondary">{session.notes}</p>
+								</div>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	{/if}
 {/if}

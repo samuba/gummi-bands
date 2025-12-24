@@ -356,6 +356,164 @@ export function getSessionLogForExercise(exerciseId: string) {
 	return sessionLogs.find(log => log.exerciseId === exerciseId);
 }
 
+// Type for detailed session with all data
+export type DetailedSession = {
+	id: string;
+	templateId: string | null;
+	templateName: string | null;
+	startedAt: Date;
+	endedAt: Date | null;
+	notes: string | null;
+	logs: {
+		id: string;
+		exerciseId: string;
+		exerciseName: string;
+		fullReps: number;
+		partialReps: number;
+		notes: string | null;
+		bands: Band[];
+	}[];
+};
+
+// Get all sessions with full details for history view
+export async function getDetailedSessionHistory(): Promise<DetailedSession[]> {
+	if (!browser) return [];
+	const client = getClient();
+	if (!client) return [];
+
+	// Get all sessions with template names
+	const sessionsResult = await client.query<{
+		id: string;
+		template_id: string | null;
+		template_name: string | null;
+		started_at: Date;
+		ended_at: Date | null;
+		notes: string | null;
+	}>(`
+		SELECT 
+			ws.id,
+			ws.template_id,
+			wt.name as template_name,
+			ws.started_at,
+			ws.ended_at,
+			ws.notes
+		FROM workout_sessions ws
+		LEFT JOIN workout_templates wt ON ws.template_id = wt.id
+		ORDER BY ws.started_at DESC
+	`);
+
+	// Get detailed data for each session
+	const detailedSessions: DetailedSession[] = await Promise.all(
+		sessionsResult.rows.map(async (session) => {
+			// Get all logged exercises for this session
+			const logsResult = await client.query<{
+				id: string;
+				exercise_id: string;
+				exercise_name: string;
+				full_reps: number;
+				partial_reps: number;
+				notes: string | null;
+			}>(`
+				SELECT 
+					le.id,
+					le.exercise_id,
+					e.name as exercise_name,
+					le.full_reps,
+					le.partial_reps,
+					le.notes
+				FROM logged_exercises le
+				JOIN exercises e ON le.exercise_id = e.id
+				WHERE le.session_id = $1
+				ORDER BY le.logged_at ASC
+			`, [session.id]);
+
+			// Get bands for each logged exercise
+			const logsWithBands = await Promise.all(
+				logsResult.rows.map(async (log) => {
+					const bandsResult = await client.query<Band>(`
+						SELECT b.* FROM bands b
+						JOIN logged_exercise_bands leb ON b.id = leb.band_id
+						WHERE leb.logged_exercise_id = $1
+					`, [log.id]);
+
+					return {
+						id: log.id,
+						exerciseId: log.exercise_id,
+						exerciseName: log.exercise_name,
+						fullReps: log.full_reps,
+						partialReps: log.partial_reps,
+						notes: log.notes,
+						bands: bandsResult.rows
+					};
+				})
+			);
+
+			return {
+				id: session.id,
+				templateId: session.template_id,
+				templateName: session.template_name,
+				startedAt: session.started_at,
+				endedAt: session.ended_at,
+				notes: session.notes,
+				logs: logsWithBands
+			};
+		})
+	);
+
+	// Filter out empty sessions (no exercises and no notes)
+	return detailedSessions.filter(session => session.logs.length > 0 || session.notes);
+}
+
+// Resume/edit an existing session
+export async function editSession(sessionId: string) {
+	if (!browser) return;
+	const db = getDb();
+	const client = getClient();
+	if (!db || !client) return;
+	
+	const [session] = await db.select().from(workoutSessions).where(eq(workoutSessions.id, sessionId));
+	if (session) {
+		currentSession = session;
+		await refreshSessionLogs();
+		
+		// Build suggested exercises from the session's logged exercises
+		const exerciseIds = sessionLogs.map(log => log.exerciseId);
+		suggestedExercises = allExercises.filter(e => exerciseIds.includes(e.id));
+	}
+	
+	return session;
+}
+
+// Update session notes
+export async function updateSessionNotes(sessionId: string, notes: string | null) {
+	if (!browser) return;
+	const db = getDb();
+	if (!db) return;
+	
+	await db.update(workoutSessions)
+		.set({ notes })
+		.where(eq(workoutSessions.id, sessionId));
+}
+
+// Save and close editing session (without setting endedAt if already set)
+export async function saveEditedSession(notes?: string) {
+	if (!browser) return;
+	const db = getDb();
+	if (!db || !currentSession) return;
+	
+	// Only update notes, preserve existing endedAt
+	if (notes !== undefined) {
+		await db.update(workoutSessions)
+			.set({ notes: notes || null })
+			.where(eq(workoutSessions.id, currentSession.id));
+	}
+	
+	currentSession = null;
+	sessionLogs = [];
+	suggestedExercises = [];
+	await refreshRecentSessions();
+}
+
 // Get state accessors
 export function getState() {
 	return {
