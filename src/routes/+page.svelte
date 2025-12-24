@@ -105,7 +105,7 @@
 			<!-- Workout Templates -->
 			{#if workoutState.templates.length > 0}
 				<div class="flex flex-col gap-3">
-					<h3 class="text-sm tracking-wide uppercase text-text-secondary">Quick Start</h3>
+					<h3 class="text-sm tracking-wide uppercase text-text-secondary">Start Workout</h3>
 					<div class="flex flex-col gap-3">
 						{#each workoutState.templates as template (template.id)}
 							<button 
@@ -117,24 +117,19 @@
 								<span class="ml-auto text-xs tracking-widest uppercase text-primary font-display">Start →</span>
 							</button>
 						{/each}
+						<button 
+						class="flex items-center gap-4 p-4 text-left transition-all duration-200 border-2 border-dashed rounded-lg cursor-pointer bg-bg-secondary/50 border-bg-elevated hover:border-primary hover:bg-bg-tertiary"
+						onclick={() => handleStartWorkout()}
+					>
+						<div class="flex-1">
+							<span class="block text-lg tracking-wide text-text-primary font-display">Custom Workout</span>
+							<span class="block text-xs text-text-muted">Add exercises as you go</span>
+						</div>
+						<span class="text-xs tracking-widest uppercase text-text-secondary font-display">Start →</span>
+					</button>
 					</div>
 				</div>
 			{/if}
-
-			<!-- Freestyle Option -->
-			<div class="flex flex-col gap-3">
-				<h3 class="text-sm tracking-wide uppercase text-text-secondary">Or Go Freestyle</h3>
-				<button 
-					class="flex items-center gap-4 p-4 text-left transition-all duration-200 border-2 border-dashed rounded-lg cursor-pointer bg-bg-secondary/50 border-bg-elevated hover:border-primary hover:bg-bg-tertiary"
-					onclick={() => handleStartWorkout()}
-				>
-					<div class="flex-1">
-						<span class="block text-lg tracking-wide text-text-primary font-display">Custom Workout</span>
-						<span class="block text-xs text-text-muted">Add exercises as you go</span>
-					</div>
-					<span class="text-xs tracking-widest uppercase text-text-secondary font-display">Start →</span>
-				</button>
-			</div>
 
 			<div class="flex flex-col gap-4 card">
 				<h3 class="text-sm tracking-wide uppercase text-text-secondary">Your Arsenal</h3>
