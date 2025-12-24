@@ -159,13 +159,13 @@ export async function startSession(templateId?: string) {
 }
 
 // End the current session
-export async function endSession() {
+export async function endSession(notes?: string) {
 	if (!browser) return;
 	const db = getDb();
 	if (!db || !currentSession) return;
 	
 	await db.update(workoutSessions)
-		.set({ endedAt: new Date() })
+		.set({ endedAt: new Date(), notes: notes || null })
 		.where(eq(workoutSessions.id, currentSession.id));
 	
 	currentSession = null;
@@ -179,7 +179,8 @@ export async function logExercise(
 	exerciseId: string,
 	selectedBandIds: string[],
 	fullReps: number,
-	partialReps: number
+	partialReps: number,
+	notes?: string
 ) {
 	if (!browser) return;
 	const db = getDb();
@@ -190,7 +191,8 @@ export async function logExercise(
 		sessionId: currentSession.id,
 		exerciseId,
 		fullReps,
-		partialReps
+		partialReps,
+		notes: notes || null
 	}).returning();
 
 	// Insert band associations
@@ -233,6 +235,7 @@ export async function refreshSessionLogs() {
 		exercise_id: string;
 		full_reps: number;
 		partial_reps: number;
+		notes: string | null;
 		logged_at: Date;
 		exercise_name: string;
 	}>(`
@@ -242,6 +245,7 @@ export async function refreshSessionLogs() {
 			le.exercise_id,
 			le.full_reps,
 			le.partial_reps,
+			le.notes,
 			le.logged_at,
 			e.name as exercise_name
 		FROM logged_exercises le
@@ -265,6 +269,7 @@ export async function refreshSessionLogs() {
 				exerciseId: row.exercise_id,
 				fullReps: row.full_reps,
 				partialReps: row.partial_reps,
+				notes: row.notes,
 				loggedAt: row.logged_at,
 				exercise: {
 					id: row.exercise_id,

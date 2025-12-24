@@ -55,6 +55,7 @@ export const loggedExercises = pgTable('logged_exercises', {
 		.references(() => exercises.id),
 	fullReps: integer('full_reps').notNull().default(0),
 	partialReps: integer('partial_reps').notNull().default(0),
+	notes: text('notes'),
 	loggedAt: timestamp('logged_at').defaultNow().notNull()
 });
 

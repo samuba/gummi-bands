@@ -12,8 +12,9 @@
 			fullReps: number;
 			partialReps: number;
 			bands: Band[];
+			notes?: string | null;
 		};
-		onlog: (bandIds: string[], fullReps: number, partialReps: number) => void;
+		onlog: (bandIds: string[], fullReps: number, partialReps: number, notes?: string) => void;
 	}
 
 	let { exercise, bands, currentLog, onlog }: Props = $props();
@@ -22,6 +23,7 @@
 	let selectedBandIds = $state<string[]>([]);
 	let fullReps = $state(0);
 	let partialReps = $state(0);
+	let notes = $state('');
 	let previousData = $state<workout.PreviousExerciseData>(null);
 	let isLoadingPrevious = $state(false);
 
@@ -41,6 +43,7 @@
 				selectedBandIds = currentLog.bands.map((b) => b.id);
 				fullReps = currentLog.fullReps;
 				partialReps = currentLog.partialReps;
+				notes = currentLog.notes || '';
 			} else {
 				// Otherwise load previous exercise data
 				isLoadingPrevious = true;
@@ -55,6 +58,7 @@
 				}
 				fullReps = 0;
 				partialReps = 0;
+				notes = '';
 			}
 		}
 	}
@@ -70,7 +74,7 @@
 	}
 
 	function handleSave() {
-		onlog(selectedBandIds, fullReps, partialReps);
+		onlog(selectedBandIds, fullReps, partialReps, notes.trim() || undefined);
 		open = false;
 	}
 
@@ -298,6 +302,18 @@
 							</button>
 						</div>
 					</div>
+				</div>
+
+				<!-- Notes Input -->
+				<div class="flex flex-col gap-2 mt-6">
+					<label for="notes" class="text-sm font-medium text-text-secondary">Notes</label>
+					<textarea
+						id="notes"
+						bind:value={notes}
+						placeholder="Add a memo... (e.g., felt strong, adjust next time)"
+						rows="2"
+						class="w-full px-3 py-2 text-sm transition-colors border-2 rounded-lg resize-none bg-bg-tertiary border-bg-elevated text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary"
+					></textarea>
 				</div>
 
 				<!-- Save Button -->

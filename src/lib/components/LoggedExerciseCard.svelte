@@ -63,6 +63,12 @@
 				<span class="ml-auto text-[0.7rem] text-text-muted">{getTotalResistance()} lbs total</span>
 			</div>
 		{/if}
+
+		{#if log.notes}
+			<p class="px-2 py-1.5 text-xs italic border-l-2 rounded-r bg-bg-tertiary/50 border-primary/50 text-text-secondary">
+				{log.notes}
+			</p>
+		{/if}
 	</div>
 
 	<div class="flex justify-end">

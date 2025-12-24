@@ -71,6 +71,7 @@ export async function initDatabase() {
 				exercise_id UUID NOT NULL REFERENCES exercises(id),
 				full_reps INTEGER NOT NULL DEFAULT 0,
 				partial_reps INTEGER NOT NULL DEFAULT 0,
+				notes TEXT,
 				logged_at TIMESTAMP DEFAULT NOW() NOT NULL
 			);
 
@@ -90,6 +91,18 @@ export async function initDatabase() {
 			await client.exec(`
 				ALTER TABLE workout_sessions 
 				ADD COLUMN template_id UUID REFERENCES workout_templates(id)
+			`);
+		}
+
+		// Migration: Add notes column to logged_exercises if it doesn't exist
+		const notesColumnCheck = await client.query<{ column_name: string }>(`
+			SELECT column_name FROM information_schema.columns 
+			WHERE table_name = 'logged_exercises' AND column_name = 'notes'
+		`);
+		if (notesColumnCheck.rows.length === 0) {
+			await client.exec(`
+				ALTER TABLE logged_exercises 
+				ADD COLUMN notes TEXT
 			`);
 		}
 
