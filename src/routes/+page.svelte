@@ -18,6 +18,7 @@
 	let newBandResistance = $state(10);
 	let newBandColor = $state('#FF4444');
 	let newExerciseName = $state('');
+	let sessionNotes = $state('');
 
 	let isLoading = $state(true);
 
@@ -28,15 +29,17 @@
 
 	async function handleStartWorkout(templateId?: string) {
 		await workout.startSession(templateId);
+		sessionNotes = '';
 		currentView = 'workout';
 	}
 
 	async function handleEndWorkout() {
-		await workout.endSession();
+		await workout.endSession(sessionNotes.trim() || undefined);
+		sessionNotes = '';
 		currentView = 'home';
 	}
 
-	async function handleLogExercise(exerciseId: string, bandIds: string[], fullReps: number, partialReps: number) {
+	async function handleLogExercise(exerciseId: string, bandIds: string[], fullReps: number, partialReps: number, notes?: string) {
 		// Check if there's already a log for this exercise in current session
 		const existingLog = workoutState.sessionLogs.find(log => log.exerciseId === exerciseId);
 		if (existingLog) {
@@ -44,7 +47,7 @@
 			await workout.removeLoggedExercise(existingLog.id);
 		}
 		// Log the new data
-		await workout.logExercise(exerciseId, bandIds, fullReps, partialReps);
+		await workout.logExercise(exerciseId, bandIds, fullReps, partialReps, notes);
 	}
 
 	async function handleAddBand() {
@@ -67,7 +70,8 @@
 		return {
 			fullReps: log.fullReps,
 			partialReps: log.partialReps,
-			bands: log.bands
+			bands: log.bands,
+			notes: log.notes
 		};
 	}
 
@@ -184,9 +188,7 @@
 			<!-- Timer -->
 			<div class="flex flex-col gap-2">
 				<span class="text-xs tracking-widest uppercase text-text-muted">Timer</span>
-				{#if workoutState.currentSession}
-					<WorkoutTimer startedAt={workoutState.currentSession.startedAt} />
-				{/if}
+				<WorkoutTimer />
 			</div>
 
 			<!-- Exercises List -->
@@ -198,7 +200,7 @@
 							{exercise}
 							bands={workoutState.bands}
 							currentLog={getExerciseLog(exercise.id)}
-							onlog={(bandIds, fullReps, partialReps) => handleLogExercise(exercise.id, bandIds, fullReps, partialReps)}
+							onlog={(bandIds, fullReps, partialReps, notes) => handleLogExercise(exercise.id, bandIds, fullReps, partialReps, notes)}
 						/>
 					{/each}
 					
@@ -211,6 +213,18 @@
 						/>
 					</div>
 				</div>
+			</div>
+
+			<!-- Session Notes -->
+			<div class="flex flex-col gap-2">
+				<label for="session-notes" class="text-xs tracking-widest uppercase text-text-muted">Session Notes</label>
+				<textarea
+					id="session-notes"
+					placeholder="How was your workout? Any notes for next time..."
+					bind:value={sessionNotes}
+					rows="2"
+					class="w-full px-4 py-3 text-sm border rounded-lg resize-none bg-bg-secondary border-bg-tertiary text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary"
+				></textarea>
 			</div>
 
 			<!-- Save/End Button -->
