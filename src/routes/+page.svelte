@@ -185,7 +185,7 @@
 			<div class="flex flex-col gap-2">
 				<span class="text-xs tracking-widest uppercase text-text-muted">Timer</span>
 				{#if workoutState.currentSession}
-					<WorkoutTimer startedAt={workoutState.currentSession.startedAt} />
+					<WorkoutTimer />
 				{/if}
 			</div>
 
