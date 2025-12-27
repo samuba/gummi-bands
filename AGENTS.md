@@ -21,3 +21,8 @@ You MUST use this tool whenever writing Svelte code before sending it to the use
 
 Generates a Svelte Playground link with the provided code.
 After completing the code, ask the user if they want a playground link. Only call this tool after user confirmation and NEVER if code was written to files in their project.
+
+
+## Icons
+Always use phosphor icon set with unplugin-icons and iconify-tailwind4 in this style:
+<i class="icon-[ph--calendar-plus] size-6"></i>

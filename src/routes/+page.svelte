@@ -5,8 +5,9 @@
 	import WorkoutTimer from '$lib/components/WorkoutTimer.svelte';
 	import AddExerciseDialog from '$lib/components/AddExerciseDialog.svelte';
 	import LogExerciseDialog from '$lib/components/LogExerciseDialog.svelte';
+	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import * as workout from '$lib/stores/workout.svelte';
-	import type { Exercise } from '$lib/db/schema';
+	import type { Exercise, Band } from '$lib/db/schema';
 	import type { DetailedSession } from '$lib/stores/workout.svelte';
 
 	type View = 'home' | 'workout' | 'bands' | 'exercises' | 'history';
@@ -26,6 +27,11 @@
 	// History state
 	let sessionHistory = $state<DetailedSession[]>([]);
 	let isEditingSession = $state(false);
+
+	// Confirmation dialog state
+	let confirmDialogOpen = $state(false);
+	let pendingDeleteType = $state<'band' | 'exercise' | null>(null);
+	let pendingDeleteItem = $state<Band | Exercise | null>(null);
 
 	onMount(async () => {
 		await workout.initialize();
@@ -133,6 +139,55 @@
 		const hours = Math.floor(minutes / 60);
 		const remainingMins = minutes % 60;
 		return `${timeStr} · ${hours}h ${remainingMins}m`;
+	}
+
+	// Confirm delete handlers
+	function requestDeleteBand(band: Band) {
+		pendingDeleteType = 'band';
+		pendingDeleteItem = band;
+		confirmDialogOpen = true;
+	}
+
+	function requestDeleteExercise(exercise: Exercise) {
+		pendingDeleteType = 'exercise';
+		pendingDeleteItem = exercise;
+		confirmDialogOpen = true;
+	}
+
+	async function handleConfirmDelete() {
+		if (!pendingDeleteItem || !pendingDeleteType) return;
+		
+		if (pendingDeleteType === 'band') {
+			await workout.deleteBand(pendingDeleteItem.id);
+		} else if (pendingDeleteType === 'exercise') {
+			await workout.deleteExercise(pendingDeleteItem.id);
+		}
+		
+		pendingDeleteType = null;
+		pendingDeleteItem = null;
+	}
+
+	function handleCancelDelete() {
+		pendingDeleteType = null;
+		pendingDeleteItem = null;
+	}
+
+	// Get confirmation dialog text based on pending delete type
+	function getConfirmDialogTitle(): string {
+		if (pendingDeleteType === 'band') return 'Delete Band?';
+		if (pendingDeleteType === 'exercise') return 'Delete Exercise?';
+		return 'Delete Item?';
+	}
+
+	function getConfirmDialogDescription(): string {
+		if (!pendingDeleteItem) return 'This action cannot be undone.';
+		if (pendingDeleteType === 'band') {
+			return `Are you sure you want to delete "${pendingDeleteItem.name}"? This will remove it from your available bands.`;
+		}
+		if (pendingDeleteType === 'exercise') {
+			return `Are you sure you want to delete "${pendingDeleteItem.name}"? This will remove it from your exercise list.`;
+		}
+		return 'This action cannot be undone.';
 	}
 </script>
 
@@ -338,11 +393,8 @@
 							<span class="text-sm text-text-primary">{band.name}</span>
 							<span class="text-xs text-text-muted">{band.resistance} lbs</span>
 						</div>
-						<button class="btn-ghost" onclick={() => workout.deleteBand(band.id)} aria-label="Delete {band.name}">
-							<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<polyline points="3 6 5 6 21 6" />
-								<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-							</svg>
+						<button class="btn-ghost" onclick={() => requestDeleteBand(band)} aria-label="Delete {band.name}">
+							<i class="icon-[ph--trash] size-5"></i>
 						</button>
 					</div>
 				{/each}
@@ -374,11 +426,8 @@
 						<div class="flex flex-col flex-1 gap-0.5">
 							<span class="text-sm text-text-primary">{exercise.name}</span>
 						</div>
-						<button class="btn-ghost" onclick={() => workout.deleteExercise(exercise.id)} aria-label="Delete {exercise.name}">
-							<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-								<polyline points="3 6 5 6 21 6" />
-								<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-							</svg>
+						<button class="btn-ghost" onclick={() => requestDeleteExercise(exercise)} aria-label="Delete {exercise.name}">
+							<i class="icon-[ph--trash] size-5"></i>
 						</button>
 					</div>
 				{/each}
@@ -485,3 +534,15 @@
 		</div>
 	{/if}
 {/if}
+
+<!-- Confirmation Dialog -->
+<ConfirmDialog
+	bind:open={confirmDialogOpen}
+	title={getConfirmDialogTitle()}
+	description={getConfirmDialogDescription()}
+	confirmText="Delete"
+	cancelText="Cancel"
+	variant="danger"
+	onconfirm={handleConfirmDelete}
+	oncancel={handleCancelDelete}
+/>

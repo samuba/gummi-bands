@@ -2,9 +2,10 @@ import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
+import Icons from 'unplugin-icons/vite'
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit(), devtoolsJson()],
+	plugins: [tailwindcss(), sveltekit(), devtoolsJson(), Icons()],
 
 	optimizeDeps: {
 		exclude: ['@electric-sql/pglite']
