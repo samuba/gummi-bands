@@ -1,5 +1,7 @@
 import { browser } from '$app/environment';
-import type { PGlite } from '@electric-sql/pglite';
+import { drizzle } from 'drizzle-orm/pglite';
+import * as schema from './schema';
+import { PGlite } from '@electric-sql/pglite';
 
 let client: PGlite | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -8,12 +10,8 @@ let initPromise: Promise<void> | null = null;
 
 // Initialize database only in browser
 async function createClient() {
-	if (!browser) return;
+	// if (!browser) return;
 	if (client) return;
-
-	const { PGlite } = await import('@electric-sql/pglite');
-	const { drizzle } = await import('drizzle-orm/pglite');
-	const schema = await import('./schema');
 
 	client = new PGlite('idb://gummi-bands-db');
 	db = drizzle(client, { schema });
