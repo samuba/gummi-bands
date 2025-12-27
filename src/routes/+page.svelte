@@ -7,8 +7,9 @@
 	import LogExerciseDialog from '$lib/components/LogExerciseDialog.svelte';
 	import * as workout from '$lib/stores/workout.svelte';
 	import type { Exercise } from '$lib/db/schema';
+	import type { DetailedSession } from '$lib/stores/workout.svelte';
 
-	type View = 'home' | 'workout' | 'bands' | 'exercises';
+	type View = 'home' | 'workout' | 'bands' | 'exercises' | 'history';
 
 	let currentView = $state<View>('home');
 	let workoutState = workout.getState();
@@ -22,10 +23,18 @@
 
 	let isLoading = $state(true);
 
+	// History state
+	let sessionHistory = $state<DetailedSession[]>([]);
+	let isEditingSession = $state(false);
+
 	onMount(async () => {
 		await workout.initialize();
 		isLoading = false;
 	});
+
+	async function loadHistory() {
+		sessionHistory = await workout.getDetailedSessionHistory();
+	}
 
 	async function handleStartWorkout(templateId?: string) {
 		await workout.startSession(templateId);
@@ -34,9 +43,28 @@
 	}
 
 	async function handleEndWorkout() {
-		await workout.endSession(sessionNotes.trim() || undefined);
+		if (isEditingSession) {
+			await workout.saveEditedSession(sessionNotes.trim() || undefined);
+			isEditingSession = false;
+		} else {
+			await workout.endSession(sessionNotes.trim() || undefined);
+		}
 		sessionNotes = '';
 		currentView = 'home';
+	}
+
+	async function handleOpenHistory() {
+		await loadHistory();
+		currentView = 'history';
+	}
+
+	async function handleEditSession(sessionId: string) {
+		const session = await workout.editSession(sessionId);
+		if (session) {
+			sessionNotes = session.notes || '';
+			isEditingSession = true;
+			currentView = 'workout';
+		}
 	}
 
 	async function handleLogExercise(exerciseId: string, bandIds: string[], fullReps: number, partialReps: number, notes?: string) {
@@ -81,7 +109,30 @@
 			day: 'numeric',
 			month: 'numeric',
 			year: 'numeric'
-		}).format(date).replace(/\//g, '.');
+		}).format(new Date(date)).replace(/\//g, '.');
+	}
+
+	// Format session duration
+	function formatSessionDuration(start: Date, end: Date | null): string {
+		const startDate = new Date(start);
+		const timeStr = new Intl.DateTimeFormat('en-US', {
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		}).format(startDate);
+		
+		if (!end) return `Started at ${timeStr}`;
+		
+		const endDate = new Date(end);
+		const durationMs = endDate.getTime() - startDate.getTime();
+		const minutes = Math.floor(durationMs / 60000);
+		
+		if (minutes < 60) {
+			return `${timeStr} · ${minutes} min`;
+		}
+		const hours = Math.floor(minutes / 60);
+		const remainingMins = minutes % 60;
+		return `${timeStr} · ${hours}h ${remainingMins}m`;
 	}
 </script>
 
@@ -150,6 +201,13 @@
 			</div>
 
 			<div class="flex flex-col gap-4">
+				<button class="flex items-center gap-4 p-6 text-left transition-all duration-200 border rounded-lg cursor-pointer bg-bg-secondary border-bg-tertiary hover:border-primary hover:bg-bg-tertiary" onclick={handleOpenHistory}>
+					<span class="text-3xl">📊</span>
+					<div>
+						<span class="block text-lg tracking-wide text-text-primary font-display">Workout History</span>
+						<span class="block text-xs text-text-muted">View and edit past sessions</span>
+					</div>
+				</button>
 				<button class="flex items-center gap-4 p-6 text-left transition-all duration-200 border rounded-lg cursor-pointer bg-bg-secondary border-bg-tertiary hover:border-primary hover:bg-bg-tertiary" onclick={() => currentView = 'bands'}>
 					<span class="text-3xl">🪢</span>
 					<div>
@@ -169,7 +227,13 @@
 
 	{:else if currentView === 'workout'}
 		<div class="flex flex-col gap-6" in:fly={{ x: 20, duration: 200 }}>
-			<Header title="Workout" showBack onback={() => currentView = 'home'} />
+			<Header title={isEditingSession ? "Edit Workout" : "Workout"} showBack onback={() => {
+				if (isEditingSession) {
+					isEditingSession = false;
+					workout.saveEditedSession();
+				}
+				currentView = 'home';
+			}} />
 
 			<!-- Date -->
 			{#if workoutState.currentSession}
@@ -319,6 +383,105 @@
 					</div>
 				{/each}
 			</div>
+		</div>
+
+	{:else if currentView === 'history'}
+		<div class="flex flex-col gap-6" in:fly={{ x: 20, duration: 200 }}>
+			<Header title="History" showBack onback={() => currentView = 'home'} />
+
+			{#if sessionHistory.length === 0}
+				<div class="flex flex-col items-center gap-4 py-12 text-center">
+					<span class="text-5xl opacity-50">📋</span>
+					<div class="flex flex-col gap-1">
+						<h3 class="text-lg tracking-wide uppercase font-display text-text-secondary">No Workouts Yet</h3>
+						<p class="text-sm text-text-muted">Complete a workout to see it here</p>
+					</div>
+				</div>
+			{:else}
+				<div class="flex flex-col gap-4">
+					{#each sessionHistory as session, i (session.id)}
+						<div 
+							class="relative overflow-hidden border rounded-lg bg-bg-secondary border-bg-tertiary"
+							transition:fly={{ y: 20, duration: 200, delay: i * 50 }}
+						>
+							<!-- Session Header -->
+							<div class="flex items-center justify-between p-4 border-b border-bg-tertiary">
+								<div class="flex flex-col gap-1">
+									<div class="flex items-center gap-2">
+										<span class="text-xl font-display text-primary">
+											{formatDate(session.startedAt)}
+										</span>
+										{#if session.templateName}
+											<span class="px-2 py-0.5 text-[0.65rem] uppercase tracking-wider rounded bg-bg-tertiary text-text-muted">
+												{session.templateName}
+											</span>
+										{/if}
+									</div>
+									<span class="text-xs text-text-muted">
+										{formatSessionDuration(session.startedAt, session.endedAt)}
+									</span>
+								</div>
+								<button 
+									class="flex items-center justify-center w-9 h-9 transition-all duration-200 border rounded-md cursor-pointer bg-bg-tertiary border-bg-elevated text-text-secondary hover:border-primary hover:text-primary"
+									onclick={() => handleEditSession(session.id)}
+									aria-label="Edit session"
+								>
+									<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+										<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+									</svg>
+								</button>
+							</div>
+
+							<!-- Exercises List -->
+							{#if session.logs.length > 0}
+								<div class="flex flex-col divide-y divide-bg-tertiary">
+									{#each session.logs as log (log.id)}
+										<div class="flex flex-col gap-2 p-4">
+											<div class="flex items-center justify-between">
+												<span class="text-sm tracking-wide uppercase font-display text-text-primary">{log.exerciseName}</span>
+												<div class="flex items-center gap-2">
+													<span class="text-lg font-display text-primary">{log.fullReps}</span>
+													{#if log.partialReps > 0}
+														<span class="text-sm font-display text-text-muted">+</span>
+														<span class="text-lg font-display text-secondary">{log.partialReps}</span>
+													{/if}
+													<span class="text-[0.65rem] uppercase tracking-wider text-text-muted">reps</span>
+												</div>
+											</div>
+											{#if log.bands.length > 0}
+												<div class="flex flex-wrap items-center gap-1">
+													{#each log.bands as band (band.id)}
+														<span class="inline-flex items-center gap-1 px-2 py-0.5 text-[0.65rem] rounded-full bg-bg-tertiary text-text-secondary">
+															<span class="w-1.5 h-1.5 rounded-full" style:background-color={band.color || '#666'}></span>
+															{band.name}
+														</span>
+													{/each}
+													<span class="ml-auto text-[0.65rem] text-text-muted">
+														{log.bands.reduce((sum, b) => sum + b.resistance, 0)} lbs
+													</span>
+												</div>
+											{/if}
+											{#if log.notes}
+												<p class="text-xs italic text-text-muted">"{log.notes}"</p>
+											{/if}
+										</div>
+									{/each}
+								</div>
+							{/if}
+
+							<!-- Session Notes -->
+							{#if session.notes}
+								<div class="px-4 py-3 border-t border-bg-tertiary bg-bg-tertiary/30">
+									<p class="text-xs text-text-secondary">
+										<span class="mr-1 text-text-muted">📝</span> {session.notes}
+									</p>
+								</div>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	{/if}
 {/if}
