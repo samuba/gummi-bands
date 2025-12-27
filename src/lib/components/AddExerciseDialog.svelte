@@ -81,7 +81,7 @@
 							class="flex items-center gap-3 p-3 text-left transition-all duration-150 rounded-lg cursor-pointer bg-bg-tertiary hover:bg-bg-elevated hover:text-primary"
 							onclick={() => handleSelect(exercise)}
 						>
-							<span class="text-lg">💪</span>
+							<i class="icon-[ph--barbell] text-lg text-text-secondary"></i>
 							<span class="text-sm font-medium text-text-primary">{exercise.name}</span>
 						</button>
 					{/each}

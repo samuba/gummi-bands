@@ -218,7 +218,7 @@
 								class="flex items-center gap-3 p-4 text-left transition-all duration-200 border-2 rounded-lg cursor-pointer bg-bg-secondary border-bg-tertiary hover:border-primary hover:bg-bg-tertiary group"
 								onclick={() => handleStartWorkout(template.id)}
 							>
-							   	<span class="text-3xl">⚡</span>
+							   	<i class="icon-[ph--lightning-fill] text-3xl text-amber-400"></i>
 								<span class="text-lg tracking-wide text-text-primary font-display group-hover:text-primary">{template.name}</span>
 								<span class="ml-auto text-xs tracking-widest uppercase text-primary font-display">Start →</span>
 							</button>
@@ -257,21 +257,21 @@
 
 			<div class="flex flex-col gap-4">
 				<button class="flex items-center gap-4 p-6 text-left transition-all duration-200 border rounded-lg cursor-pointer bg-bg-secondary border-bg-tertiary hover:border-primary hover:bg-bg-tertiary" onclick={handleOpenHistory}>
-					<span class="text-3xl">📊</span>
+					<i class="icon-[ph--chart-line] text-3xl text-primary"></i>
 					<div>
 						<span class="block text-lg tracking-wide text-text-primary font-display">Workout History</span>
 						<span class="block text-xs text-text-muted">View and edit past sessions</span>
 					</div>
 				</button>
 				<button class="flex items-center gap-4 p-6 text-left transition-all duration-200 border rounded-lg cursor-pointer bg-bg-secondary border-bg-tertiary hover:border-primary hover:bg-bg-tertiary" onclick={() => currentView = 'bands'}>
-					<span class="text-3xl">🪢</span>
+					<i class="icon-[ph--infinity] text-3xl text-primary"></i>
 					<div>
 						<span class="block text-lg tracking-wide text-text-primary font-display">Manage Bands</span>
 						<span class="block text-xs text-text-muted">Add or remove resistance bands</span>
 					</div>
 				</button>
 				<button class="flex items-center gap-4 p-6 text-left transition-all duration-200 border rounded-lg cursor-pointer bg-bg-secondary border-bg-tertiary hover:border-primary hover:bg-bg-tertiary" onclick={() => currentView = 'exercises'}>
-					<span class="text-3xl">🏋🏻</span>
+					<i class="icon-[ph--barbell] text-3xl text-primary"></i>
 					<div>
 						<span class="block text-lg tracking-wide text-text-primary font-display">Manage Exercises</span>
 						<span class="block text-xs text-text-muted">Customize your exercise list</span>
@@ -422,7 +422,7 @@
 			<div class="flex flex-col gap-2">
 				{#each workoutState.exercises as exercise (exercise.id)}
 					<div class="flex items-center gap-4 p-4 border rounded-md bg-bg-secondary border-bg-tertiary" transition:slide={{ duration: 150 }}>
-						<div class="text-xl">💪</div>
+						<i class="icon-[ph--barbell] text-xl text-text-secondary"></i>
 						<div class="flex flex-col flex-1 gap-0.5">
 							<span class="text-sm text-text-primary">{exercise.name}</span>
 						</div>
@@ -440,7 +440,7 @@
 
 			{#if sessionHistory.length === 0}
 				<div class="flex flex-col items-center gap-4 py-12 text-center">
-					<span class="text-5xl opacity-50">📋</span>
+					<i class="icon-[ph--clipboard-text] text-5xl text-text-muted"></i>
 					<div class="flex flex-col gap-1">
 						<h3 class="text-lg tracking-wide uppercase font-display text-text-secondary">No Workouts Yet</h3>
 						<p class="text-sm text-text-muted">Complete a workout to see it here</p>
@@ -523,7 +523,7 @@
 							{#if session.notes}
 								<div class="px-4 py-3 border-t border-bg-tertiary bg-bg-tertiary/30">
 									<p class="text-xs text-text-secondary">
-										<span class="mr-1 text-text-muted">📝</span> {session.notes}
+										<i class="icon-[ph--note-pencil] mr-1 text-text-muted"></i> {session.notes}
 									</p>
 								</div>
 							{/if}

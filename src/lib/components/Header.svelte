@@ -21,11 +21,8 @@
 				</svg>
 			</button>
 		{/if}
-		<h1 class="flex-1 text-3xl font-display tracking-wider uppercase bg-clip-text text-transparent" style="background-image: var(--gradient-fire)">
+		<h1 class="text-3xl font-display tracking-wider uppercase bg-clip-text text-transparent" style="background-image: var(--gradient-fire)">
 			{title}
 		</h1>
-		<div class="flex items-center justify-center">
-			<span class="text-2xl">💪</span>
-		</div>
 	</div>
 </header>
