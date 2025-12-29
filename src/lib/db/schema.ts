@@ -8,13 +8,15 @@ export const bands = pgTable('bands', {
 	name: text().notNull(),
 	resistance: real().notNull(), // in lbs
 	color: text(), // optional color for visual identification
-	createdAt: timestamp().defaultNow().notNull()
+	createdAt: timestamp().defaultNow().notNull(),
+	deletedAt: timestamp()
 });
 
 export const exercises = pgTable('exercises', {
 	id: uuid().primaryKey().defaultRandom(),
 	name: text().notNull(),
-	createdAt: timestamp().defaultNow().notNull()
+	createdAt: timestamp().defaultNow().notNull(),
+	deletedAt: timestamp()
 });
 
 export const workoutTemplates = pgTable('workout_templates', {

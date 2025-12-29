@@ -15,6 +15,13 @@
       "when": 1766993421334,
       "tag": "0001_loving_shadowcat",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1767013026236,
+      "tag": "0002_shiny_martin_li",
+      "breakpoints": true
     }
   ]
 }

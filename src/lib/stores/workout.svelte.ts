@@ -1,5 +1,5 @@
 import { browser } from '$app/environment';
-import { initDatabase, db, liveQuery } from '$lib/db/client';
+import { initDatabase, db, isForeignKeyViolation, liveQuery } from '$lib/db/client';
 import * as s from '$lib/db/schema';
 import type {
 	Band,
@@ -8,7 +8,7 @@ import type {
 	LoggedExercise,
 	WorkoutTemplate
 } from '$lib/db/schema';
-import { eq, desc, and, ne, asc, sql } from 'drizzle-orm';
+import { eq, desc, and, ne, asc, isNull, sql } from 'drizzle-orm';
 
 // Reactive state
 let isInitialized = $state(false);
@@ -29,13 +29,13 @@ export async function initialize() {
 
 	// set allBands
 	await liveQuery(
-		db.query.bands.findMany({ orderBy: asc(s.bands.resistance) }),
+		db.query.bands.findMany({ orderBy: asc(s.bands.resistance), where: isNull(s.bands.deletedAt) }),
 		(rows) => allBands = rows
 	);
 
 	// set allExercises
 	await liveQuery(
-		db.query.exercises.findMany({ orderBy: asc(s.exercises.name) }),
+		db.query.exercises.findMany({ orderBy: desc(s.exercises.createdAt), where: isNull(s.exercises.deletedAt) }),
 		(rows) => allExercises = rows
 	);
 
@@ -113,8 +113,20 @@ export async function addBand(name: string, resistance: number, color?: string) 
 
 // Delete a band
 export async function deleteBand(id: string) {
-	await db.delete(s.bands).where(eq(s.bands.id, id));
+	try {
+		await db.delete(s.bands).where(eq(s.bands.id, id));
+	} catch (error) {
+		if (isForeignKeyViolation(error)) {
+			await db.update(s.bands).set({ deletedAt: sql`NOW()` }).where(eq(s.bands.id, id));
+		} else {
+			console.error('Failed to delete band:', error);
+			throw error;
+		}
+	}
 }
+
+
+  
 
 // Add a new exercise
 export async function addExercise(name: string) {
@@ -123,7 +135,16 @@ export async function addExercise(name: string) {
 
 // Delete an exercise
 export async function deleteExercise(id: string) {
-	await db.delete(s.exercises).where(eq(s.exercises.id, id));
+	try {
+		await db.delete(s.exercises).where(eq(s.exercises.id, id));
+	} catch (error) {
+		if (isForeignKeyViolation(error)) {
+			await db.update(s.exercises).set({ deletedAt: sql`NOW()` }).where(eq(s.exercises.id, id));
+		} else {
+			console.error('Failed to delete exercise:', error);
+			throw error;
+		}
+	}
 }
 
 // Start a new workout session

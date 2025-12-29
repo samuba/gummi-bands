@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
 	import Header from '$lib/components/Header.svelte';
+	import { confirmDialog } from '$lib/components/ConfirmDialog.svelte';
 	import * as workout from '$lib/stores/workout.svelte';
-	import { getContext } from 'svelte';
 	import type { Exercise } from '$lib/db/schema';
 
 	let workoutState = workout.getState();
@@ -10,15 +10,24 @@
 	// Form state for adding exercises
 	let newExerciseName = $state('');
 
-	// Get delete handlers from layout context
-	const { requestDeleteExercise } = getContext<{
-		requestDeleteExercise: (exercise: Exercise) => void;
-	}>('deleteHandlers');
-
 	async function handleAddExercise() {
 		if (!newExerciseName.trim()) return;
 		await workout.addExercise(newExerciseName.trim());
 		newExerciseName = '';
+	}
+
+	async function handleDeleteExercise(exercise: Exercise) {
+		const confirmed = await confirmDialog.confirm({
+			title: 'Delete Exercise?',
+			html: `Are you sure you want to delete "<strong>${exercise.name}</strong>"?`,
+			iconClass: 'icon-[ph--trash]',
+			confirmText: 'Delete',
+			cancelText: 'Cancel'
+		});
+
+		if (confirmed) {
+			await workout.deleteExercise(exercise.id);
+		}
 	}
 </script>
 
@@ -51,7 +60,7 @@
 				</div>
 				<button
 					class="btn-ghost"
-					onclick={() => requestDeleteExercise(exercise)}
+					onclick={() => handleDeleteExercise(exercise)}
 					aria-label="Delete {exercise.name}"
 				>
 					<i class="icon-[ph--trash] size-5"></i>
@@ -60,4 +69,3 @@
 		{/each}
 	</div>
 </div>
-

@@ -55,3 +55,31 @@ export async function liveQuery<Q extends { toSQL(): { sql: string; params: unkn
 		);
 	});
 }
+
+export function isForeignKeyViolation(error: unknown) {
+	return (error as PostgresError)?.cause?.code  === "23503";
+}
+
+export type PostgresError = {
+	query: string
+	params: Array<string>
+	cause: {
+	  length: number
+	  name: string
+	  severity: string
+	  code: string
+	  detail: string
+	  schema: string
+	  table: string
+	  constraint: string
+	  file: string
+	  line: string
+	  routine: string
+	  query: string
+	  params: Array<string>
+	  queryOptions: {
+		rowMode: string
+		parsers: object
+	  }
+	}
+  }

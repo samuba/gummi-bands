@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
 	import Header from '$lib/components/Header.svelte';
+	import { confirmDialog } from '$lib/components/ConfirmDialog.svelte';
 	import * as workout from '$lib/stores/workout.svelte';
-	import { getContext } from 'svelte';
 	import type { Band } from '$lib/db/schema';
 
 	let workoutState = workout.getState();
@@ -12,16 +12,25 @@
 	let newBandResistance = $state(10);
 	let newBandColor = $state('#FF4444');
 
-	// Get delete handlers from layout context
-	const { requestDeleteBand } = getContext<{
-		requestDeleteBand: (band: Band) => void;
-	}>('deleteHandlers');
-
 	async function handleAddBand() {
 		if (!newBandName.trim()) return;
 		await workout.addBand(newBandName.trim(), newBandResistance, newBandColor);
 		newBandName = '';
 		newBandResistance = 10;
+	}
+
+	async function handleDeleteBand(band: Band) {
+		const confirmed = await confirmDialog.confirm({
+			title: 'Delete Bands?',
+			html: `Are you sure you want to delete "<strong>${band.name}</strong>"?`,
+			iconClass: 'icon-[ph--trash]',
+			confirmText: 'Delete',
+			cancelText: 'Cancel'
+		});
+
+		if (confirmed) {
+			await workout.deleteBand(band.id);
+		}
 	}
 </script>
 
@@ -68,7 +77,7 @@
 				</div>
 				<button
 					class="btn-ghost"
-					onclick={() => requestDeleteBand(band)}
+					onclick={() => handleDeleteBand(band)}
 					aria-label="Delete {band.name}"
 				>
 					<i class="icon-[ph--trash] size-5"></i>
@@ -77,4 +86,3 @@
 		{/each}
 	</div>
 </div>
-
