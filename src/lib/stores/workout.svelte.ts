@@ -1,5 +1,5 @@
 import { browser } from '$app/environment';
-import { initDatabase, db,pglite } from '$lib/db/client';
+import { initDatabase, db, liveQuery } from '$lib/db/client';
 import {
 	bands,
 	exercises,
@@ -16,7 +16,6 @@ import type {
 	WorkoutTemplate
 } from '$lib/db/schema';
 import { eq, desc, and, ne, asc, sql } from 'drizzle-orm';
-import type { Results } from '@electric-sql/pglite';
 
 // Reactive state
 let isInitialized = $state(false);
@@ -78,6 +77,7 @@ export async function initialize() {
 				exercises: template.workoutTemplateExercises
 					.sort((a, b) => a.sortOrder - b.sortOrder)
 					.map((wte) => wte.exercise)
+					.filter((exercise): exercise is Exercise => exercise != null)
 			}));
 		}
 	);
@@ -408,26 +408,6 @@ export function getState() {
 			return suggestedExercises;
 		}
 	};
-}
-
-// Helper for live queries with proper typing
-async function liveQuery<Q extends { toSQL(): { sql: string; params: unknown[] } } & PromiseLike<unknown[]>>(
-	query: Q,
-	callback: (rows: Awaited<Q>[number][]) => void
-): Promise<Awaited<Q>[number][]> {
-	return new Promise((resolve) => {
-		let resolved = false;
-		const { sql, params } = query.toSQL();
-		pglite.live.query(sql, params,
-			(res: Results<Awaited<Q>[number]>) => {
-				callback(res.rows);
-				if (!resolved) {
-					resolved = true;
-					resolve(res.rows);
-				}
-			}
-		);
-	});
 }
 
 // Template with exercises type
