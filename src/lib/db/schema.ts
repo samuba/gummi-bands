@@ -1,76 +1,121 @@
 import { pgTable, text, integer, uuid, timestamp, real } from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
 
-// Rubber bands with resistance levels
+// uses drizzle auto snake_case conversion for column names 
+
 export const bands = pgTable('bands', {
-	id: uuid('id').primaryKey().defaultRandom(),
-	name: text('name').notNull(),
-	resistance: real('resistance').notNull(), // in lbs
-	color: text('color'), // optional color for visual identification
-	createdAt: timestamp('created_at').defaultNow().notNull()
+	id: uuid().primaryKey().defaultRandom(),
+	name: text().notNull(),
+	resistance: real().notNull(), // in lbs
+	color: text(), // optional color for visual identification
+	createdAt: timestamp().defaultNow().notNull()
 });
 
-// Exercise definitions
 export const exercises = pgTable('exercises', {
-	id: uuid('id').primaryKey().defaultRandom(),
-	name: text('name').notNull(),
-	createdAt: timestamp('created_at').defaultNow().notNull()
+	id: uuid().primaryKey().defaultRandom(),
+	name: text().notNull(),
+	createdAt: timestamp().defaultNow().notNull()
 });
 
-// Workout session templates
 export const workoutTemplates = pgTable('workout_templates', {
-	id: uuid('id').primaryKey().defaultRandom(),
-	name: text('name').notNull(),
-	createdAt: timestamp('created_at').defaultNow().notNull()
+	id: uuid().primaryKey().defaultRandom(),
+	name: text().notNull(),
+	createdAt: timestamp().defaultNow().notNull(),
+	icon: text(),
 });
 
 // Junction table for exercises in templates
 export const workoutTemplateExercises = pgTable('workout_template_exercises', {
-	id: uuid('id').primaryKey().defaultRandom(),
-	templateId: uuid('template_id')
-		.notNull()
-		.references(() => workoutTemplates.id, { onDelete: 'cascade' }),
-	exerciseId: uuid('exercise_id')
-		.notNull()
-		.references(() => exercises.id, { onDelete: 'cascade' }),
-	sortOrder: integer('sort_order').notNull().default(0)
+	id: uuid().primaryKey().defaultRandom(),
+	templateId: uuid().notNull().references(() => workoutTemplates.id, { onDelete: 'cascade' }),
+	exerciseId: uuid().notNull().references(() => exercises.id, { onDelete: 'cascade' }),
+	sortOrder: integer().notNull().default(0)
 });
 
-// Workout sessions
 export const workoutSessions = pgTable('workout_sessions', {
-	id: uuid('id').primaryKey().defaultRandom(),
-	templateId: uuid('template_id').references(() => workoutTemplates.id),
-	startedAt: timestamp('started_at').defaultNow().notNull(),
-	endedAt: timestamp('ended_at'),
-	notes: text('notes')
+	id: uuid().primaryKey().defaultRandom(),
+	templateId: uuid().references(() => workoutTemplates.id),
+	startedAt: timestamp().defaultNow().notNull(),
+	endedAt: timestamp(),
+	notes: text()
 });
 
 // Logged exercises within a workout session
 export const loggedExercises = pgTable('logged_exercises', {
-	id: uuid('id').primaryKey().defaultRandom(),
-	sessionId: uuid('session_id')
-		.notNull()
-		.references(() => workoutSessions.id, { onDelete: 'cascade' }),
-	exerciseId: uuid('exercise_id')
-		.notNull()
-		.references(() => exercises.id),
-	fullReps: integer('full_reps').notNull().default(0),
-	partialReps: integer('partial_reps').notNull().default(0),
-	notes: text('notes'),
-	loggedAt: timestamp('logged_at').defaultNow().notNull()
+	id: uuid().primaryKey().defaultRandom(),
+	sessionId: uuid().notNull().references(() => workoutSessions.id, { onDelete: 'cascade' }),
+	exerciseId: uuid().notNull().references(() => exercises.id),
+	fullReps: integer().notNull().default(0),
+	partialReps: integer().notNull().default(0),
+	notes: text(),
+	loggedAt: timestamp().defaultNow().notNull()
 });
 
 // Junction table for bands used in logged exercises
 export const loggedExerciseBands = pgTable('logged_exercise_bands', {
-	id: uuid('id').primaryKey().defaultRandom(),
-	loggedExerciseId: uuid('logged_exercise_id')
-		.notNull()
-		.references(() => loggedExercises.id, { onDelete: 'cascade' }),
-	bandId: uuid('band_id')
-		.notNull()
-		.references(() => bands.id)
+	id: uuid().primaryKey().defaultRandom(),
+	loggedExerciseId: uuid().notNull().references(() => loggedExercises.id, { onDelete: 'cascade' }),
+	bandId: uuid().notNull().references(() => bands.id)
 });
 
-// Type exports
+// Relations
+export const bandsRelations = relations(bands, ({ many }) => ({
+	loggedExerciseBands: many(loggedExerciseBands)
+}));
+
+export const exercisesRelations = relations(exercises, ({ many }) => ({
+	workoutTemplateExercises: many(workoutTemplateExercises),
+	loggedExercises: many(loggedExercises)
+}));
+
+export const workoutTemplatesRelations = relations(workoutTemplates, ({ many }) => ({
+	workoutTemplateExercises: many(workoutTemplateExercises),
+	workoutSessions: many(workoutSessions)
+}));
+
+export const workoutTemplateExercisesRelations = relations(workoutTemplateExercises, ({ one }) => ({
+	template: one(workoutTemplates, {
+		fields: [workoutTemplateExercises.templateId],
+		references: [workoutTemplates.id]
+	}),
+	exercise: one(exercises, {
+		fields: [workoutTemplateExercises.exerciseId],
+		references: [exercises.id]
+	})
+}));
+
+export const workoutSessionsRelations = relations(workoutSessions, ({ one, many }) => ({
+	template: one(workoutTemplates, {
+		fields: [workoutSessions.templateId],
+		references: [workoutTemplates.id]
+	}),
+	loggedExercises: many(loggedExercises)
+}));
+
+export const loggedExercisesRelations = relations(loggedExercises, ({ one, many }) => ({
+	session: one(workoutSessions, {
+		fields: [loggedExercises.sessionId],
+		references: [workoutSessions.id]
+	}),
+	exercise: one(exercises, {
+		fields: [loggedExercises.exerciseId],
+		references: [exercises.id]
+	}),
+	loggedExerciseBands: many(loggedExerciseBands)
+}));
+
+export const loggedExerciseBandsRelations = relations(loggedExerciseBands, ({ one }) => ({
+	loggedExercise: one(loggedExercises, {
+		fields: [loggedExerciseBands.loggedExerciseId],
+		references: [loggedExercises.id]
+	}),
+	band: one(bands, {
+		fields: [loggedExerciseBands.bandId],
+		references: [bands.id]
+	})
+}));
+
+
 export type Band = typeof bands.$inferSelect;
 export type NewBand = typeof bands.$inferInsert;
 
