@@ -215,7 +215,10 @@
 			<div class="flex flex-col items-center justify-center gap-6">
 				<i class="icon-[ph--warning] text-5xl text-error"></i>
 				<p class="text-sm text-text-secondary">
-					An error occurred while loading your workouts. Please try again.
+					An error occurred while loading the Datbase.
+				</p>
+				<p>
+					{loadingError.message}
 				</p>
 			</div>
 		{:else}

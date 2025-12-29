@@ -26,3 +26,6 @@ After completing the code, ask the user if they want a playground link. Only cal
 ## Icons
 Always use phosphor icon set with unplugin-icons and iconify-tailwind4 in this style:
 <i class="icon-[ph--calendar-plus] size-6"></i>
+
+## DB
+Always use drizzle relational queries when reading and db.insert/db.update/db.delete for writing. 

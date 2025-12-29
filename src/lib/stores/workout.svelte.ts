@@ -1,8 +1,21 @@
 import { browser } from '$app/environment';
-import { initDatabase, getClient, getDb } from '$lib/db/client';
-import { bands, exercises, workoutSessions, loggedExercises, loggedExerciseBands } from '$lib/db/schema';
-import type { Band, Exercise, WorkoutSession, LoggedExercise, WorkoutTemplate } from '$lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { initDatabase, db } from '$lib/db/client';
+import {
+	bands,
+	exercises,
+	workoutSessions,
+	loggedExercises,
+	loggedExerciseBands,
+	workoutTemplates
+} from '$lib/db/schema';
+import type {
+	Band,
+	Exercise,
+	WorkoutSession,
+	LoggedExercise,
+	WorkoutTemplate
+} from '$lib/db/schema';
+import { eq, desc, and, ne, asc, sql } from 'drizzle-orm';
 
 // Template with exercises type
 export type TemplateWithExercises = WorkoutTemplate & { exercises: Exercise[] };
@@ -21,7 +34,7 @@ let suggestedExercises = $state<Exercise[]>([]);
 export async function initialize() {
 	if (!browser) return;
 	if (isInitialized) return;
-	
+
 	await initDatabase();
 	await refreshBands();
 	await refreshExercises();
@@ -32,142 +45,106 @@ export async function initialize() {
 
 // Refresh bands from database
 export async function refreshBands() {
-	if (!browser) return;
-	const db = getDb();
-	if (!db) return;
-	
-	const result = await db.select().from(bands).orderBy(bands.resistance);
+	const result = await db.query.bands.findMany({ orderBy: asc(bands.resistance) });
 	allBands = result;
 }
 
 // Refresh exercises from database
 export async function refreshExercises() {
-	if (!browser) return;
-	const db = getDb();
-	if (!db) return;
-	
-	const result = await db.select().from(exercises).orderBy(exercises.name);
+	const result = await db.query.exercises.findMany({ orderBy: asc(exercises.name) });
 	allExercises = result;
 }
 
 // Refresh templates from database
 export async function refreshTemplates() {
-	if (!browser) return;
-	const client = getClient();
-	if (!client) return;
-	
-	// Get all templates
-	const templatesResult = await client.query<{ id: string; name: string; created_at: Date }>(
-		`SELECT id, name, created_at FROM workout_templates ORDER BY name`
-	);
-	
-	// Get exercises for each template
-	const templatesWithExercises: TemplateWithExercises[] = await Promise.all(
-		templatesResult.rows.map(async (template) => {
-			const exercisesResult = await client.query<Exercise>(`
-				SELECT e.* FROM exercises e
-				JOIN workout_template_exercises wte ON e.id = wte.exercise_id
-				WHERE wte.template_id = $1
-				ORDER BY wte.sort_order
-			`, [template.id]);
-			
-			return {
-				id: template.id,
-				name: template.name,
-				createdAt: template.created_at,
-				exercises: exercisesResult.rows
-			};
-		})
-	);
-	
-	allTemplates = templatesWithExercises;
+	// Get all templates with their exercises using relational query
+	const templates = await db.query.workoutTemplates.findMany({
+		orderBy: asc(workoutTemplates.name),
+		with: {
+			workoutTemplateExercises: {
+				with: {
+					exercise: true
+				}
+			}
+		}
+	});
+
+	// Transform to TemplateWithExercises format
+	allTemplates = templates.map((template) => ({
+		id: template.id,
+		name: template.name,
+		createdAt: template.createdAt,
+		icon: template.icon,
+		exercises: template.workoutTemplateExercises
+			.sort((a, b) => a.sortOrder - b.sortOrder)
+			.map((wte) => wte.exercise)
+	}));
 }
 
 // Refresh recent sessions
 export async function refreshRecentSessions() {
-	if (!browser) return;
-	const db = getDb();
-	if (!db) return;
-	
-	const result = await db.select().from(workoutSessions).orderBy(desc(workoutSessions.startedAt)).limit(10);
+	const result = await db.query.workoutSessions.findMany({
+		orderBy: desc(workoutSessions.startedAt),
+		limit: 10
+	});
 	recentSessions = result;
 }
 
 // Add a new band
 export async function addBand(name: string, resistance: number, color?: string) {
-	if (!browser) return;
-	const db = getDb();
-	if (!db) return;
-	
 	await db.insert(bands).values({ name, resistance, color });
 	await refreshBands();
 }
 
 // Delete a band
 export async function deleteBand(id: string) {
-	if (!browser) return;
-	const db = getDb();
-	if (!db) return;
-	
 	await db.delete(bands).where(eq(bands.id, id));
 	await refreshBands();
 }
 
 // Add a new exercise
 export async function addExercise(name: string) {
-	if (!browser) return;
-	const db = getDb();
-	if (!db) return;
-	
 	await db.insert(exercises).values({ name });
 	await refreshExercises();
 }
 
 // Delete an exercise
 export async function deleteExercise(id: string) {
-	if (!browser) return;
-	const db = getDb();
-	if (!db) return;
-	
 	await db.delete(exercises).where(eq(exercises.id, id));
 	await refreshExercises();
 }
 
 // Start a new workout session
 export async function startSession(templateId?: string) {
-	if (!browser) return;
-	const db = getDb();
-	if (!db) return;
-	
-	const [session] = await db.insert(workoutSessions).values({
-		templateId: templateId || null
-	}).returning();
+	const [session] = await db
+		.insert(workoutSessions)
+		.values({ templateId: templateId || null })
+		.returning();
 	currentSession = session;
 	sessionLogs = [];
-	
+
 	// If a template was selected, set suggested exercises
 	if (templateId) {
-		const template = allTemplates.find(t => t.id === templateId);
+		const template = allTemplates.find((t) => t.id === templateId);
 		if (template) {
 			suggestedExercises = template.exercises;
 		}
 	} else {
 		suggestedExercises = [];
 	}
-	
+
 	return session;
 }
 
 // End the current session
 export async function endSession(notes?: string) {
-	if (!browser) return;
-	const db = getDb();
-	if (!db || !currentSession) return;
-	
-	await db.update(workoutSessions)
-		.set({ endedAt: new Date(), notes: notes || null })
+	if (!browser || !db || !currentSession) return;
+
+	await db
+		.update(workoutSessions)
+		.set({ endedAt: sql`NOW()`, notes: notes || null })
 		.where(eq(workoutSessions.id, currentSession.id));
-	
+
 	currentSession = null;
 	sessionLogs = [];
 	suggestedExercises = [];
@@ -182,23 +159,24 @@ export async function logExercise(
 	partialReps: number,
 	notes?: string
 ) {
-	if (!browser) return;
-	const db = getDb();
-	if (!db || !currentSession) return;
+	if (!browser || !db || !currentSession) return;
 
 	// Insert the logged exercise
-	const [logged] = await db.insert(loggedExercises).values({
-		sessionId: currentSession.id,
-		exerciseId,
-		fullReps,
-		partialReps,
-		notes: notes || null
-	}).returning();
+	const [logged] = await db
+		.insert(loggedExercises)
+		.values({
+			sessionId: currentSession.id,
+			exerciseId,
+			fullReps,
+			partialReps,
+			notes: notes || null
+		})
+		.returning();
 
 	// Insert band associations
 	if (selectedBandIds.length > 0) {
 		await db.insert(loggedExerciseBands).values(
-			selectedBandIds.map(bandId => ({
+			selectedBandIds.map((bandId) => ({
 				loggedExerciseId: logged.id,
 				bandId
 			}))
@@ -211,86 +189,50 @@ export async function logExercise(
 
 // Remove a logged exercise
 export async function removeLoggedExercise(logId: string) {
-	if (!browser) return;
-	const db = getDb();
-	if (!db) return;
-	
 	await db.delete(loggedExercises).where(eq(loggedExercises.id, logId));
 	await refreshSessionLogs();
 }
 
 // Refresh the current session's logs
 export async function refreshSessionLogs() {
-	if (!browser) return;
-	const client = getClient();
-	if (!client || !currentSession) {
+	if (!browser || !db || !currentSession) {
 		sessionLogs = [];
 		return;
 	}
 
-	// Get all logged exercises for this session
-	const logs = await client.query<{
-		id: string;
-		session_id: string;
-		exercise_id: string;
-		full_reps: number;
-		partial_reps: number;
-		notes: string | null;
-		logged_at: Date;
-		exercise_name: string;
-	}>(`
-		SELECT 
-			le.id,
-			le.session_id,
-			le.exercise_id,
-			le.full_reps,
-			le.partial_reps,
-			le.notes,
-			le.logged_at,
-			e.name as exercise_name
-		FROM logged_exercises le
-		JOIN exercises e ON le.exercise_id = e.id
-		WHERE le.session_id = $1
-		ORDER BY le.logged_at DESC
-	`, [currentSession.id]);
+	// Get all logged exercises for this session with exercise and bands
+	const logs = await db.query.loggedExercises.findMany({
+		where: eq(loggedExercises.sessionId, currentSession.id),
+		orderBy: desc(loggedExercises.loggedAt),
+		with: {
+			exercise: true,
+			loggedExerciseBands: {
+				with: {
+					band: true
+				}
+			}
+		}
+	});
 
-	const enrichedLogs = await Promise.all(
-		logs.rows.map(async (row) => {
-			// Get bands for this logged exercise
-			const bandResult = await client.query<Band>(`
-				SELECT b.* FROM bands b
-				JOIN logged_exercise_bands leb ON b.id = leb.band_id
-				WHERE leb.logged_exercise_id = $1
-			`, [row.id]);
-
-			return {
-				id: row.id,
-				sessionId: row.session_id,
-				exerciseId: row.exercise_id,
-				fullReps: row.full_reps,
-				partialReps: row.partial_reps,
-				notes: row.notes,
-				loggedAt: row.logged_at,
-				exercise: {
-					id: row.exercise_id,
-					name: row.exercise_name,
-					createdAt: new Date()
-				} as Exercise,
-				bands: bandResult.rows as Band[]
-			};
-		})
-	);
-
-	sessionLogs = enrichedLogs;
+	// Transform to expected format
+	sessionLogs = logs.map((log) => ({
+		id: log.id,
+		sessionId: log.sessionId,
+		exerciseId: log.exerciseId,
+		fullReps: log.fullReps,
+		partialReps: log.partialReps,
+		notes: log.notes,
+		loggedAt: log.loggedAt,
+		exercise: log.exercise,
+		bands: log.loggedExerciseBands.map((leb) => leb.band)
+	}));
 }
 
 // Resume an existing session
 export async function resumeSession(sessionId: string) {
-	if (!browser) return;
-	const db = getDb();
-	if (!db) return;
-	
-	const [session] = await db.select().from(workoutSessions).where(eq(workoutSessions.id, sessionId));
+	const session = await db.query.workoutSessions.findFirst({
+		where: eq(workoutSessions.id, sessionId)
+	});
 	if (session) {
 		currentSession = session;
 		await refreshSessionLogs();
@@ -299,7 +241,7 @@ export async function resumeSession(sessionId: string) {
 
 // Add an exercise to the suggested exercises list
 export function addSuggestedExercise(exercise: Exercise) {
-	if (!suggestedExercises.some(e => e.id === exercise.id)) {
+	if (!suggestedExercises.some((e) => e.id === exercise.id)) {
 		suggestedExercises = [...suggestedExercises, exercise];
 	}
 }
@@ -313,47 +255,41 @@ export type PreviousExerciseData = {
 } | null;
 
 export async function getPreviousExerciseData(exerciseId: string): Promise<PreviousExerciseData> {
-	if (!browser) return null;
-	const client = getClient();
-	if (!client) return null;
+	if (!browser || !db) return null;
 
 	// Get the most recent logged exercise for this exercise ID (excluding current session)
-	const result = await client.query<{
-		id: string;
-		full_reps: number;
-		partial_reps: number;
-	}>(`
-		SELECT le.id, le.full_reps, le.partial_reps
-		FROM logged_exercises le
-		JOIN workout_sessions ws ON le.session_id = ws.id
-		WHERE le.exercise_id = $1
-		${currentSession ? `AND le.session_id != $2` : ''}
-		ORDER BY le.logged_at DESC
-		LIMIT 1
-	`, currentSession ? [exerciseId, currentSession.id] : [exerciseId]);
+	const whereClause = currentSession
+		? and(
+				eq(loggedExercises.exerciseId, exerciseId),
+				ne(loggedExercises.sessionId, currentSession.id)
+			)
+		: eq(loggedExercises.exerciseId, exerciseId);
 
-	if (result.rows.length === 0) return null;
+	const log = await db.query.loggedExercises.findFirst({
+		where: whereClause,
+		orderBy: desc(loggedExercises.loggedAt),
+		with: {
+			loggedExerciseBands: {
+				with: {
+					band: true
+				}
+			}
+		}
+	});
 
-	const log = result.rows[0];
-
-	// Get bands for this logged exercise
-	const bandsResult = await client.query<{ id: string; name: string }>(`
-		SELECT b.id, b.name FROM bands b
-		JOIN logged_exercise_bands leb ON b.id = leb.band_id
-		WHERE leb.logged_exercise_id = $1
-	`, [log.id]);
+	if (!log) return null;
 
 	return {
-		bandIds: bandsResult.rows.map(b => b.id),
-		bandNames: bandsResult.rows.map(b => b.name),
-		fullReps: log.full_reps,
-		partialReps: log.partial_reps
+		bandIds: log.loggedExerciseBands.map((leb) => leb.band.id),
+		bandNames: log.loggedExerciseBands.map((leb) => leb.band.name),
+		fullReps: log.fullReps,
+		partialReps: log.partialReps
 	};
 }
 
 // Get current session log for an exercise
 export function getSessionLogForExercise(exerciseId: string) {
-	return sessionLogs.find(log => log.exerciseId === exerciseId);
+	return sessionLogs.find((log) => log.exerciseId === exerciseId);
 }
 
 // Type for detailed session with all data
@@ -377,137 +313,84 @@ export type DetailedSession = {
 
 // Get all sessions with full details for history view
 export async function getDetailedSessionHistory(): Promise<DetailedSession[]> {
-	if (!browser) return [];
-	const client = getClient();
-	if (!client) return [];
+	if (!browser || !db) return [];
 
-	// Get all sessions with template names
-	const sessionsResult = await client.query<{
-		id: string;
-		template_id: string | null;
-		template_name: string | null;
-		started_at: Date;
-		ended_at: Date | null;
-		notes: string | null;
-	}>(`
-		SELECT 
-			ws.id,
-			ws.template_id,
-			wt.name as template_name,
-			ws.started_at,
-			ws.ended_at,
-			ws.notes
-		FROM workout_sessions ws
-		LEFT JOIN workout_templates wt ON ws.template_id = wt.id
-		ORDER BY ws.started_at DESC
-	`);
+	// Get all sessions with template and logged exercises using relational query
+	const sessions = await db.query.workoutSessions.findMany({
+		orderBy: desc(workoutSessions.startedAt),
+		with: {
+			template: true,
+			loggedExercises: {
+				orderBy: asc(loggedExercises.loggedAt),
+				with: {
+					exercise: true,
+					loggedExerciseBands: {
+						with: {
+							band: true
+						}
+					}
+				}
+			}
+		}
+	});
 
-	// Get detailed data for each session
-	const detailedSessions: DetailedSession[] = await Promise.all(
-		sessionsResult.rows.map(async (session) => {
-			// Get all logged exercises for this session
-			const logsResult = await client.query<{
-				id: string;
-				exercise_id: string;
-				exercise_name: string;
-				full_reps: number;
-				partial_reps: number;
-				notes: string | null;
-			}>(`
-				SELECT 
-					le.id,
-					le.exercise_id,
-					e.name as exercise_name,
-					le.full_reps,
-					le.partial_reps,
-					le.notes
-				FROM logged_exercises le
-				JOIN exercises e ON le.exercise_id = e.id
-				WHERE le.session_id = $1
-				ORDER BY le.logged_at ASC
-			`, [session.id]);
-
-			// Get bands for each logged exercise
-			const logsWithBands = await Promise.all(
-				logsResult.rows.map(async (log) => {
-					const bandsResult = await client.query<Band>(`
-						SELECT b.* FROM bands b
-						JOIN logged_exercise_bands leb ON b.id = leb.band_id
-						WHERE leb.logged_exercise_id = $1
-					`, [log.id]);
-
-					return {
-						id: log.id,
-						exerciseId: log.exercise_id,
-						exerciseName: log.exercise_name,
-						fullReps: log.full_reps,
-						partialReps: log.partial_reps,
-						notes: log.notes,
-						bands: bandsResult.rows
-					};
-				})
-			);
-
-			return {
-				id: session.id,
-				templateId: session.template_id,
-				templateName: session.template_name,
-				startedAt: session.started_at,
-				endedAt: session.ended_at,
-				notes: session.notes,
-				logs: logsWithBands
-			};
-		})
-	);
-
-	// Filter out empty sessions (no exercises and no notes)
-	return detailedSessions.filter(session => session.logs.length > 0 || session.notes);
+	// Transform to DetailedSession format and filter empty sessions
+	return sessions
+		.map((session) => ({
+			id: session.id,
+			templateId: session.templateId,
+			templateName: session.template?.name ?? null,
+			startedAt: session.startedAt,
+			endedAt: session.endedAt,
+			notes: session.notes,
+			logs: session.loggedExercises.map((log) => ({
+				id: log.id,
+				exerciseId: log.exerciseId,
+				exerciseName: log.exercise.name,
+				fullReps: log.fullReps,
+				partialReps: log.partialReps,
+				notes: log.notes,
+				bands: log.loggedExerciseBands.map((leb) => leb.band)
+			}))
+		}))
+		.filter((session) => session.logs.length > 0 || session.notes);
 }
 
 // Resume/edit an existing session
 export async function editSession(sessionId: string) {
-	if (!browser) return;
-	const db = getDb();
-	const client = getClient();
-	if (!db || !client) return;
-	
-	const [session] = await db.select().from(workoutSessions).where(eq(workoutSessions.id, sessionId));
+	const [session] = await db
+		.select()
+		.from(workoutSessions)
+		.where(eq(workoutSessions.id, sessionId));
 	if (session) {
 		currentSession = session;
 		await refreshSessionLogs();
-		
+
 		// Build suggested exercises from the session's logged exercises
-		const exerciseIds = sessionLogs.map(log => log.exerciseId);
-		suggestedExercises = allExercises.filter(e => exerciseIds.includes(e.id));
+		const exerciseIds = sessionLogs.map((log) => log.exerciseId);
+		suggestedExercises = allExercises.filter((e) => exerciseIds.includes(e.id));
 	}
-	
+
 	return session;
 }
 
 // Update session notes
 export async function updateSessionNotes(sessionId: string, notes: string | null) {
-	if (!browser) return;
-	const db = getDb();
-	if (!db) return;
-	
-	await db.update(workoutSessions)
-		.set({ notes })
-		.where(eq(workoutSessions.id, sessionId));
+	await db.update(workoutSessions).set({ notes }).where(eq(workoutSessions.id, sessionId));
 }
 
 // Save and close editing session (without setting endedAt if already set)
 export async function saveEditedSession(notes?: string) {
-	if (!browser) return;
-	const db = getDb();
-	if (!db || !currentSession) return;
-	
+	if (!browser || !db || !currentSession) return;
+
 	// Only update notes, preserve existing endedAt
 	if (notes !== undefined) {
-		await db.update(workoutSessions)
+		await db
+			.update(workoutSessions)
 			.set({ notes: notes || null })
 			.where(eq(workoutSessions.id, currentSession.id));
 	}
-	
+
 	currentSession = null;
 	sessionLogs = [];
 	suggestedExercises = [];
@@ -517,13 +400,29 @@ export async function saveEditedSession(notes?: string) {
 // Get state accessors
 export function getState() {
 	return {
-		get isInitialized() { return isInitialized; },
-		get bands() { return allBands; },
-		get exercises() { return allExercises; },
-		get templates() { return allTemplates; },
-		get currentSession() { return currentSession; },
-		get sessionLogs() { return sessionLogs; },
-		get recentSessions() { return recentSessions; },
-		get suggestedExercises() { return suggestedExercises; }
+		get isInitialized() {
+			return isInitialized;
+		},
+		get bands() {
+			return allBands;
+		},
+		get exercises() {
+			return allExercises;
+		},
+		get templates() {
+			return allTemplates;
+		},
+		get currentSession() {
+			return currentSession;
+		},
+		get sessionLogs() {
+			return sessionLogs;
+		},
+		get recentSessions() {
+			return recentSessions;
+		},
+		get suggestedExercises() {
+			return suggestedExercises;
+		}
 	};
 }

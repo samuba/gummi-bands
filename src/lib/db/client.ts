@@ -6,10 +6,10 @@ import { PGlite } from '@electric-sql/pglite';
 import { eq, and, count } from 'drizzle-orm';
 import { migrate } from './migrate';
 
-
 let pglite: PGlite | null = null;
-let db: PgliteDatabase<typeof schema> & { $client: PGlite } | null = null;
 let initPromise: Promise<void> | null = null;
+
+export let db: PgliteDatabase<typeof schema> & { $client: PGlite };
 
 export async function initDatabase() {
 	if (!browser) return;
@@ -135,15 +135,3 @@ async function seedData() {
 		}
 	}
 }
-
-
-// Export getters for the client and db
-export function getClient() {
-	return pglite;
-}
-
-export function getDb() {
-	return db;
-}
-
-export { pglite, db };
