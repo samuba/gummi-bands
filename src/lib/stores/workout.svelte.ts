@@ -29,7 +29,7 @@ export async function initialize() {
 
 	// set allBands
 	await liveQuery(
-		db.query.bands.findMany({ orderBy: asc(s.bands.resistance), where: isNull(s.bands.deletedAt) }),
+		db.query.bands.findMany({ orderBy: desc(s.bands.createdAt), where: isNull(s.bands.deletedAt) }),
 		(rows) => allBands = rows
 	);
 
@@ -41,10 +41,7 @@ export async function initialize() {
 
 	// set workoutSessions
 	await liveQuery(
-		db.query.workoutSessions.findMany({
-			orderBy: desc(s.workoutSessions.startedAt),
-			limit: 10
-		}),
+		db.query.workoutSessions.findMany({ orderBy: desc(s.workoutSessions.startedAt), limit: 10 }),
 		(rows) => recentSessions = rows
 	);
 
@@ -106,12 +103,11 @@ async function refreshTemplates() {
 	}));
 }
 
-// Add a new band
 export async function addBand(name: string, resistance: number, color?: string) {
 	await db.insert(s.bands).values({ name, resistance, color });
+	await db.insert(s.bands).values({ name: `${name} doubled`, resistance: resistance * 2, color });
 }
 
-// Delete a band
 export async function deleteBand(id: string) {
 	try {
 		await db.delete(s.bands).where(eq(s.bands.id, id));
@@ -125,15 +121,10 @@ export async function deleteBand(id: string) {
 	}
 }
 
-
-  
-
-// Add a new exercise
 export async function addExercise(name: string) {
 	await db.insert(s.exercises).values({ name });
 }
 
-// Delete an exercise
 export async function deleteExercise(id: string) {
 	try {
 		await db.delete(s.exercises).where(eq(s.exercises.id, id));
