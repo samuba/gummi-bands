@@ -1,5 +1,5 @@
 import { browser } from '$app/environment';
-import { initDatabase, db } from '$lib/db/client';
+import { initDatabase, db,pglite } from '$lib/db/client';
 import {
 	bands,
 	exercises,
@@ -16,9 +16,7 @@ import type {
 	WorkoutTemplate
 } from '$lib/db/schema';
 import { eq, desc, and, ne, asc, sql } from 'drizzle-orm';
-
-// Template with exercises type
-export type TemplateWithExercises = WorkoutTemplate & { exercises: Exercise[] };
+import type { Results } from '@electric-sql/pglite';
 
 // Reactive state
 let isInitialized = $state(false);
@@ -36,82 +34,75 @@ export async function initialize() {
 	if (isInitialized) return;
 
 	await initDatabase();
-	await refreshBands();
-	await refreshExercises();
-	await refreshTemplates();
-	await refreshRecentSessions();
-	isInitialized = true;
-}
 
-// Refresh bands from database
-export async function refreshBands() {
-	const result = await db.query.bands.findMany({ orderBy: asc(bands.resistance) });
-	allBands = result;
-}
+	// set allBands
+	await liveQuery(
+		db.query.bands.findMany({ orderBy: asc(bands.resistance) }),
+		(rows) => allBands = rows
+	);
 
-// Refresh exercises from database
-export async function refreshExercises() {
-	const result = await db.query.exercises.findMany({ orderBy: asc(exercises.name) });
-	allExercises = result;
-}
+	// set allExercises
+	await liveQuery(
+		db.query.exercises.findMany({ orderBy: asc(exercises.name) }),
+		(rows) => allExercises = rows
+	);
 
-// Refresh templates from database
-export async function refreshTemplates() {
-	// Get all templates with their exercises using relational query
-	const templates = await db.query.workoutTemplates.findMany({
-		orderBy: asc(workoutTemplates.name),
-		with: {
-			workoutTemplateExercises: {
-				with: {
-					exercise: true
+	// set workoutSessions
+	await liveQuery(
+		db.query.workoutSessions.findMany({
+			orderBy: desc(workoutSessions.startedAt),
+			limit: 10
+		}),
+		(rows) => recentSessions = rows
+	);
+
+	// set allTemplates
+	await liveQuery(
+		db.query.workoutTemplates.findMany({
+			orderBy: asc(workoutTemplates.name),
+			with: {
+				workoutTemplateExercises: {
+					with: {
+						exercise: true
+					}
 				}
 			}
+		}),
+		(rows) => {
+			// Transform to TemplateWithExercises format
+			allTemplates = rows.map((template) => ({
+				id: template.id,
+				name: template.name,
+				createdAt: template.createdAt,
+				icon: template.icon,
+				exercises: template.workoutTemplateExercises
+					.sort((a, b) => a.sortOrder - b.sortOrder)
+					.map((wte) => wte.exercise)
+			}));
 		}
-	});
+	);
 
-	// Transform to TemplateWithExercises format
-	allTemplates = templates.map((template) => ({
-		id: template.id,
-		name: template.name,
-		createdAt: template.createdAt,
-		icon: template.icon,
-		exercises: template.workoutTemplateExercises
-			.sort((a, b) => a.sortOrder - b.sortOrder)
-			.map((wte) => wte.exercise)
-	}));
-}
-
-// Refresh recent sessions
-export async function refreshRecentSessions() {
-	const result = await db.query.workoutSessions.findMany({
-		orderBy: desc(workoutSessions.startedAt),
-		limit: 10
-	});
-	recentSessions = result;
+	isInitialized = true;
 }
 
 // Add a new band
 export async function addBand(name: string, resistance: number, color?: string) {
 	await db.insert(bands).values({ name, resistance, color });
-	await refreshBands();
 }
 
 // Delete a band
 export async function deleteBand(id: string) {
 	await db.delete(bands).where(eq(bands.id, id));
-	await refreshBands();
 }
 
 // Add a new exercise
 export async function addExercise(name: string) {
 	await db.insert(exercises).values({ name });
-	await refreshExercises();
 }
 
 // Delete an exercise
 export async function deleteExercise(id: string) {
 	await db.delete(exercises).where(eq(exercises.id, id));
-	await refreshExercises();
 }
 
 // Start a new workout session
@@ -148,7 +139,6 @@ export async function endSession(notes?: string) {
 	currentSession = null;
 	sessionLogs = [];
 	suggestedExercises = [];
-	await refreshRecentSessions();
 }
 
 // Log an exercise in the current session
@@ -182,15 +172,11 @@ export async function logExercise(
 			}))
 		);
 	}
-
-	// Refresh session logs
-	await refreshSessionLogs();
 }
 
 // Remove a logged exercise
 export async function removeLoggedExercise(logId: string) {
 	await db.delete(loggedExercises).where(eq(loggedExercises.id, logId));
-	await refreshSessionLogs();
 }
 
 // Refresh the current session's logs
@@ -235,7 +221,6 @@ export async function resumeSession(sessionId: string) {
 	});
 	if (session) {
 		currentSession = session;
-		await refreshSessionLogs();
 	}
 }
 
@@ -364,7 +349,6 @@ export async function editSession(sessionId: string) {
 		.where(eq(workoutSessions.id, sessionId));
 	if (session) {
 		currentSession = session;
-		await refreshSessionLogs();
 
 		// Build suggested exercises from the session's logged exercises
 		const exerciseIds = sessionLogs.map((log) => log.exerciseId);
@@ -394,7 +378,6 @@ export async function saveEditedSession(notes?: string) {
 	currentSession = null;
 	sessionLogs = [];
 	suggestedExercises = [];
-	await refreshRecentSessions();
 }
 
 // Get state accessors
@@ -426,3 +409,26 @@ export function getState() {
 		}
 	};
 }
+
+// Helper for live queries with proper typing
+async function liveQuery<Q extends { toSQL(): { sql: string; params: unknown[] } } & PromiseLike<unknown[]>>(
+	query: Q,
+	callback: (rows: Awaited<Q>[number][]) => void
+): Promise<Awaited<Q>[number][]> {
+	return new Promise((resolve) => {
+		let resolved = false;
+		const { sql, params } = query.toSQL();
+		pglite.live.query(sql, params,
+			(res: Results<Awaited<Q>[number]>) => {
+				callback(res.rows);
+				if (!resolved) {
+					resolved = true;
+					resolve(res.rows);
+				}
+			}
+		);
+	});
+}
+
+// Template with exercises type
+export type TemplateWithExercises = WorkoutTemplate & { exercises: Exercise[] };
