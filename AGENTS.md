@@ -29,3 +29,5 @@ Always use phosphor icon set with unplugin-icons and iconify-tailwind4 in this s
 
 ## DB
 Always use drizzle relational queries when reading and db.insert/db.update/db.delete for writing. 
+Never use drizzle relational queries inside liveQuery() function.
+Never use raw sql strings if there is a drizzle native way instead.

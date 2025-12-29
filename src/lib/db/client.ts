@@ -33,7 +33,8 @@ export async function initDatabase() {
 
 /// Run drizzle queries as live queries. 
 /// Returns a promise that resolves when the query completes for the first time 
-/// and will run the callback every time the result changes .
+/// and will run the callback every time the result changes.
+/// IMPORTANT: DO NOT USE RELATIONAL QUERIES WITH `with`. https://github.com/drizzle-team/drizzle-orm/discussions/3026
 /// @param query - The drizzle query to run.
 /// @param callback - The callback to run when the query result changes or the query completes for the first time.
 export async function liveQuery<Q extends { toSQL(): { sql: string; params: unknown[] } } & PromiseLike<unknown[]>>(

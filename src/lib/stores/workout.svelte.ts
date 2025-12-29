@@ -1,13 +1,6 @@
 import { browser } from '$app/environment';
 import { initDatabase, db, liveQuery } from '$lib/db/client';
-import {
-	bands,
-	exercises,
-	workoutSessions,
-	loggedExercises,
-	loggedExerciseBands,
-	workoutTemplates
-} from '$lib/db/schema';
+import * as s from '$lib/db/schema';
 import type {
 	Band,
 	Exercise,
@@ -36,29 +29,29 @@ export async function initialize() {
 
 	// set allBands
 	await liveQuery(
-		db.query.bands.findMany({ orderBy: asc(bands.resistance) }),
+		db.query.bands.findMany({ orderBy: asc(s.bands.resistance) }),
 		(rows) => allBands = rows
 	);
 
 	// set allExercises
 	await liveQuery(
-		db.query.exercises.findMany({ orderBy: asc(exercises.name) }),
+		db.query.exercises.findMany({ orderBy: asc(s.exercises.name) }),
 		(rows) => allExercises = rows
 	);
 
 	// set workoutSessions
 	await liveQuery(
 		db.query.workoutSessions.findMany({
-			orderBy: desc(workoutSessions.startedAt),
+			orderBy: desc(s.workoutSessions.startedAt),
 			limit: 10
 		}),
 		(rows) => recentSessions = rows
 	);
 
-	// set allTemplates
+
 	await liveQuery(
 		db.query.workoutTemplates.findMany({
-			orderBy: asc(workoutTemplates.name),
+			orderBy: asc(s.workoutTemplates.name),
 			with: {
 				workoutTemplateExercises: {
 					with: {
@@ -82,33 +75,61 @@ export async function initialize() {
 		}
 	);
 
+	// set allTemplates with their exercises using select and joins
+	await refreshTemplates();
+
 	isInitialized = true;
+}
+
+async function refreshTemplates() {
+	// can not use liveQuery() because it does not support `with`
+	const rows = await db.query.workoutTemplates.findMany({
+		orderBy: asc(s.workoutTemplates.name),
+		with: {
+			workoutTemplateExercises: {
+				with: {
+					exercise: true
+				}
+			}
+		}
+	});
+	// Transform to TemplateWithExercises format
+	allTemplates = rows.map((template) => ({
+		id: template.id,
+		name: template.name,
+		createdAt: template.createdAt,
+		icon: template.icon,
+		exercises: template.workoutTemplateExercises
+			.sort((a, b) => a.sortOrder - b.sortOrder)
+			.map((wte) => wte.exercise)
+			.filter((exercise): exercise is Exercise => exercise != null)
+	}));
 }
 
 // Add a new band
 export async function addBand(name: string, resistance: number, color?: string) {
-	await db.insert(bands).values({ name, resistance, color });
+	await db.insert(s.bands).values({ name, resistance, color });
 }
 
 // Delete a band
 export async function deleteBand(id: string) {
-	await db.delete(bands).where(eq(bands.id, id));
+	await db.delete(s.bands).where(eq(s.bands.id, id));
 }
 
 // Add a new exercise
 export async function addExercise(name: string) {
-	await db.insert(exercises).values({ name });
+	await db.insert(s.exercises).values({ name });
 }
 
 // Delete an exercise
 export async function deleteExercise(id: string) {
-	await db.delete(exercises).where(eq(exercises.id, id));
+	await db.delete(s.exercises).where(eq(s.exercises.id, id));
 }
 
 // Start a new workout session
 export async function startSession(templateId?: string) {
 	const [session] = await db
-		.insert(workoutSessions)
+		.insert(s.workoutSessions)
 		.values({ templateId: templateId || null })
 		.returning();
 	currentSession = session;
@@ -132,9 +153,9 @@ export async function endSession(notes?: string) {
 	if (!browser || !db || !currentSession) return;
 
 	await db
-		.update(workoutSessions)
+		.update(s.workoutSessions)
 		.set({ endedAt: sql`NOW()`, notes: notes || null })
-		.where(eq(workoutSessions.id, currentSession.id));
+		.where(eq(s.workoutSessions.id, currentSession.id));
 
 	currentSession = null;
 	sessionLogs = [];
@@ -153,7 +174,7 @@ export async function logExercise(
 
 	// Insert the logged exercise
 	const [logged] = await db
-		.insert(loggedExercises)
+		.insert(s.loggedExercises)
 		.values({
 			sessionId: currentSession.id,
 			exerciseId,
@@ -165,7 +186,7 @@ export async function logExercise(
 
 	// Insert band associations
 	if (selectedBandIds.length > 0) {
-		await db.insert(loggedExerciseBands).values(
+		await db.insert(s.loggedExerciseBands).values(
 			selectedBandIds.map((bandId) => ({
 				loggedExerciseId: logged.id,
 				bandId
@@ -176,7 +197,7 @@ export async function logExercise(
 
 // Remove a logged exercise
 export async function removeLoggedExercise(logId: string) {
-	await db.delete(loggedExercises).where(eq(loggedExercises.id, logId));
+	await db.delete(s.loggedExercises).where(eq(s.loggedExercises.id, logId));
 }
 
 // Refresh the current session's logs
@@ -188,8 +209,8 @@ export async function refreshSessionLogs() {
 
 	// Get all logged exercises for this session with exercise and bands
 	const logs = await db.query.loggedExercises.findMany({
-		where: eq(loggedExercises.sessionId, currentSession.id),
-		orderBy: desc(loggedExercises.loggedAt),
+		where: eq(s.loggedExercises.sessionId, currentSession.id),
+		orderBy: desc(s.loggedExercises.loggedAt),
 		with: {
 			exercise: true,
 			loggedExerciseBands: {
@@ -217,7 +238,7 @@ export async function refreshSessionLogs() {
 // Resume an existing session
 export async function resumeSession(sessionId: string) {
 	const session = await db.query.workoutSessions.findFirst({
-		where: eq(workoutSessions.id, sessionId)
+		where: eq(s.workoutSessions.id, sessionId)
 	});
 	if (session) {
 		currentSession = session;
@@ -245,14 +266,14 @@ export async function getPreviousExerciseData(exerciseId: string): Promise<Previ
 	// Get the most recent logged exercise for this exercise ID (excluding current session)
 	const whereClause = currentSession
 		? and(
-				eq(loggedExercises.exerciseId, exerciseId),
-				ne(loggedExercises.sessionId, currentSession.id)
+				eq(s.loggedExercises.exerciseId, exerciseId),
+				ne(s.loggedExercises.sessionId, currentSession.id)
 			)
-		: eq(loggedExercises.exerciseId, exerciseId);
+		: eq(s.loggedExercises.exerciseId, exerciseId);
 
 	const log = await db.query.loggedExercises.findFirst({
 		where: whereClause,
-		orderBy: desc(loggedExercises.loggedAt),
+		orderBy: desc(s.loggedExercises.loggedAt),
 		with: {
 			loggedExerciseBands: {
 				with: {
@@ -302,11 +323,11 @@ export async function getDetailedSessionHistory(): Promise<DetailedSession[]> {
 
 	// Get all sessions with template and logged exercises using relational query
 	const sessions = await db.query.workoutSessions.findMany({
-		orderBy: desc(workoutSessions.startedAt),
+		orderBy: desc(s.workoutSessions.startedAt),
 		with: {
 			template: true,
 			loggedExercises: {
-				orderBy: asc(loggedExercises.loggedAt),
+				orderBy: asc(s.loggedExercises.loggedAt),
 				with: {
 					exercise: true,
 					loggedExerciseBands: {
@@ -345,8 +366,8 @@ export async function getDetailedSessionHistory(): Promise<DetailedSession[]> {
 export async function editSession(sessionId: string) {
 	const [session] = await db
 		.select()
-		.from(workoutSessions)
-		.where(eq(workoutSessions.id, sessionId));
+		.from(s.workoutSessions)
+		.where(eq(s.workoutSessions.id, sessionId));
 	if (session) {
 		currentSession = session;
 
@@ -360,7 +381,7 @@ export async function editSession(sessionId: string) {
 
 // Update session notes
 export async function updateSessionNotes(sessionId: string, notes: string | null) {
-	await db.update(workoutSessions).set({ notes }).where(eq(workoutSessions.id, sessionId));
+	await db.update(s.workoutSessions).set({ notes }).where(eq(s.workoutSessions.id, sessionId));
 }
 
 // Save and close editing session (without setting endedAt if already set)
@@ -370,9 +391,9 @@ export async function saveEditedSession(notes?: string) {
 	// Only update notes, preserve existing endedAt
 	if (notes !== undefined) {
 		await db
-			.update(workoutSessions)
+			.update(s.workoutSessions)
 			.set({ notes: notes || null })
-			.where(eq(workoutSessions.id, currentSession.id));
+			.where(eq(s.workoutSessions.id, currentSession.id));
 	}
 
 	currentSession = null;
