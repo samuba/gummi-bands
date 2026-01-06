@@ -36,6 +36,7 @@
 	});
 
 	async function handleEndWorkout() {
+		const wasEditing = isEditingSession;
 		if (isEditingSession) {
 			await workout.saveEditedSession(sessionNotes.trim() || undefined);
 			isEditingSession = false;
@@ -43,14 +44,7 @@
 			await workout.endSession(sessionNotes.trim() || undefined);
 		}
 		sessionNotes = '';
-		goto('/');
-	}
-
-	function handleBack() {
-		if (isEditingSession) {
-			workout.saveEditedSession();
-		}
-		goto('/');
+		goto(wasEditing ? '/history' : '/');
 	}
 
 	async function handleLogExercise(
@@ -98,7 +92,7 @@
 	<Header
 		title={isEditingSession ? 'Edit Workout' : 'Workout'}
 		showBack
-		backHref="/"
+		backHref={isEditingSession ? '/history' : '/'}
 	/>
 
 	<!-- Date -->
