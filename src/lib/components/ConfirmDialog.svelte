@@ -58,10 +58,10 @@
 <Dialog.Root bind:open={dialogOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCancel(); }}>
 	<Dialog.Portal>
 		<Dialog.Overlay
-			class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+			class="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
 		/>
 		<Dialog.Content
-			class="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-bg-elevated bg-bg-secondary p-6 shadow-2xl focus:outline-none"
+			class="fixed left-1/2 top-1/2 z-[60] w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-bg-elevated bg-bg-secondary p-6 shadow-2xl focus:outline-none"
 		>
 			<!-- Icon -->
 			{#if dialogIconClass}

@@ -5,6 +5,7 @@
 	import { fade } from 'svelte/transition';
 	import * as workout from '$lib/stores/workout.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+	import EditBandDialog from '$lib/components/EditBandDialog.svelte';
 
 	let { children } = $props();
 
@@ -59,3 +60,4 @@
 </div>
 
 <ConfirmDialog />
+<EditBandDialog />

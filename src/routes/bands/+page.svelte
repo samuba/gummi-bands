@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
 	import Header from '$lib/components/Header.svelte';
-	import { confirmDialog } from '$lib/components/ConfirmDialog.svelte';
+	import { editBandDialog } from '$lib/components/EditBandDialog.svelte';
 	import * as workout from '$lib/stores/workout.svelte';
 	import type { Band } from '$lib/db/schema';
 
@@ -19,17 +19,20 @@
 		newBandResistance = 10;
 	}
 
-	async function handleDeleteBand(band: Band) {
-		const confirmed = await confirmDialog.confirm({
-			title: 'Delete Bands?',
-			html: `Are you sure you want to delete "<strong>${band.name}</strong>"?`,
-			iconClass: 'icon-[ph--trash]',
-			confirmText: 'Delete',
-			cancelText: 'Cancel'
+	async function handleEditBand(band: Band) {
+		const result = await editBandDialog.open({
+			id: band.id,
+			name: band.name,
+			resistance: band.resistance,
+			color: band.color || '#666666'
 		});
 
-		if (confirmed) {
-			await workout.deleteBand(band.id);
+		if (result) {
+			if (result.action === 'delete') {
+				await workout.deleteBand(band.id);
+			} else {
+				await workout.updateBand(band.id, result.name, result.resistance, result.color);
+			}
 		}
 	}
 </script>
@@ -66,23 +69,18 @@
 
 	<div class="flex flex-col gap-2">
 		{#each workoutState.bands as band (band.id)}
-			<div
-				class="flex items-center gap-4 rounded-md border border-bg-tertiary bg-bg-secondary p-4"
+			<button
+				class="flex items-center gap-4 rounded-md border border-bg-tertiary bg-bg-secondary p-4 text-left transition-colors hover:bg-bg-tertiary active:bg-bg-elevated cursor-pointer w-full"
 				transition:slide={{ duration: 150 }}
+				onclick={() => handleEditBand(band)}
 			>
 				<div class="h-6 w-6 shrink-0 rounded-sm" style:background={band.color || '#666'}></div>
 				<div class="flex flex-1 flex-col gap-0.5">
 					<span class="text-sm text-text-primary">{band.name}</span>
 					<span class="text-xs text-text-muted">{band.resistance} lbs</span>
 				</div>
-				<button
-					class="btn-ghost"
-					onclick={() => handleDeleteBand(band)}
-					aria-label="Delete {band.name}"
-				>
-					<i class="icon-[ph--trash] size-5"></i>
-				</button>
-			</div>
+				<i class="icon-[ph--caret-right] size-5 text-text-muted"></i>
+			</button>
 		{/each}
 	</div>
 </div>

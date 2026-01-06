@@ -121,6 +121,10 @@ export async function deleteBand(id: string) {
 	}
 }
 
+export async function updateBand(id: string, name: string, resistance: number, color?: string) {
+	await db.update(s.bands).set({ name, resistance, color }).where(eq(s.bands.id, id));
+}
+
 export async function addExercise(name: string) {
 	await db.insert(s.exercises).values({ name });
 }
