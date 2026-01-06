@@ -104,8 +104,8 @@ async function refreshTemplates() {
 }
 
 export async function addBand(name: string, resistance: number, color?: string) {
-	await db.insert(s.bands).values({ name, resistance, color });
 	await db.insert(s.bands).values({ name: `${name} doubled`, resistance: resistance * 2, color });
+	await db.insert(s.bands).values({ name, resistance, color });
 }
 
 export async function deleteBand(id: string) {
