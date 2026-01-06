@@ -209,11 +209,14 @@ export async function logExercise(
 			}))
 		);
 	}
+
+	await refreshSessionLogs();
 }
 
 // Remove a logged exercise
 export async function removeLoggedExercise(logId: string) {
 	await db.delete(s.loggedExercises).where(eq(s.loggedExercises.id, logId));
+	await refreshSessionLogs();
 }
 
 // Refresh the current session's logs
@@ -258,6 +261,7 @@ export async function resumeSession(sessionId: string) {
 	});
 	if (session) {
 		currentSession = session;
+		await refreshSessionLogs();
 	}
 }
 
@@ -386,6 +390,7 @@ export async function editSession(sessionId: string) {
 		.where(eq(s.workoutSessions.id, sessionId));
 	if (session) {
 		currentSession = session;
+		await refreshSessionLogs();
 
 		// Build suggested exercises from the session's logged exercises
 		const exerciseIds = sessionLogs.map((log) => log.exerciseId);
