@@ -132,14 +132,14 @@
 												<span class="font-display text-sm text-text-muted">+</span>
 												<span class="font-display text-lg text-secondary">{log.partialReps}</span>
 											{/if}
-											<span class="text-[0.65rem] tracking-wider text-text-muted uppercase"
-												>reps</span
-											>
+											<span class="text-[0.65rem] tracking-wider text-text-muted uppercase">
+												reps
+											</span>
 										</div>
 									</div>
 									{#if log.bands.length > 0}
 										<div class="flex flex-wrap items-center gap-1">
-											{#each log.bands as band (band.id)}
+											{#each log.bands as band}
 												<span
 													class="inline-flex items-center gap-1 rounded-full bg-bg-tertiary px-2 py-0.5 text-[0.65rem] text-text-secondary"
 												>

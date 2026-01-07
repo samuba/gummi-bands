@@ -2,6 +2,8 @@
 	import { Dialog, Select } from 'bits-ui';
 	import { fade, scale } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
+	import { pushState } from '$app/navigation';
+	import { page } from '$app/state';
 	import type { Band, Exercise } from '$lib/db/schema';
 	import * as workout from '$lib/stores/workout.svelte';
 
@@ -19,7 +21,8 @@
 
 	let { exercise, bands, currentLog, onlog }: Props = $props();
 
-	let open = $state(false);
+	const open = $derived(page.state.logExerciseId === exercise.id);
+
 	let selectedBandIds = $state<string[]>([]);
 	let fullReps = $state(0);
 	let partialReps = $state(0);
@@ -35,30 +38,43 @@
 	);
 
 	// Load previous data when dialog opens
-	async function handleOpenChange(isOpen: boolean) {
-		open = isOpen;
-		if (isOpen) {
-			// If we have current log data, use that
-			if (currentLog) {
-				selectedBandIds = currentLog.bands.map((b) => b.id);
-				fullReps = currentLog.fullReps;
-				partialReps = currentLog.partialReps;
-				notes = currentLog.notes || '';
-			} else {
-				// Otherwise load previous exercise data
-				isLoadingPrevious = true;
-				previousData = await workout.getPreviousExerciseData(exercise.id);
-				isLoadingPrevious = false;
+	$effect(() => {
+		if (open) {
+			loadData();
+		}
+	});
 
-				// Auto-fill with previous bands
-				if (previousData) {
-					selectedBandIds = previousData.bandIds.filter((id) => bands.some((b) => b.id === id));
-				} else {
-					selectedBandIds = [];
-				}
-				fullReps = 0;
-				partialReps = 0;
-				notes = '';
+	async function loadData() {
+		// If we have current log data, use that
+		if (currentLog) {
+			selectedBandIds = currentLog.bands.map((b) => b.id);
+			fullReps = currentLog.fullReps;
+			partialReps = currentLog.partialReps;
+			notes = currentLog.notes || '';
+		} else {
+			// Otherwise load previous exercise data
+			isLoadingPrevious = true;
+			previousData = await workout.getPreviousExerciseData(exercise.id);
+			isLoadingPrevious = false;
+
+			// Auto-fill with previous bands
+			if (previousData) {
+				selectedBandIds = previousData.bandIds.filter((id) => bands.some((b) => b.id === id));
+			} else {
+				selectedBandIds = [];
+			}
+			fullReps = 0;
+			partialReps = 0;
+			notes = '';
+		}
+	}
+
+	function handleOpenChange(isOpen: boolean) {
+		if (isOpen) {
+			pushState('', { ...page.state, logExerciseId: exercise.id });
+		} else {
+			if (page.state.logExerciseId === exercise.id) {
+				history.back();
 			}
 		}
 	}
@@ -75,7 +91,7 @@
 
 	function handleSave() {
 		onlog(selectedBandIds, fullReps, partialReps, notes.trim() || undefined);
-		open = false;
+		handleOpenChange(false);
 	}
 
 	function getTotalResistance(): number {

@@ -5,7 +5,12 @@ declare global {
 		// interface Error {}
 		// interface Locals {}
 		// interface PageData {}
-		// interface PageState {}
+		interface PageState {
+			logExerciseId?: string;
+			addExerciseOpen?: boolean;
+			confirmOpen?: boolean;
+			editBandOpen?: boolean;
+		}
 		// interface Platform {}
 	}
 }

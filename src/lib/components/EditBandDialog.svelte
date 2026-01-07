@@ -25,9 +25,11 @@
 <script lang="ts">
 	import { Dialog } from 'bits-ui';
 	import { fade, scale } from 'svelte/transition';
+	import { pushState } from '$app/navigation';
+	import { page } from '$app/state';
 	import { confirmDialog } from './ConfirmDialog.svelte';
 
-	let dialogOpen = $state(false);
+	const open = $derived(page.state.editBandOpen === true);
 	let bandId = $state('');
 	let bandName = $state('');
 	let originalName = $state('');
@@ -42,7 +44,8 @@
 		originalName = options.name;
 		bandResistance = options.resistance;
 		bandColor = options.color;
-		dialogOpen = true;
+		
+		pushState('', { ...page.state, editBandOpen: true });
 
 		return new Promise<EditBandResult>((resolve) => {
 			resolvePromise = resolve;
@@ -57,7 +60,7 @@
 			color: bandColor
 		});
 		resolvePromise = null;
-		dialogOpen = false;
+		handleOpenChange(false);
 	}
 
 	async function handleDelete() {
@@ -77,14 +80,24 @@
 				color: bandColor
 			});
 			resolvePromise = null;
-			dialogOpen = false;
+			handleOpenChange(false);
 		}
 	}
 
 	function handleCancel() {
 		resolvePromise?.(null);
 		resolvePromise = null;
-		dialogOpen = false;
+		handleOpenChange(false);
+	}
+
+	function handleOpenChange(isOpen: boolean) {
+		if (isOpen) {
+			pushState('', { ...page.state, editBandOpen: true });
+		} else {
+			if (page.state.editBandOpen) {
+				history.back();
+			}
+		}
 	}
 
 	editBandDialog.open = openDialog;
@@ -92,7 +105,7 @@
 	const isValid = $derived(bandName.trim().length > 0 && bandResistance > 0);
 </script>
 
-<Dialog.Root bind:open={dialogOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCancel(); }}>
+<Dialog.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) handleCancel(); }}>
 	<Dialog.Portal>
 		<Dialog.Overlay
 			class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"

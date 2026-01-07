@@ -17,8 +17,10 @@
 </script>
 <script lang="ts">
 	import { Dialog } from 'bits-ui';
+	import { pushState } from '$app/navigation';
+	import { page } from '$app/state';
 
-	let dialogOpen = $state(false);
+	const open = $derived(page.state.confirmOpen === true);
 	let dialogTitle = $state('Are you sure?');
 	let dialogHtml = $state('This action cannot be undone.');
 	let dialogIconClass = $state<string | undefined>(undefined);
@@ -33,7 +35,8 @@
 		dialogIconClass = options.iconClass;
 		dialogConfirmText = options.confirmText ?? 'Confirm';
 		dialogCancelText = options.cancelText ?? 'Cancel';
-		dialogOpen = true;
+		
+		pushState('', { ...page.state, confirmOpen: true });
 
 		return new Promise<boolean>((resolve) => {
 			resolvePromise = resolve;
@@ -43,19 +46,29 @@
 	function handleConfirm() {
 		resolvePromise?.(true);
 		resolvePromise = null;
-		dialogOpen = false;
+		handleOpenChange(false);
 	}
 
 	function handleCancel() {
 		resolvePromise?.(false);
 		resolvePromise = null;
-		dialogOpen = false;
+		handleOpenChange(false);
+	}
+
+	function handleOpenChange(isOpen: boolean) {
+		if (isOpen) {
+			pushState('', { ...page.state, confirmOpen: true });
+		} else {
+			if (page.state.confirmOpen) {
+				history.back();
+			}
+		}
 	}
 
 	confirmDialog.confirm = openConfirmDialog;
 </script>
 
-<Dialog.Root bind:open={dialogOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCancel(); }}>
+<Dialog.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) handleCancel(); }}>
 	<Dialog.Portal>
 		<Dialog.Overlay
 			class="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"

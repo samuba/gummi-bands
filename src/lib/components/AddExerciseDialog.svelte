@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { Dialog } from 'bits-ui';
 	import { fade, scale } from 'svelte/transition';
+	import { pushState } from '$app/navigation';
+	import { page } from '$app/state';
 	import type { Exercise } from '$lib/db/schema';
 
 	interface Props {
@@ -11,7 +13,7 @@
 
 	let { exercises, excludeIds = [], onselect }: Props = $props();
 
-	let open = $state(false);
+	const open = $derived(page.state.addExerciseOpen === true);
 	let searchQuery = $state('');
 
 	const filteredExercises = $derived(
@@ -20,14 +22,24 @@
 			.filter((e) => e.name.toLowerCase().includes(searchQuery.toLowerCase()))
 	);
 
+	function handleOpenChange(isOpen: boolean) {
+		if (isOpen) {
+			pushState('', { ...page.state, addExerciseOpen: true });
+		} else {
+			if (page.state.addExerciseOpen) {
+				history.back();
+			}
+		}
+	}
+
 	function handleSelect(exercise: Exercise) {
 		onselect(exercise);
-		open = false;
+		handleOpenChange(false);
 		searchQuery = '';
 	}
 </script>
 
-<Dialog.Root bind:open>
+<Dialog.Root open={open} onOpenChange={handleOpenChange}>
 	<Dialog.Trigger
 		class="flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-200 border-2 border-dashed rounded-lg cursor-pointer text-text-secondary border-bg-elevated hover:border-primary hover:text-primary hover:bg-bg-tertiary"
 	>
