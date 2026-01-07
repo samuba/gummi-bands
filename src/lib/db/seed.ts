@@ -9,12 +9,16 @@ export async function seedData(db: Db) {
 	const [bandCount] = await db.select({ count: count() }).from(s.bands);
 	if (bandCount.count === 0) {
 		await db.insert(s.bands).values([
-			{ name: 'Yellow - X-Light', resistance: 5, color: '#FFD700' },
-			{ name: 'Red - Light', resistance: 10, color: '#FF4444' },
-			{ name: 'Green - Medium', resistance: 15, color: '#44BB44' },
-			{ name: 'Blue - Heavy', resistance: 20, color: '#4488FF' },
-			{ name: 'Black - X-Heavy', resistance: 25, color: '#333333' },
-			{ name: 'Purple - XX-Heavy', resistance: 30, color: '#8844AA' }
+			{ name: 'White', resistance: 50, color: '#FFFFFF' },
+			{ name: 'White doubled', resistance: 100, color: '#FFFFFF' },
+			{ name: 'Light Grey', resistance: 80, color: '#D3D3D3' },
+			{ name: 'Light Grey doubled', resistance: 160, color: '#D3D3D3' },
+			{ name: 'Dark Grey', resistance: 120, color: '#808080' },
+			{ name: 'Dark Grey doubled', resistance: 240, color: '#808080' },
+			{ name: 'Black', resistance: 150, color: '#000000' },
+			{ name: 'Black doubled', resistance: 300, color: '#000000' },
+			{ name: 'Elite', resistance: 300, color: '#FF8C00' },
+			{ name: 'Elite doubled', resistance: 600, color: '#FF8C00' }
 		]);
 	}
 
