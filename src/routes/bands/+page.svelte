@@ -9,21 +9,23 @@
 
 	// Form state for adding bands
 	let newBandName = $state('');
-	let newBandResistance = $state(10);
+	let newBandResistance = $state(workoutState.weightUnit === 'lbs' ? 10 : 5);
 	let newBandColor = $state('#FF4444');
 
 	async function handleAddBand() {
 		if (!newBandName.trim()) return;
-		await workout.addBand(newBandName.trim(), newBandResistance, newBandColor);
+		// Convert resistance to lbs if currently in kg
+		const resistanceInLbs = workout.fromUserWeight(newBandResistance);
+		await workout.addBand(newBandName.trim(), resistanceInLbs, newBandColor);
 		newBandName = '';
-		newBandResistance = 10;
+		newBandResistance = workout.getState().weightUnit === 'lbs' ? 10 : 5;
 	}
 
 	async function handleEditBand(band: Band) {
 		const result = await editBandDialog.open({
 			id: band.id,
 			name: band.name,
-			resistance: band.resistance,
+			resistance: workout.toUserWeight(band.resistance),
 			color: band.color || '#666666'
 		});
 
@@ -31,7 +33,9 @@
 			if (result.action === 'delete') {
 				await workout.deleteBand(band.id);
 			} else {
-				await workout.updateBand(band.id, result.name, result.resistance, result.color);
+				// Convert result back to lbs before updating
+				const resistanceInLbs = workout.fromUserWeight(result.resistance);
+				await workout.updateBand(band.id, result.name, resistanceInLbs, result.color);
 			}
 		}
 	}

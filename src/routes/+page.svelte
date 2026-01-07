@@ -94,7 +94,7 @@
 			href="/history"
 			class="flex cursor-pointer items-center gap-4 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
 		>
-			<i class="icon-[ph--chart-line] text-3xl text-primary"></i>
+			<i class="icon-[ph--clipboard-text] text-3xl text-primary"></i>
 			<div>
 				<span class="block font-display text-lg tracking-wide text-text-primary"
 					>Workout History</span
@@ -109,7 +109,7 @@
 			<i class="icon-[ph--infinity] text-3xl text-primary"></i>
 			<div>
 				<span class="block font-display text-lg tracking-wide text-text-primary"
-					>Manage Bands</span
+					>Bands</span
 				>
 				<span class="block text-xs text-text-muted">Add or remove resistance bands</span>
 			</div>
@@ -121,7 +121,7 @@
 			<i class="icon-[ph--barbell] text-3xl text-primary"></i>
 			<div>
 				<span class="block font-display text-lg tracking-wide text-text-primary"
-					>Manage Exercises</span
+					>Exercises</span
 				>
 				<span class="block text-xs text-text-muted">Customize your exercise list</span>
 			</div>

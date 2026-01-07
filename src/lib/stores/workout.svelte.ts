@@ -37,7 +37,7 @@ export async function initialize() {
 		await db.insert(s.settings).values({ id: 'global', weightUnit: 'lbs' });
 		weightUnit = 'lbs';
 	} else {
-		weightUnit = existingSettings.weightUnit as 'lbs' | 'kg';
+		weightUnit = existingSettings.weightUnit;
 	}
 
 	// set allBands
@@ -434,6 +434,16 @@ export function formatWeight(lbs: number): string {
 		const kg = lbs * 0.45359237;
 		return `${Math.round(kg * 10) / 10} kg`;
 	}
+}
+
+export function toUserWeight(lbs: number): number {
+	if (weightUnit === 'lbs') return lbs;
+	return Math.round((lbs * 0.45359237) * 10) / 10;
+}
+
+export function fromUserWeight(weight: number): number {
+	if (weightUnit === 'lbs') return weight;
+	return weight / 0.45359237;
 }
 
 // Save and close editing session (without setting endedAt if already set)
