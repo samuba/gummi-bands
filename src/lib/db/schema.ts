@@ -13,6 +13,12 @@ export const bands = pgTable('bands', {
 	deletedAt: timestamp({ withTimezone: true })
 });
 
+export const settings = pgTable('settings', {
+	id: text().primaryKey(), // We'll use a fixed ID like 'global'
+	weightUnit: text({ enum: ['lbs', 'kg'] }).notNull().default('lbs'),
+	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`)
+});
+
 export const exercises = pgTable('exercises', {
 	id: uuid().primaryKey().defaultRandom(),
 	name: text().notNull(),
@@ -120,7 +126,6 @@ export const loggedExerciseBandsRelations = relations(loggedExerciseBands, ({ on
 		references: [bands.id]
 	})
 }));
-
 
 export type Band = typeof bands.$inferSelect;
 export type NewBand = typeof bands.$inferInsert;

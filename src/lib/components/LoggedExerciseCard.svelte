@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Band, Exercise, LoggedExercise } from '$lib/db/schema';
 	import { fly } from 'svelte/transition';
+	import * as workout from '$lib/stores/workout.svelte';
 
 	interface Props {
 		log: LoggedExercise & { exercise: Exercise; bands: Band[] };
@@ -57,10 +58,10 @@
 				{#each log.bands as band}
 					<span class="inline-flex items-center gap-1 px-2 py-0.5 text-[0.7rem] transition-all duration-200 border rounded-full bg-bg-tertiary text-text-secondary border-transparent">
 						<span class="w-1.5 h-1.5 rounded-full" style:background-color={band.color || '#666'}></span>
-						{band.resistance} lbs
+						{workout.formatWeight(band.resistance)}
 					</span>
 				{/each}
-				<span class="ml-auto text-[0.7rem] text-text-muted">{getTotalResistance()} lbs total</span>
+				<span class="ml-auto text-[0.7rem] text-text-muted">{workout.formatWeight(getTotalResistance())} total</span>
 			</div>
 		{/if}
 	</div>

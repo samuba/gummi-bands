@@ -150,7 +150,7 @@
 					<div class="flex items-center justify-between">
 						<span class="text-sm font-medium text-text-secondary">Bands</span>
 						{#if selectedBandIds.length > 0}
-							<span class="text-sm text-primary">{getTotalResistance()} lbs</span>
+							<span class="text-sm text-primary">{workout.formatWeight(getTotalResistance())}</span>
 						{/if}
 					</div>
 
@@ -172,7 +172,7 @@
 										style:box-shadow={`0 0 8px ${band.color || '#666'}, 0 0 12px ${band.color || '#666'}50`}
 									></span>
 									<span class="flex-1 text-sm font-medium text-text-primary">{band.name}</span>
-									<span class="text-xs text-text-muted">{band.resistance} lbs</span>
+									<span class="text-xs text-text-muted">{workout.formatWeight(band.resistance)}</span>
 									<svg
 										class="w-4 h-4 transition-colors text-text-muted group-hover:text-red-400"
 										viewBox="0 0 24 24"
@@ -221,13 +221,13 @@
 							</Select.Trigger>
 							<Select.Portal>
 								<Select.Content
-									class="z-[100] max-h-60 overflow-y-auto rounded-lg border border-bg-elevated bg-bg-secondary p-1 shadow-xl"
+									class="z-100 max-h-60 overflow-y-auto rounded-lg border border-bg-elevated bg-bg-secondary p-1 shadow-xl"
 									sideOffset={4}
 								>
 									<Select.Viewport>
 										{#each bands as band}
 											<Select.Item
-												class="flex items-center gap-2 px-3 py-2 text-sm rounded-md cursor-pointer text-text-primary data-[highlighted]:bg-bg-tertiary outline-none"
+												class="flex items-center gap-2 px-3 py-2 text-sm rounded-md cursor-pointer text-text-primary data-highlighted:bg-bg-tertiary outline-none"
 												value={band.id}
 												label={band.name}
 											>
@@ -236,7 +236,7 @@
 													style:background-color={band.color || '#666'}
 												></span>
 												<span class="flex-1">{band.name}</span>
-												<span class="text-xs text-text-muted">{band.resistance} lbs</span>
+												<span class="text-xs text-text-muted">{workout.formatWeight(band.resistance)}</span>
 											</Select.Item>
 										{/each}
 									</Select.Viewport>

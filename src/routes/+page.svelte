@@ -126,5 +126,17 @@
 				<span class="block text-xs text-text-muted">Customize your exercise list</span>
 			</div>
 		</a>
+		<a
+			href="/settings"
+			class="flex cursor-pointer items-center gap-4 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
+		>
+			<i class="icon-[ph--gear-six] text-3xl text-primary"></i>
+			<div>
+				<span class="block font-display text-lg tracking-wide text-text-primary"
+					>Settings</span
+				>
+				<span class="block text-xs text-text-muted">Units, app preferences and more</span>
+			</div>
+		</a>
 	</div>
 </div>

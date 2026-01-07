@@ -27,8 +27,10 @@
 	import { pushState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { confirmDialog } from './ConfirmDialog.svelte';
+	import * as workout from '$lib/stores/workout.svelte';
 
 	const open = $derived(page.state.editBandOpen === true);
+	let workoutState = workout.getState();
 	let bandId = $state('');
 	let bandName = $state('');
 	let originalName = $state('');
@@ -132,7 +134,7 @@
 				<div class="grid grid-cols-[1fr_auto] gap-4">
 					<div class="flex flex-col gap-1">
 						<label class="text-xs tracking-wide text-text-muted uppercase" for="edit-band-resistance">
-							Resistance (lbs)
+							Resistance ({workoutState.weightUnit})
 						</label>
 						<input
 							id="edit-band-resistance"

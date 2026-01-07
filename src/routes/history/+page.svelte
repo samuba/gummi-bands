@@ -151,7 +151,7 @@
 												</span>
 											{/each}
 											<span class="ml-auto text-[0.65rem] text-text-muted">
-												{log.bands.reduce((sum, b) => sum + b.resistance, 0)} lbs
+												{workout.formatWeight(log.bands.reduce((sum, b) => sum + b.resistance, 0))}
 											</span>
 										</div>
 									{/if}

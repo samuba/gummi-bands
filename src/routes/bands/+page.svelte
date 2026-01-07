@@ -48,7 +48,7 @@
 		<div class="grid grid-cols-[1fr_auto] gap-4">
 			<div class="flex flex-col gap-1">
 				<label class="text-xs tracking-wide text-text-muted uppercase" for="resistance"
-					>Resistance (lbs)</label
+					>Resistance ({workoutState.weightUnit})</label
 				>
 				<input id="resistance" type="number" min="1" max="200" bind:value={newBandResistance} />
 			</div>
@@ -76,8 +76,8 @@
 			>
 				<div class="h-6 w-6 shrink-0 rounded-sm" style:background={band.color || '#666'}></div>
 				<div class="flex flex-1 flex-col gap-0.5">
-				<span class="text-sm text-text-primary">{band.name} {band.createdAt}</span>
-					<span class="text-xs text-text-muted">{band.resistance} lbs</span>
+					<span class="text-sm text-text-primary">{band.name}</span>
+					<span class="text-xs text-text-muted">{workout.formatWeight(band.resistance)}</span>
 				</div>
 				<i class="icon-[ph--caret-right] size-5 text-text-muted"></i>
 			</button>

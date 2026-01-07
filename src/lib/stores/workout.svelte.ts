@@ -19,6 +19,7 @@ let currentSession = $state<WorkoutSession | null>(null);
 let sessionLogs = $state<(LoggedExercise & { exercise: Exercise; bands: Band[] })[]>([]);
 let recentSessions = $state<WorkoutSession[]>([]);
 let suggestedExercises = $state<Exercise[]>([]);
+let weightUnit = $state<'lbs' | 'kg'>('lbs');
 
 // Initialize the database and load initial data
 export async function initialize() {
@@ -26,6 +27,18 @@ export async function initialize() {
 	if (isInitialized) return;
 
 	await initDatabase();
+
+	// Initialize settings
+	const existingSettings = await db.query.settings.findFirst({
+		where: eq(s.settings.id, 'global')
+	});
+
+	if (!existingSettings) {
+		await db.insert(s.settings).values({ id: 'global', weightUnit: 'lbs' });
+		weightUnit = 'lbs';
+	} else {
+		weightUnit = existingSettings.weightUnit as 'lbs' | 'kg';
+	}
 
 	// set allBands
 	await liveQuery(
@@ -63,6 +76,7 @@ export async function initialize() {
 				id: template.id,
 				name: template.name,
 				createdAt: template.createdAt,
+				updatedAt: template.updatedAt,
 				icon: template.icon,
 				exercises: template.workoutTemplateExercises
 					.sort((a, b) => a.sortOrder - b.sortOrder)
@@ -95,6 +109,7 @@ async function refreshTemplates() {
 		id: template.id,
 		name: template.name,
 		createdAt: template.createdAt,
+		updatedAt: template.updatedAt,
 		icon: template.icon,
 		exercises: template.workoutTemplateExercises
 			.sort((a, b) => a.sortOrder - b.sortOrder)
@@ -405,6 +420,22 @@ export async function updateSessionNotes(sessionId: string, notes: string | null
 	await db.update(s.workoutSessions).set({ notes }).where(eq(s.workoutSessions.id, sessionId));
 }
 
+// Update weight unit setting
+export async function updateWeightUnit(unit: 'lbs' | 'kg') {
+	await db.update(s.settings).set({ weightUnit: unit }).where(eq(s.settings.id, 'global'));
+	weightUnit = unit;
+}
+
+// Weight conversion helpers
+export function formatWeight(lbs: number): string {
+	if (weightUnit === 'lbs') {
+		return `${Math.round(lbs * 10) / 10} lbs`;
+	} else {
+		const kg = lbs * 0.45359237;
+		return `${Math.round(kg * 10) / 10} kg`;
+	}
+}
+
 // Save and close editing session (without setting endedAt if already set)
 export async function saveEditedSession(notes?: string) {
 	if (!browser || !db || !currentSession) return;
@@ -448,6 +479,9 @@ export function getState() {
 		},
 		get suggestedExercises() {
 			return suggestedExercises;
+		},
+		get weightUnit() {
+			return weightUnit;
 		}
 	};
 }

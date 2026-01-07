@@ -43,6 +43,13 @@
       "when": 1767772565740,
       "tag": "0005_faithful_landau",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1767773102903,
+      "tag": "0006_dusty_jackpot",
+      "breakpoints": true
     }
   ]
 }
