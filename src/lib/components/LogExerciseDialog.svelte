@@ -225,7 +225,7 @@
 									sideOffset={4}
 								>
 									<Select.Viewport>
-										{#each bands as band (band.id)}
+										{#each bands as band}
 											<Select.Item
 												class="flex items-center gap-2 px-3 py-2 text-sm rounded-md cursor-pointer text-text-primary data-[highlighted]:bg-bg-tertiary outline-none"
 												value={band.id}

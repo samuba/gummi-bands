@@ -36,7 +36,7 @@
 	</div>
 	
 	<div class="flex flex-wrap gap-2">
-		{#each bands as band (band.id)}
+		{#each bands as band}
 			<button
 				class="flex items-center gap-2 px-4 py-2 transition-all duration-200 border-2 rounded-full cursor-pointer bg-bg-tertiary"
 				class:selected={selectedIds.includes(band.id)}

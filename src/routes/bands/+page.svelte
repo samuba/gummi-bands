@@ -68,7 +68,7 @@
 	</div>
 
 	<div class="flex flex-col gap-2">
-		{#each workoutState.bands as band (band.id)}
+		{#each workoutState.bands as band}
 			<button
 				class="flex items-center gap-4 rounded-md border border-bg-tertiary bg-bg-secondary p-4 text-left transition-colors hover:bg-bg-tertiary active:bg-bg-elevated cursor-pointer w-full"
 				transition:slide={{ duration: 150 }}
@@ -76,7 +76,7 @@
 			>
 				<div class="h-6 w-6 shrink-0 rounded-sm" style:background={band.color || '#666'}></div>
 				<div class="flex flex-1 flex-col gap-0.5">
-					<span class="text-sm text-text-primary">{band.name}</span>
+				<span class="text-sm text-text-primary">{band.name} {band.createdAt}</span>
 					<span class="text-xs text-text-muted">{band.resistance} lbs</span>
 				</div>
 				<i class="icon-[ph--caret-right] size-5 text-text-muted"></i>

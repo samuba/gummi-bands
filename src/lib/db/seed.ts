@@ -2,13 +2,17 @@ import { and, count, eq } from "drizzle-orm";
 import * as s from './schema';
 import type { Db } from "./client";
 
+/** IMPORTANT
+ * Always use single inserts instead of bulk inserts to avoid having them all have same createdAt timestamp
+ */
+
 export async function seedData(db: Db) {
 	if (!db) return;
 
 	// Seed default bands if none exist
 	const [bandCount] = await db.select({ count: count() }).from(s.bands);
 	if (bandCount.count === 0) {
-		await db.insert(s.bands).values([
+		const bandsToInsert = [
 			{ name: 'White', resistance: 50, color: '#FFFFFF' },
 			{ name: 'White doubled', resistance: 100, color: '#FFFFFF' },
 			{ name: 'Light Grey', resistance: 80, color: '#D3D3D3' },
@@ -19,7 +23,11 @@ export async function seedData(db: Db) {
 			{ name: 'Black doubled', resistance: 300, color: '#000000' },
 			{ name: 'Elite', resistance: 300, color: '#FF8C00' },
 			{ name: 'Elite doubled', resistance: 600, color: '#FF8C00' }
-		]);
+		];
+		
+		for (const band of bandsToInsert) {
+			await db.insert(s.bands).values(band);
+		}
 	}
 
 	const templateDefinitions = [
@@ -36,9 +44,10 @@ export async function seedData(db: Db) {
 	// Seed default exercises if none exist
 	const [exerciseCount] = await db.select({ count: count() }).from(s.exercises);
 	if (exerciseCount.count === 0) {
-		await db.insert(s.exercises).values([
-			...templateDefinitions.flatMap(template => template.exercises.map(exercise => ({ name: exercise }))),
-		]);
+		const exercisesToInsert = templateDefinitions.flatMap(template => template.exercises.map(exercise => ({ name: exercise })));
+		for (const exercise of exercisesToInsert) {
+			await db.insert(s.exercises).values(exercise);
+		}
 	} else {
 		// Ensure required exercises for templates exist
 		const requiredExercises = templateDefinitions.flatMap(template => template.exercises);

@@ -1,5 +1,5 @@
 import { pgTable, text, integer, uuid, timestamp, real } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations,sql } from 'drizzle-orm';
 
 // uses drizzle auto snake_case conversion for column names 
 
@@ -8,21 +8,24 @@ export const bands = pgTable('bands', {
 	name: text().notNull(),
 	resistance: real().notNull(), // in lbs
 	color: text(), // optional color for visual identification
-	createdAt: timestamp().defaultNow().notNull(),
-	deletedAt: timestamp()
+	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
+	deletedAt: timestamp({ withTimezone: true })
 });
 
 export const exercises = pgTable('exercises', {
 	id: uuid().primaryKey().defaultRandom(),
 	name: text().notNull(),
-	createdAt: timestamp().defaultNow().notNull(),
-	deletedAt: timestamp()
+	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
+	deletedAt: timestamp({ withTimezone: true })
 });
 
 export const workoutTemplates = pgTable('workout_templates', {
 	id: uuid().primaryKey().defaultRandom(),
 	name: text().notNull(),
-	createdAt: timestamp().defaultNow().notNull(),
+	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
 	icon: text(),
 });
 
@@ -37,8 +40,9 @@ export const workoutTemplateExercises = pgTable('workout_template_exercises', {
 export const workoutSessions = pgTable('workout_sessions', {
 	id: uuid().primaryKey().defaultRandom(),
 	templateId: uuid().references(() => workoutTemplates.id),
-	startedAt: timestamp().defaultNow().notNull(),
-	endedAt: timestamp(),
+	startedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
+	endedAt: timestamp({ withTimezone: true }),
 	notes: text()
 });
 
@@ -50,7 +54,7 @@ export const loggedExercises = pgTable('logged_exercises', {
 	fullReps: integer().notNull().default(0),
 	partialReps: integer().notNull().default(0),
 	notes: text(),
-	loggedAt: timestamp().defaultNow().notNull()
+	loggedAt: timestamp({ withTimezone: true }).defaultNow().notNull()
 });
 
 // Junction table for bands used in logged exercises
