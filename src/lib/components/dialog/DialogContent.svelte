@@ -1,31 +1,17 @@
 <script lang="ts">
 	import { Dialog } from 'bits-ui';
-	import { scale } from 'svelte/transition';
-	import type { Snippet } from 'svelte';
-
-	interface Props {
-		class?: string;
-		children?: Snippet;
-	}
 
 	let {
-		class: className = '',
-		children
-	}: Props = $props();
-
-	const baseClass = 'fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-bg-elevated bg-bg-secondary p-6 shadow-2xl focus:outline-none';
-	const finalClass = $derived(className ? `${baseClass} ${className}` : baseClass);
-	
-	// @ts-ignore - bits-ui supports transition props but types are incomplete
-	const transitionProps = { transition: scale, transitionConfig: { duration: 150, start: 0.95 } };
+		ref = $bindable(null),
+		...restProps
+	}: Dialog.ContentProps = $props();
 </script>
 
-<Dialog.Content
-	class={finalClass}
-	{...transitionProps}
->
-	{#if children}
-		{@render children()}
-	{/if}
+<Dialog.Content bind:ref {...restProps} class={[
+	'fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-bg-elevated bg-bg-secondary p-6 shadow-2xl focus:outline-none',
+	'will-change-transform data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+	restProps.class
+]}>
+	{@render restProps.children?.()}
 </Dialog.Content>
 

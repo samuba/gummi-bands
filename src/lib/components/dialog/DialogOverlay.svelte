@@ -1,31 +1,27 @@
 <script lang="ts">
-	import { Dialog } from 'bits-ui';
-	import { fade } from 'svelte/transition';
+	import { Dialog, type WithoutChildrenOrChild } from 'bits-ui';
 	import type { Snippet } from 'svelte';
 
-	interface Props {
-		class?: string;
-		children?: Snippet;
-	}
-
 	let {
-		class: className = '',
-		children
-	}: Props = $props();
-
-	const baseClass = 'fixed inset-0 z-50 bg-black/60 backdrop-blur-sm';
-	const finalClass = $derived(className ? `${baseClass} ${className}` : baseClass);
-	
-	// @ts-ignore - bits-ui supports transition props but types are incomplete
-	const transitionProps = { transition: fade, transitionConfig: { duration: 150 } };
+		ref = $bindable(null),
+		inDuration = 200,
+		outDuration = 100,
+		children,
+		...restProps
+	}: WithoutChildrenOrChild<Dialog.OverlayProps> & {
+		inDuration?: number;
+		outDuration?: number;
+		children?: Snippet;
+	} = $props();
 </script>
 
 <Dialog.Overlay
-	class={finalClass}
-	{...transitionProps}
+	class={[
+		'fixed inset-0 z-50 bg-black/60 backdrop-blur-sm',
+		'will-change-[opacity] data-[state=open]:animate-in data-[state=open]:fade-in data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:duration-150 data-[state=closed]:ease-in data-[state=open]:duration-300 data-[state=open]:ease-out',
+		restProps.class
+	]}
 >
-	{#if children}
-		{@render children()}
-	{/if}
+	{@render children?.()}
 </Dialog.Overlay>
 
