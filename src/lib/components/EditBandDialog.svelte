@@ -23,8 +23,7 @@
 </script>
 
 <script lang="ts">
-	import { Dialog } from 'bits-ui';
-	import { fade, scale } from 'svelte/transition';
+	import { Dialog } from './dialog';
 	import { pushState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { confirmDialog } from './ConfirmDialog.svelte';
@@ -105,18 +104,10 @@
 	const isValid = $derived(bandName.trim().length > 0 && bandResistance > 0);
 </script>
 
-<Dialog.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) handleCancel(); }}>
+<Dialog.Root open={open} onOpenChange={(isOpen: boolean) => { if (!isOpen) handleCancel(); }}>
 	<Dialog.Portal>
-		<Dialog.Overlay
-			class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
-			transition={fade}
-			transitionConfig={{ duration: 150 }}
-		/>
-		<Dialog.Content
-			class="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-bg-elevated bg-bg-secondary p-6 shadow-2xl focus:outline-none"
-			transition={scale}
-			transitionConfig={{ duration: 150, start: 0.95 }}
-		>
+		<Dialog.Overlay />
+		<Dialog.Content class="max-w-sm">
 			<Dialog.Title class="text-lg font-semibold tracking-wide text-text-primary font-display">
 				Edit Band
 			</Dialog.Title>

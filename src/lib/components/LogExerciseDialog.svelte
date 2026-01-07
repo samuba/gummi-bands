@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { Dialog, Select } from 'bits-ui';
-	import { fade, scale } from 'svelte/transition';
+	import { Dialog } from './dialog';
+	import { Select } from 'bits-ui';
+	import { fade } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 	import { pushState } from '$app/navigation';
 	import { page } from '$app/state';
@@ -131,12 +132,8 @@
 	</Dialog.Trigger>
 
 	<Dialog.Portal>
-		<Dialog.Overlay
-			class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
-		/>
-		<Dialog.Content
-			class="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-bg-elevated bg-bg-secondary p-6 shadow-2xl focus:outline-none max-h-[90vh] overflow-y-auto"
-		>
+		<Dialog.Overlay />
+		<Dialog.Content class="max-h-[90vh] overflow-y-auto">
 			<Dialog.Title class="text-xl font-semibold tracking-wide text-text-primary font-display">
 				{exercise.name}
 			</Dialog.Title>

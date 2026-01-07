@@ -16,7 +16,7 @@
 	};
 </script>
 <script lang="ts">
-	import { Dialog } from 'bits-ui';
+	import { Dialog }from './dialog';
 	import { pushState } from '$app/navigation';
 	import { page } from '$app/state';
 
@@ -68,14 +68,10 @@
 	confirmDialog.confirm = openConfirmDialog;
 </script>
 
-<Dialog.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) handleCancel(); }}>
+<Dialog.Root open={open} onOpenChange={(isOpen: boolean) => { if (!isOpen) handleCancel(); }}>
 	<Dialog.Portal>
-		<Dialog.Overlay
-			class="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
-		/>
-		<Dialog.Content
-			class="fixed left-1/2 top-1/2 z-[60] w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-bg-elevated bg-bg-secondary p-6 shadow-2xl focus:outline-none"
-		>
+		<Dialog.Overlay class="z-[60]" />
+		<Dialog.Content class="z-[60] max-w-sm">
 			<!-- Icon -->
 			{#if dialogIconClass}
 				<div class="flex justify-center mb-4">
