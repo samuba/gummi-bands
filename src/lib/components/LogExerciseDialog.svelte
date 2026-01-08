@@ -254,6 +254,7 @@
 						<input
 							id="full-reps"
 							type="number"
+							enterkeyhint="done"
 							min="0"
 							max="999"
 							bind:value={fullReps}
@@ -297,6 +298,7 @@
 						<input
 							id="partial-reps"
 							type="number"
+							enterkeyhint="done"
 							min="0"
 							max="999"
 							bind:value={partialReps}
