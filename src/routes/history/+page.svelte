@@ -93,7 +93,7 @@
 				<div
 					class="relative overflow-hidden rounded-lg border border-bg-tertiary bg-bg-secondary"
 					animate:flip={{ duration: 250 }}
-					out:fade={{ duration: 200 }}
+					transition:fade={{ duration: 200 }}
 				>
 					<!-- Session Header -->
 					<div class="flex items-center justify-between border-b border-bg-tertiary p-4">
