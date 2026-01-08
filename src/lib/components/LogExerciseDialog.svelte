@@ -341,6 +341,7 @@
 					placeholder="Optional notes about this set..."
 					bind:value={notes}
 					rows="2"
+					tabindex="-1"
 					class="w-full resize-none rounded-lg border-2 border-bg-elevated bg-bg-tertiary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none"
 				></textarea>
 			</div>
