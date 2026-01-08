@@ -113,7 +113,7 @@
 								{formatSessionDuration(session.startedAt, session.endedAt)}
 							</span>
 						</div>
-						<div class="flex items-center gap-2">
+						<div class="flex items-center gap-4">
 							<button
 								class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md border border-bg-elevated bg-bg-tertiary text-text-secondary transition-all duration-200 hover:border-error hover:text-error"
 								onclick={() => handleDeleteSession(session.id)}
