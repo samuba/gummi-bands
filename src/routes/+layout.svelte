@@ -83,7 +83,7 @@
 					</p>
 				</div>
 			{:else}
-				{#if !isUpdating}
+				{#if isUpdating}
 					<div
 						class="mb-4 flex items-center gap-3 rounded-xl bg-bg-tertiary p-4 text-text-secondary"
 						in:fade={{ duration: 200, delay: 200 }}
