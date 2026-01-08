@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import * as workout from '$lib/stores/workout.svelte';
+	import * as pwa from '$lib/stores/pwa.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import EditBandDialog from '$lib/components/EditBandDialog.svelte';
 
@@ -14,6 +15,7 @@
 
 	onMount(async () => {
 		try {
+			pwa.setupPwa();
 			await workout.initialize();
 		} catch (error) {
 			console.error(error);

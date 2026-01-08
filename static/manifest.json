@@ -1,0 +1,17 @@
+{
+  "name": "Gummi Bands",
+  "short_name": "Gummi Bands",
+  "description": "Track your resistance band workouts",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0D0D0D",
+  "theme_color": "#FF3D00",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

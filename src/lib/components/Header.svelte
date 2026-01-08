@@ -1,4 +1,6 @@
 <script lang="ts">
+	import * as pwa from '$lib/stores/pwa.svelte';
+
 	interface Props {
 		title?: string;
 		showBack?: boolean;
@@ -6,6 +8,8 @@
 	}
 
 	let { title = 'Gummi Bands', showBack = false, backHref = '/' }: Props = $props();
+
+	const pwaState = pwa.getPwaState();
 </script>
 
 <header class="mb-6">
@@ -24,5 +28,15 @@
 		<h1 class="text-3xl font-display tracking-wider uppercase bg-clip-text text-transparent" style="background-image: var(--gradient-fire)">
 			{title}
 		</h1>
+
+		{#if pwaState.deferredPrompt}
+			<button 
+				class="ml-auto flex items-center justify-center w-10 h-10 transition-all duration-200 border-none cursor-pointer bg-bg-tertiary rounded-md text-text-primary hover:bg-bg-elevated animate-fade-in"
+				aria-label="Install App"
+				onclick={pwa.installPwa}
+			>
+				<i class="icon-[ph--download-simple] size-6"></i>
+			</button>
+		{/if}
 	</div>
 </header>
