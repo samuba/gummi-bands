@@ -25,8 +25,8 @@
 	const open = $derived(page.state.logExerciseId === exercise.id);
 
 	let selectedBandIds = $state<string[]>([]);
-	let fullReps = $state(0);
-	let partialReps = $state(0);
+	let fullReps = $state<number | null>(0);
+	let partialReps = $state<number | null>(0);
 	let notes = $state('');
 	let previousData = $state<workout.PreviousExerciseData>(null);
 	let isLoadingPrevious = $state(false);
@@ -91,7 +91,7 @@
 	}
 
 	function handleSave() {
-		onlog(selectedBandIds, fullReps, partialReps, notes.trim() || undefined);
+		onlog(selectedBandIds, fullReps || 0, partialReps || 0, notes.trim() || undefined);
 		handleOpenChange(false);
 	}
 
@@ -102,7 +102,9 @@
 		}, 0);
 	}
 
-	const canSave = $derived(selectedBandIds.length > 0 && (fullReps > 0 || partialReps > 0));
+	const canSave = $derived(
+		selectedBandIds.length > 0 && ((fullReps || 0) > 0 || (partialReps || 0) > 0)
+	);
 </script>
 
 <Dialog.Root {open} onOpenChange={handleOpenChange}>
@@ -213,7 +215,7 @@
 										sideOffset={4}
 									>
 										<Select.Viewport>
-											{#each bands as band}
+											{#each bands as band (band.id)}
 												<Select.Item
 													class="flex items-center gap-2 px-3 py-2 text-sm rounded-md cursor-pointer text-text-primary data-highlighted:bg-bg-tertiary outline-none"
 													value={band.id}
@@ -251,7 +253,7 @@
 							<button
 								type="button"
 								class="flex items-center justify-center w-10 h-10 text-xl transition-colors rounded-lg cursor-pointer bg-bg-tertiary text-text-primary hover:bg-bg-elevated"
-								onclick={() => (fullReps = Math.max(0, fullReps - 1))}
+								onclick={() => (fullReps = Math.max(0, (fullReps ?? 0) - 1))}
 							>
 								−
 							</button>
@@ -261,12 +263,18 @@
 								min="0"
 								max="999"
 								bind:value={fullReps}
+								onfocus={() => {
+									if (fullReps === 0) fullReps = null;
+								}}
+								onblur={() => {
+									if (fullReps === null) fullReps = 0;
+								}}
 								class="max-w-16 h-10 text-lg font-semibold text-center border-2 rounded-lg bg-bg-tertiary border-bg-elevated text-text-primary focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
 							/>
 							<button
 								type="button"
 								class="flex items-center justify-center w-10 h-10 text-xl transition-colors rounded-lg cursor-pointer bg-bg-tertiary text-text-primary hover:bg-bg-elevated"
-								onclick={() => (fullReps = fullReps + 1)}
+								onclick={() => (fullReps = (fullReps ?? 0) + 1)}
 							>
 								+
 							</button>
@@ -285,7 +293,7 @@
 							<button
 								type="button"
 								class="flex items-center justify-center w-10 h-10 text-xl transition-colors rounded-lg cursor-pointer bg-bg-tertiary text-text-primary hover:bg-bg-elevated"
-								onclick={() => (partialReps = Math.max(0, partialReps - 1))}
+								onclick={() => (partialReps = Math.max(0, (partialReps ?? 0) - 1))}
 							>
 								−
 							</button>
@@ -295,12 +303,18 @@
 								min="0"
 								max="999"
 								bind:value={partialReps}
+								onfocus={() => {
+									if (partialReps === 0) partialReps = null;
+								}}
+								onblur={() => {
+									if (partialReps === null) partialReps = 0;
+								}}
 								class="max-w-16 h-10 text-lg font-semibold text-center border-2 rounded-lg bg-bg-tertiary border-bg-elevated text-text-primary focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
 							/>
 							<button
 								type="button"
 								class="flex items-center justify-center w-10 h-10 text-xl transition-colors rounded-lg cursor-pointer bg-bg-tertiary text-text-primary hover:bg-bg-elevated"
-								onclick={() => (partialReps = partialReps + 1)}
+								onclick={() => (partialReps = (partialReps ?? 0) + 1)}
 							>
 								+
 							</button>
