@@ -258,6 +258,12 @@
 							min="0"
 							max="999"
 							bind:value={fullReps}
+							onkeydown={(e) => {
+								if (e.key === 'Enter') {
+									e.preventDefault();
+									e.currentTarget.blur();
+								}
+							}}
 							onfocus={() => {
 								if (fullReps === 0) fullReps = null;
 							}}
@@ -302,6 +308,12 @@
 							min="0"
 							max="999"
 							bind:value={partialReps}
+							onkeydown={(e) => {
+								if (e.key === 'Enter') {
+									e.preventDefault();
+									e.currentTarget.blur();
+								}
+							}}
 							onfocus={() => {
 								if (partialReps === 0) partialReps = null;
 							}}
