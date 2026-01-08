@@ -94,20 +94,23 @@
 		backHref={isEditingSession ? '/history' : '/'}
 	/>
 
-	<!-- Date -->
-	{#if workoutState.currentSession}
-		<div class="flex items-baseline gap-3">
-			<span class="text-xs tracking-widest text-text-muted uppercase">Date</span>
-			<span class="font-display text-2xl text-text-primary"
-				>{formatDate(workoutState.currentSession.startedAt)}</span
-			>
+	<!-- Date & Timer -->
+	<div class="flex items-start justify-between">
+		<div class="flex gap-8">
+			{#if workoutState.currentSession}
+				<div class="flex flex-col gap-1">
+					<span class="text-xs tracking-widest text-text-muted uppercase">Date</span>
+					<span class="font-display text-2xl text-text-primary"
+						>{formatDate(workoutState.currentSession.startedAt)}</span
+					>
+				</div>
+			{/if}
 		</div>
-	{/if}
 
-	<!-- Timer -->
-	<div class="flex flex-col gap-2">
-		<span class="text-xs tracking-widest text-text-muted uppercase">Timer</span>
-		<WorkoutTimer />
+		<div class="flex flex-col items-end gap-1">
+			<span class="text-xs tracking-widest text-text-muted uppercase">Timer</span>
+			<WorkoutTimer />
+		</div>
 	</div>
 
 	<!-- Exercises List -->
