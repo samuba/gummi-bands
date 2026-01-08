@@ -10,7 +10,7 @@
 	import EditBandDialog from '$lib/components/EditBandDialog.svelte';
 	import { preloadCode } from '$app/navigation';
 	import DbRepl from '$lib/components/DbRepl.svelte';
-	import { updated } from '$app/state';
+	import { updated, page } from '$app/state';
 	import { browser } from '$app/environment';
 
 	let { children } = $props();
@@ -43,9 +43,9 @@
 		await Promise.all(routes.map((route) => preloadCode(route)));
 	}
 
-	// Reload page when a new version is deployed
+	// Reload page when a new version is deployed, but only when user is on home screen
 	$effect(() => {
-		if (browser && updated.current) {
+		if (browser && updated.current && page.url.pathname === '/') {
 			location.reload();
 		}
 	});
