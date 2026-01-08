@@ -7,6 +7,7 @@
 	import * as pwa from '$lib/stores/pwa.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import EditBandDialog from '$lib/components/EditBandDialog.svelte';
+	import { preloadCode } from '$app/navigation';
 
 	let { children } = $props();
 
@@ -17,12 +18,27 @@
 		try {
 			pwa.setupPwa();
 			await workout.initialize();
+
+			preloadAllRoutes();
 		} catch (error) {
 			console.error(error);
 			loadingError = error as Error;
 		}
 		isLoading = false;
 	});
+
+	async function preloadAllRoutes() {
+		const modules = import.meta.glob('/src/routes/**/+page.svelte');
+		const routes = Object.keys(modules).map((file) => {
+			// file path will look something like '/src/routes/about/+page.svelte'
+			let path = file.replace('/src/routes', '').replace('/+page.svelte', '');
+			if (path === '') path = '/'; // Handle the root route specifically
+			return path;
+		});
+		routes.forEach((route) => {
+			preloadCode(route);
+		});
+	}
 </script>
 
 <svelte:head>
@@ -33,7 +49,9 @@
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 </svelte:head>
 
-<div class="relative z-1 min-h-screen max-w-[480px] mx-auto p-4 pb-[calc(2rem+env(safe-area-inset-bottom,0))]">
+<div
+	class="relative z-1 mx-auto min-h-screen max-w-[480px] p-4 pb-[calc(2rem+env(safe-area-inset-bottom,0))]"
+>
 	{#if isLoading}
 		<div
 			class="flex min-h-[80vh] flex-col items-center justify-center gap-6"
@@ -42,9 +60,7 @@
 			{#if loadingError}
 				<div class="flex flex-col items-center justify-center gap-6">
 					<i class="icon-[ph--warning] text-5xl text-error"></i>
-					<p class="text-sm text-text-secondary">
-						An error occurred while loading the Database.
-					</p>
+					<p class="text-sm text-text-secondary">An error occurred while loading the Database.</p>
 					<p>
 						{loadingError.message}
 					</p>
