@@ -252,10 +252,11 @@
 				<div class="flex flex-col gap-4 mt-6">
 					<div class="flex items-center justify-between">
 						<div class="flex items-baseline gap-2">
-							<label for="full-reps" class="text-sm font-medium text-text-secondary">Full Reps</label>
-							{#if previousData && !currentLog}
-								<span class="text-xs text-text-muted">(prev: {previousData.fullReps})</span>
-							{/if}
+							<label for="full-reps" class="text-sm font-medium text-text-secondary">Full Reps
+								{#if previousData && !currentLog}
+									<span class="text-xs text-text-muted block">last time: {previousData.fullReps}</span>
+								{/if}
+							</label>
 						</div>
 						<div class="flex items-center gap-2">
 							<button
@@ -285,10 +286,11 @@
 
 					<div class="flex items-center justify-between">
 						<div class="flex items-baseline gap-2">
-							<label for="partial-reps" class="text-sm font-medium text-text-secondary">Partial Reps</label>
-							{#if previousData && !currentLog}
-								<span class="text-xs text-text-muted">(prev: {previousData.partialReps})</span>
-							{/if}
+							<label for="partial-reps" class="text-sm font-medium text-text-secondary">Partial Reps
+								{#if previousData && !currentLog}
+									<span class="text-xs text-text-muted block">last time: {previousData.partialReps}</span>
+								{/if}
+							</label>
 						</div>
 						<div class="flex items-center gap-2">
 							<button
