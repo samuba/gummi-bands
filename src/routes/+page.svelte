@@ -32,7 +32,7 @@
 	}
 
 	async function handleEditSession(sessionId: string) {
-		goto(`${resolve('/workout')}?edit=${sessionId}`);
+		goto(`${resolve('/workout')}?edit=${sessionId}&from=home`);
 	}
 
 	async function handleDeleteSession(sessionId: string) {

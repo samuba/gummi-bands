@@ -15,6 +15,8 @@
 	let sessionNotes = $state('');
 	let isEditingSession = $state(false);
 
+	const returnUrl = $derived($page.url.searchParams.get('from') === 'home' ? '/' : (isEditingSession ? '/history' : '/'));
+
 	// Check for edit mode or start new session
 	onMount(async () => {
 		const editSessionId = $page.url.searchParams.get('edit');
@@ -38,6 +40,7 @@
 
 	async function handleEndWorkout() {
 		const wasEditing = isEditingSession;
+		const destination = returnUrl;
 		if (isEditingSession) {
 			await workout.saveEditedSession(sessionNotes.trim() || undefined);
 			isEditingSession = false;
@@ -45,7 +48,7 @@
 			await workout.endSession(sessionNotes.trim() || undefined);
 		}
 		sessionNotes = '';
-		goto(resolve(wasEditing ? '/history' : '/'));
+		goto(resolve(destination));
 	}
 
 	async function handleLogExercise(
@@ -92,7 +95,7 @@
 	<Header
 		title={isEditingSession ? 'Edit Workout' : 'Workout'}
 		showBack
-		backHref={isEditingSession ? '/history' : '/'}
+		backHref={returnUrl}
 	/>
 
 	<!-- Date & Timer -->

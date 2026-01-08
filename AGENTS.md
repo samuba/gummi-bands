@@ -28,6 +28,7 @@ Always use drizzle relational queries when reading and db.insert/db.update/db.de
 Never use drizzle relational queries inside liveQuery() function.
 Never use raw sql strings if there is a drizzle native way instead.
 Always use timestamp({ withTimezone: true }) in schemas for timestamp columns.
+Always use uuidv7 when using uuid's in schema.
 
 ## localization
 Always use browsers locale when doing localization or date formating using Intl.*
