@@ -6,6 +6,7 @@ import { type LiveNamespace, live } from '@electric-sql/pglite/live';
 import { pg_uuidv7 } from '@electric-sql/pglite/pg_uuidv7';
 import { migrate } from './migrate';
 import { seedData } from './seed';
+import { loader } from '$lib/stores/initialLoader.svelte';
 
 let pglite: PGlite & { live: LiveNamespace };
 let initPromise: Promise<void> | null = null;
@@ -16,16 +17,19 @@ export type Db = typeof db;
 
 export async function initDatabase() {
 	if (!browser) return;
-	
 	if (initPromise) return initPromise;
 
 	initPromise = (async () => {
+		loader.setLoading('Initializing database...', 10, 60);
 		pglite = await PGlite.create("idb://gummi-bands-db", {
 			extensions: { live, pg_uuidv7 }
 		});
 		db = drizzle(pglite, { schema, casing: 'snake_case' });
-
+		
+		loader.setLoading('Migrating database...', 60);
 		await migrate(db, ['pg_uuidv7']);
+
+		loader.setLoading('Seeding database...', 75);
 		await seedData(db);
 	})();
 	

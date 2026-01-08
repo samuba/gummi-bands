@@ -10,6 +10,7 @@ import type {
 	WorkoutTemplate
 } from '$lib/db/schema';
 import { eq, desc, and, ne, asc, isNull, sql } from 'drizzle-orm';
+import { loader } from './initialLoader.svelte';
 
 // Reactive state
 let isInitialized = $state(false);
@@ -37,6 +38,7 @@ export async function initialize() {
 
 	await initDatabase();
 
+	loader.setLoading('Loading data...', 85);
 	// Initialize settings
 	const existingSettings = await db.query.settings.findFirst({
 		where: eq(s.settings.id, 'global')
@@ -106,6 +108,7 @@ export async function initialize() {
 	// set allTemplates with their exercises using select and joins
 	await refreshTemplates();
 
+	loader.setLoading('Ready!', 100);
 	isInitialized = true;
 }
 

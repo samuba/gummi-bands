@@ -35,3 +35,6 @@ Always use timestamp({ withTimezone: true }) in schemas for timestamp columns.
 
 ## localization
 Always use browsers locale when doing localization or date formating using Intl.*
+
+## reactivity
+Always use class based svelte stores using $state, instead of getter based or stores from "svelte/store".

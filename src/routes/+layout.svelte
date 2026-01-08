@@ -5,6 +5,7 @@
 	import { fade } from 'svelte/transition';
 	import * as workout from '$lib/stores/workout.svelte';
 	import * as pwa from '$lib/stores/pwa.svelte';
+	import { loader } from '$lib/stores/initialLoader.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import EditBandDialog from '$lib/components/EditBandDialog.svelte';
 	import { preloadCode } from '$app/navigation';
@@ -18,8 +19,8 @@
 		try {
 			pwa.setupPwa();
 			await workout.initialize();
-
-			preloadAllRoutes();
+			await preloadAllRoutes();
+			loader.complete();
 		} catch (error) {
 			console.error(error);
 			loadingError = error as Error;
@@ -28,6 +29,7 @@
 	});
 
 	async function preloadAllRoutes() {
+		loader.setLoading('Preloading routes...', 90);
 		const modules = import.meta.glob('/src/routes/**/+page.svelte');
 		const routes = Object.keys(modules).map((file) => {
 			// file path will look something like '/src/routes/about/+page.svelte'
@@ -35,9 +37,7 @@
 			if (path === '') path = '/'; // Handle the root route specifically
 			return path;
 		});
-		routes.forEach((route) => {
-			preloadCode(route);
-		});
+		await Promise.all(routes.map((route) => preloadCode(route)));
 	}
 </script>
 
@@ -66,10 +66,39 @@
 					</p>
 				</div>
 			{:else}
-				<div
-					class="h-12 w-12 animate-spin rounded-full border-4 border-bg-tertiary border-t-primary"
-				></div>
-				<p class="text-sm text-text-secondary">Loading your workouts...</p>
+				{@const circumference = 2 * Math.PI * 54}
+				{@const offset = circumference - (loader.progress / 100) * circumference}
+				<div class="flex flex-col items-center gap-5">
+					<div class="relative size-32">
+						<svg class="size-full -rotate-90" viewBox="0 0 120 120">
+							<circle
+								cx="60"
+								cy="60"
+								r="54"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="8"
+								class="text-bg-tertiary"
+							/>
+							<circle
+								cx="60"
+								cy="60"
+								r="54"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="8"
+								stroke-linecap="round"
+								class="text-primary transition-all duration-300 ease-out"
+								style="stroke-dasharray: {circumference}; stroke-dashoffset: {offset}"
+							/>
+						</svg>
+						<div class="absolute inset-0 flex items-center justify-center">
+							<span class="text-2xl font-display tabular-nums text-text-primary">{loader.progress}%</span>
+						</div>
+					</div>
+					
+					<p class="text-sm text-text-secondary">{loader.text}</p>
+				</div>
 			{/if}
 		</div>
 	{:else}
