@@ -476,6 +476,54 @@ export async function getDetailedSessionHistory(): Promise<DetailedSession[]> {
 		.filter((session) => session.logs.length > 0 || session.notes);
 }
 
+// Get recent sessions with full details
+export async function getRecentDetailedSessions(limit: number): Promise<DetailedSession[]> {
+	if (!browser || !db) return [];
+
+	// Fetch a few more to account for potentially empty sessions that will be filtered out
+	const fetchLimit = limit + 5;
+
+	const sessions = await db.query.workoutSessions.findMany({
+		orderBy: desc(s.workoutSessions.startedAt),
+		limit: fetchLimit,
+		with: {
+			template: true,
+			loggedExercises: {
+				orderBy: asc(s.loggedExercises.loggedAt),
+				with: {
+					exercise: true,
+					loggedExerciseBands: {
+						with: {
+							band: true
+						}
+					}
+				}
+			}
+		}
+	});
+
+	return sessions
+		.map((session) => ({
+			id: session.id,
+			templateId: session.templateId,
+			templateName: session.template?.name ?? null,
+			startedAt: session.startedAt,
+			endedAt: session.endedAt,
+			notes: session.notes,
+			logs: session.loggedExercises.map((log) => ({
+				id: log.id,
+				exerciseId: log.exerciseId,
+				exerciseName: log.exercise.name,
+				fullReps: log.fullReps,
+				partialReps: log.partialReps,
+				notes: log.notes,
+				bands: log.loggedExerciseBands.map((leb) => leb.band)
+			}))
+		}))
+		.filter((session) => session.logs.length > 0 || session.notes)
+		.slice(0, limit);
+}
+
 // Resume/edit an existing session
 export async function editSession(sessionId: string) {
 	const [session] = await db

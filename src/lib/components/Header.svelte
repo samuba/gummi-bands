@@ -1,5 +1,6 @@
 <script lang="ts">
 	import * as pwa from '$lib/stores/pwa.svelte';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		title?: string;
@@ -16,7 +17,7 @@
 	<div class="flex items-center gap-4">
 		{#if showBack}
 			<a 
-				href={backHref}
+				href={resolve(backHref as any)}
 				class="flex items-center justify-center w-10 h-10 transition-all duration-200 border-none cursor-pointer bg-bg-tertiary rounded-md text-text-primary hover:bg-bg-elevated" 
 				aria-label="Go back"
 			>

@@ -4,15 +4,50 @@
 	import Header from '$lib/components/Header.svelte';
 	import Stats from '$lib/components/Stats.svelte';
 	import * as workout from '$lib/stores/workout.svelte';
+	import SessionCard from '$lib/components/SessionCard.svelte';
+	import { confirmDialog } from '$lib/components/ConfirmDialog.svelte';
+	import type { DetailedSession } from '$lib/stores/workout.svelte';
+	import { resolve } from '$app/paths';
 
 	let workoutState = workout.getState();
+	let recentSessions = $state<DetailedSession[]>([]);
+
+	$effect(() => {
+		if (workoutState.isInitialized) {
+			// Dependencies to trigger re-fetch
+			const _ = workoutState.stats.totalSessions;
+			workout.getRecentDetailedSessions(2).then((sessions) => {
+				recentSessions = sessions;
+			});
+		}
+	});
 
 	async function handleStartWorkout(templateId?: string) {
 		await workout.startSession(templateId);
 		if (templateId) {
-			goto(`/workout?template=${templateId}`);
+			goto(`${resolve('/workout')}?template=${templateId}`);
 		} else {
-			goto('/workout');
+			goto(resolve('/workout'));
+		}
+	}
+
+	async function handleEditSession(sessionId: string) {
+		goto(`${resolve('/workout')}?edit=${sessionId}`);
+	}
+
+	async function handleDeleteSession(sessionId: string) {
+		const confirmed = await confirmDialog.confirm({
+			title: 'Delete Workout?',
+			html: 'Are you sure you want to delete this workout session? This action cannot be undone.',
+			confirmText: 'Delete',
+			cancelText: 'Cancel',
+			iconClass: 'icon-[ph--trash]'
+		});
+
+		if (confirmed) {
+			await workout.deleteSession(sessionId);
+			// Optimistic update
+			recentSessions = recentSessions.filter((s) => s.id !== sessionId);
 		}
 	}
 </script>
@@ -73,20 +108,45 @@
 	<Stats />
 
 	<div class="flex flex-col gap-4">
-		<a
-			href="/history"
-			class="flex cursor-pointer items-center gap-4 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
-		>
-			<i class="icon-[ph--clipboard-text] text-3xl text-primary"></i>
-			<div>
-				<span class="block font-display text-lg tracking-wide text-text-primary"
-					>Workout History</span
-				>
-				<span class="block text-xs text-text-muted">View and edit past sessions</span>
+		{#if recentSessions.length > 0}
+			<div class="flex flex-col gap-3">
+				<div class="flex items-center justify-between px-1">
+					<h3 class="text-sm tracking-wide text-text-secondary uppercase">Recent Activity</h3>
+				</div>
+
+				{#each recentSessions as session (session.id)}
+					<SessionCard
+						{session}
+						onEdit={handleEditSession}
+						onDelete={handleDeleteSession}
+					/>
+				{/each}
+
+				<div class="mt-2 mb-2 flex justify-center">
+					<a
+						href={resolve('/history')}
+						class="font-display text-xs tracking-widest text-primary uppercase transition-colors hover:text-primary/80"
+					>
+						Show All History →
+					</a>
+				</div>
 			</div>
-		</a>
+		{:else}
+			<a
+				href={resolve('/history')}
+				class="flex cursor-pointer items-center gap-4 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
+			>
+				<i class="icon-[ph--clipboard-text] text-3xl text-primary"></i>
+				<div>
+					<span class="block font-display text-lg tracking-wide text-text-primary"
+						>Workout History</span
+					>
+					<span class="block text-xs text-text-muted">View and edit past sessions</span>
+				</div>
+			</a>
+		{/if}
 		<a
-			href="/bands"
+			href={resolve('/bands')}
 			class="flex cursor-pointer items-center gap-4 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
 		>
 			<i class="icon-[ph--infinity] text-3xl text-primary"></i>
@@ -98,7 +158,7 @@
 			</div>
 		</a>
 		<a
-			href="/exercises"
+			href={resolve('/exercises')}
 			class="flex cursor-pointer items-center gap-4 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
 		>
 			<i class="icon-[ph--barbell] text-3xl text-primary"></i>
@@ -110,7 +170,7 @@
 			</div>
 		</a>
 		<a
-			href="/settings"
+			href={resolve('/settings')}
 			class="flex cursor-pointer items-center gap-4 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
 		>
 			<i class="icon-[ph--gear-six] text-3xl text-primary"></i>

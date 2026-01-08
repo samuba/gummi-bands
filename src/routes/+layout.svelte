@@ -12,6 +12,7 @@
 	import DbRepl from '$lib/components/DbRepl.svelte';
 	import { updated, page } from '$app/state';
 	import { browser } from '$app/environment';
+	import { resolve } from '$app/paths';
 
 	let { children } = $props();
 
@@ -46,7 +47,7 @@
 			if (path === '') path = '/'; // Handle the root route specifically
 			return path;
 		});
-		await Promise.all(routes.map((route) => preloadCode(route)));
+		await Promise.all(routes.map((route) => preloadCode(resolve(route as any))));
 	}
 
 	// Reload page when a new version is deployed, but only when user is on home screen

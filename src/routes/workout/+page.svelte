@@ -8,6 +8,7 @@
 	import LogExerciseDialog from '$lib/components/LogExerciseDialog.svelte';
 	import * as workout from '$lib/stores/workout.svelte';
 	import type { Exercise } from '$lib/db/schema';
+	import { resolve } from '$app/paths';
 
 	let workoutState = workout.getState();
 
@@ -27,7 +28,7 @@
 				isEditingSession = true;
 			} else {
 				// Session not found, go home
-				goto('/');
+				goto(resolve('/'));
 			}
 		} else if (!workoutState.currentSession) {
 			// Start new session
@@ -44,7 +45,7 @@
 			await workout.endSession(sessionNotes.trim() || undefined);
 		}
 		sessionNotes = '';
-		goto(wasEditing ? '/history' : '/');
+		goto(resolve(wasEditing ? '/history' : '/'));
 	}
 
 	async function handleLogExercise(
