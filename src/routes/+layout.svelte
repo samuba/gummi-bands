@@ -9,6 +9,7 @@
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import EditBandDialog from '$lib/components/EditBandDialog.svelte';
 	import { preloadCode } from '$app/navigation';
+	import DbRepl from '$lib/components/DbRepl.svelte';
 
 	let { children } = $props();
 
@@ -108,3 +109,5 @@
 
 <ConfirmDialog />
 <EditBandDialog />
+
+<DbRepl />

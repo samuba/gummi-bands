@@ -8,7 +8,7 @@ import { migrate } from './migrate';
 import { seedData } from './seed';
 import { loader } from '$lib/stores/initialLoader.svelte';
 
-let pglite: PGlite & { live: LiveNamespace };
+export let pglite: PGlite & { live: LiveNamespace };
 let initPromise: Promise<void> | null = null;
 
 export let db: PgliteDatabase<typeof schema> & { $client: PGlite };

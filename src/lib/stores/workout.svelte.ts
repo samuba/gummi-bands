@@ -494,6 +494,17 @@ export async function editSession(sessionId: string) {
 	return session;
 }
 
+// Delete a workout session
+export async function deleteSession(sessionId: string) {
+	if (!browser || !db) return;
+	await db.delete(s.workoutSessions).where(eq(s.workoutSessions.id, sessionId));
+	if (currentSession?.id === sessionId) {
+		currentSession = null;
+		sessionLogs = [];
+	}
+	await refreshStats();
+}
+
 // Update session notes
 export async function updateSessionNotes(sessionId: string, notes: string | null) {
 	await db.update(s.workoutSessions).set({ notes }).where(eq(s.workoutSessions.id, sessionId));

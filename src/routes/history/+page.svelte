@@ -5,6 +5,7 @@
 	import Header from '$lib/components/Header.svelte';
 	import * as workout from '$lib/stores/workout.svelte';
 	import type { DetailedSession } from '$lib/stores/workout.svelte';
+	import { confirmDialog } from '$lib/components/ConfirmDialog.svelte';
 
 	let sessionHistory = $state<DetailedSession[]>([]);
 	let isLoading = $state(true);
@@ -16,6 +17,21 @@
 
 	async function handleEditSession(sessionId: string) {
 		goto(`/workout?edit=${sessionId}`);
+	}
+
+	async function handleDeleteSession(sessionId: string) {
+		const confirmed = await confirmDialog.confirm({
+			title: 'Delete Workout?',
+			html: 'Are you sure you want to delete this workout session? This action cannot be undone.',
+			confirmText: 'Delete',
+			cancelText: 'Cancel',
+			iconClass: 'icon-[ph--trash]'
+		});
+
+		if (confirmed) {
+			await workout.deleteSession(sessionId);
+			sessionHistory = sessionHistory.filter((s) => s.id !== sessionId);
+		}
 	}
 
 	// Format workout date
@@ -96,25 +112,34 @@
 								{formatSessionDuration(session.startedAt, session.endedAt)}
 							</span>
 						</div>
-						<button
-							class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md border border-bg-elevated bg-bg-tertiary text-text-secondary transition-all duration-200 hover:border-primary hover:text-primary"
-							onclick={() => handleEditSession(session.id)}
-							aria-label="Edit session"
-						>
-							<svg
-								width="16"
-								height="16"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
+						<div class="flex items-center gap-2">
+							<button
+								class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md border border-bg-elevated bg-bg-tertiary text-text-secondary transition-all duration-200 hover:border-error hover:text-error"
+								onclick={() => handleDeleteSession(session.id)}
+								aria-label="Delete session"
 							>
-								<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-								<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-							</svg>
-						</button>
+								<i class="icon-[ph--trash] size-5"></i>
+							</button>
+							<button
+								class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-md border border-bg-elevated bg-bg-tertiary text-text-secondary transition-all duration-200 hover:border-primary hover:text-primary"
+								onclick={() => handleEditSession(session.id)}
+								aria-label="Edit session"
+							>
+								<svg
+									width="16"
+									height="16"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+									<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+								</svg>
+							</button>
+						</div>
 					</div>
 
 					<!-- Exercises List -->
