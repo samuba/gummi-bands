@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { fade } from 'svelte/transition';
 	import Header from '$lib/components/Header.svelte';
+	import Stats from '$lib/components/Stats.svelte';
 	import * as workout from '$lib/stores/workout.svelte';
 
 	let workoutState = workout.getState();
@@ -68,26 +69,8 @@
 			</div>
 		</div>
 	{/if}
-
-	<div class="card flex flex-col gap-4">
-		<h3 class="text-sm tracking-wide text-text-secondary uppercase">Your Arsenal</h3>
-		<div class="grid grid-cols-3 gap-4">
-			<div class="flex flex-col items-center gap-1">
-				<span class="font-display text-4xl text-primary">{workoutState.bands.length}</span>
-				<span class="text-xs tracking-widest text-text-muted uppercase">Bands</span>
-			</div>
-			<div class="flex flex-col items-center gap-1">
-				<span class="font-display text-4xl text-primary">{workoutState.exercises.length}</span>
-				<span class="text-xs tracking-widest text-text-muted uppercase">Exercises</span>
-			</div>
-			<div class="flex flex-col items-center gap-1">
-				<span class="font-display text-4xl text-primary"
-					>{workoutState.recentSessions.length}</span
-				>
-				<span class="text-xs tracking-widest text-text-muted uppercase">Sessions</span>
-			</div>
-		</div>
-	</div>
+	
+	<Stats />
 
 	<div class="flex flex-col gap-4">
 		<a

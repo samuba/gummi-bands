@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import { SvelteDate } from 'svelte/reactivity';
 import { initDatabase, db, isForeignKeyViolation, liveQuery } from '$lib/db/client';
 import * as s from '$lib/db/schema';
 import type {
@@ -20,6 +21,14 @@ let sessionLogs = $state<(LoggedExercise & { exercise: Exercise; bands: Band[] }
 let recentSessions = $state<WorkoutSession[]>([]);
 let suggestedExercises = $state<Exercise[]>([]);
 let weightUnit = $state<'lbs' | 'kg'>('lbs');
+
+const workoutStats = $state({
+	totalSessions: 0,
+	thisWeekSessions: 0,
+	totalReps: 0,
+	totalVolume: 0,
+	topExercise: 'None'
+});
 
 // Initialize the database and load initial data
 export async function initialize() {
@@ -43,21 +52,29 @@ export async function initialize() {
 	// set allBands
 	await liveQuery(
 		db.query.bands.findMany({ orderBy: desc(s.bands.createdAt), where: isNull(s.bands.deletedAt) }),
-		(rows) => allBands = rows
+		(rows) => {
+			allBands = rows;
+			refreshStats()
+		}
 	);
 
 	// set allExercises
 	await liveQuery(
 		db.query.exercises.findMany({ orderBy: desc(s.exercises.createdAt), where: isNull(s.exercises.deletedAt) }),
-		(rows) => allExercises = rows
+		(rows) => {
+			allExercises = rows;
+			refreshStats()
+		}
 	);
 
 	// set workoutSessions
 	await liveQuery(
 		db.query.workoutSessions.findMany({ orderBy: desc(s.workoutSessions.startedAt), limit: 10 }),
-		(rows) => recentSessions = rows
+		(rows) => {
+			recentSessions = rows;
+			refreshStats()
+		}
 	);
-
 
 	await liveQuery(
 		db.query.workoutTemplates.findMany({
@@ -90,6 +107,65 @@ export async function initialize() {
 	await refreshTemplates();
 
 	isInitialized = true;
+}
+
+async function refreshStats() {
+	if (!browser || !db) return;
+
+	// Total sessions
+	const allSessions = await db.select().from(s.workoutSessions);
+	workoutStats.totalSessions = allSessions.length;
+
+	// This week sessions (starting Monday)
+	const now = new SvelteDate();
+	const day = now.getDay();
+	const diff = now.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+	const monday = new SvelteDate();
+	monday.setDate(diff);
+	monday.setHours(0, 0, 0, 0);
+	
+	workoutStats.thisWeekSessions = allSessions.filter(
+		(session) => new Date(session.startedAt) >= monday
+	).length;
+
+	// Total reps and top exercise
+	const logs = await db.query.loggedExercises.findMany({
+		with: {
+			exercise: true
+		}
+	});
+
+	let totalReps = 0;
+	const exerciseCounts: Record<string, number> = {};
+
+	for (const log of logs) {
+		totalReps += log.fullReps + log.partialReps;
+		const name = log.exercise.name;
+		exerciseCounts[name] = (exerciseCounts[name] || 0) + 1;
+	}
+
+	workoutStats.totalReps = totalReps;
+
+	let topEx = 'None';
+	let maxCount = 0;
+	for (const [name, count] of Object.entries(exerciseCounts)) {
+		if (count > maxCount) {
+			maxCount = count;
+			topEx = name;
+		}
+	}
+	workoutStats.topExercise = topEx;
+
+	// Total Volume
+	const volumeResult = await db
+		.select({
+			volume: sql<number>`COALESCE(SUM(${s.bands.resistance} * (${s.loggedExercises.fullReps} + ${s.loggedExercises.partialReps})), 0)`
+		})
+		.from(s.loggedExercises)
+		.innerJoin(s.loggedExerciseBands, eq(s.loggedExercises.id, s.loggedExerciseBands.loggedExerciseId))
+		.innerJoin(s.bands, eq(s.loggedExerciseBands.bandId, s.bands.id));
+
+	workoutStats.totalVolume = volumeResult[0]?.volume || 0;
 }
 
 async function refreshTemplates() {
@@ -492,6 +568,9 @@ export function getState() {
 		},
 		get weightUnit() {
 			return weightUnit;
+		},
+		get stats() {
+			return workoutStats;
 		}
 	};
 }
