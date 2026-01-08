@@ -9,6 +9,7 @@
 	import * as workout from '$lib/stores/workout.svelte';
 	import type { Exercise } from '$lib/db/schema';
 	import { resolve } from '$app/paths';
+	import { confirmDialog } from '$lib/components/ConfirmDialog.svelte';
 
 	let workoutState = workout.getState();
 
@@ -49,6 +50,23 @@
 		}
 		sessionNotes = '';
 		goto(resolve(destination));
+	}
+
+	async function handleDeleteSession() {
+		if (!workoutState.currentSession) return;
+		
+		const confirmed = await confirmDialog.confirm({
+			title: 'Delete Workout?',
+			html: 'Are you sure you want to delete this workout session? This action cannot be undone.',
+			confirmText: 'Delete',
+			cancelText: 'Cancel',
+			iconClass: 'icon-[ph--trash]'
+		});
+
+		if (confirmed) {
+			await workout.deleteSession(workoutState.currentSession.id);
+			goto(resolve('/history'));
+		}
 	}
 
 	async function handleLogExercise(
@@ -156,9 +174,21 @@
 		></textarea>
 	</div>
 
-	<!-- Save/End Button -->
-	<button class="btn-primary mt-4 w-full py-4 text-lg font-semibold" onclick={handleEndWorkout}>
-		Save Workout
-	</button>
+	<!-- Action Buttons -->
+	<div class="flex flex-col gap-3 mt-4">
+		<button class="btn-primary w-full py-4 text-lg font-semibold" onclick={handleEndWorkout}>
+			Save Workout
+		</button>
+		
+		{#if isEditingSession}
+			<button 
+				class="w-full py-3 text-sm font-medium cursor-pointer text-error border border-bg-tertiary rounded-lg bg-bg-secondary hover:bg-bg-tertiary hover:border-error transition-all duration-200 flex items-center justify-center gap-2"
+				onclick={handleDeleteSession}
+			>
+				<i class="icon-[ph--trash] size-5"></i>
+				Delete Workout
+			</button>
+		{/if}
+	</div>
 </div>
 

@@ -66,7 +66,6 @@
 					<SessionCard
 						{session}
 						onEdit={handleEditSession}
-						onDelete={handleDeleteSession}
 					/>
 				</div>
 			{/each}
