@@ -13,16 +13,29 @@ export async function seedData(db: Db) {
 	const [bandCount] = await db.select({ count: count() }).from(s.bands);
 	if (bandCount.count === 0) {
 		const bandsToInsert = [
+			// X3
 			{ name: 'White', resistance: 50, color: '#FFFFFF' },
-			{ name: 'White doubled', resistance: 100, color: '#FFFFFF' },
-			{ name: 'Light Grey', resistance: 80, color: '#D3D3D3' },
-			{ name: 'Light Grey doubled', resistance: 160, color: '#D3D3D3' },
-			{ name: 'Dark Grey', resistance: 120, color: '#808080' },
-			{ name: 'Dark Grey doubled', resistance: 240, color: '#808080' },
-			{ name: 'Black', resistance: 150, color: '#000000' },
-			{ name: 'Black doubled', resistance: 300, color: '#000000' },
-			{ name: 'Elite', resistance: 300, color: '#FF8C00' },
-			{ name: 'Elite doubled', resistance: 600, color: '#FF8C00' }
+			{ name: 'White 2x', resistance: 100, color: '#FFFFFF' },
+			// { name: 'Light Grey', resistance: 80, color: '#D3D3D3' },
+			// { name: 'Light Grey 2x', resistance: 160, color: '#D3D3D3' },
+			// { name: 'Dark Grey', resistance: 120, color: '#808080' },
+			// { name: 'Dark Grey 2x', resistance: 240, color: '#808080' },
+			// { name: 'Black', resistance: 150, color: '#000000' },
+			// { name: 'Black 2x', resistance: 300, color: '#000000' },
+			// { name: 'Elite', resistance: 300, color: '#FF8C00' },
+			// { name: 'Elite 2x', resistance: 600, color: '#FF8C00' },
+
+			// Decathlon
+			{ name: 'Orange Light', resistance: 77, color: '#FF8C00' },
+			{ name: 'Orange Light 2x', resistance: 154, color: '#FF8C00' },
+			{ name: 'Red', resistance: 99, color: '#FF0000' },
+			{ name: 'Red 2x', resistance: 198, color: '#FF0000' },
+			{ name: 'Black', resistance: 132, color: '#000000' },
+			{ name: 'Black 2x', resistance: 264, color: '#000000' },
+			
+			// Strength Shop
+			{ name: 'Orange Heavy', resistance: 174, color: '#CC6600' },
+			{ name: 'Orange Heavy 2x', resistance: 348, color: '#CC6600' },
 		];
 		
 		for (const band of bandsToInsert) {
