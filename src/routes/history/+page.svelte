@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { fly } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import Header from '$lib/components/Header.svelte';
 	import * as workout from '$lib/stores/workout.svelte';
 	import type { DetailedSession } from '$lib/stores/workout.svelte';
 	import { confirmDialog } from '$lib/components/ConfirmDialog.svelte';
+	import { flip } from 'svelte/animate';
 
 	let sessionHistory = $state<DetailedSession[]>([]);
 	let isLoading = $state(true);
@@ -88,10 +89,11 @@
 		</div>
 	{:else}
 		<div class="flex flex-col gap-4">
-			{#each sessionHistory as session, i (session.id)}
+			{#each sessionHistory as session (session.id)}
 				<div
 					class="relative overflow-hidden rounded-lg border border-bg-tertiary bg-bg-secondary"
-					transition:fly={{ y: 20, duration: 200, delay: i * 50 }}
+					animate:flip={{ duration: 200, delay: 40 }}
+					out:fade={{ duration: 2400 }}
 				>
 					<!-- Session Header -->
 					<div class="flex items-center justify-between border-b border-bg-tertiary p-4">
