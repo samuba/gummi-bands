@@ -17,8 +17,14 @@
 
 	let isLoading = $state(true);
 	let loadingError = $state<Error | null>(null);
+	let isUpdating = $state(false);
 
 	onMount(async () => {
+		if (browser && sessionStorage.getItem('app-updating') === 'true') {
+			isUpdating = true;
+			sessionStorage.removeItem('app-updating');
+		}
+
 		try {
 			pwa.setupPwa();
 			await workout.initialize();
@@ -46,6 +52,7 @@
 	// Reload page when a new version is deployed, but only when user is on home screen
 	$effect(() => {
 		if (browser && updated.current && page.url.pathname === '/') {
+			sessionStorage.setItem('app-updating', 'true');
 			location.reload();
 		}
 	});
@@ -76,6 +83,16 @@
 					</p>
 				</div>
 			{:else}
+				{#if !isUpdating}
+					<div
+						class="mb-4 flex items-center gap-3 rounded-xl bg-bg-tertiary p-4 text-text-secondary"
+						in:fade={{ duration: 200, delay: 200 }}
+					>
+						<i class="icon-[ph--arrows-clockwise] size-5 animate-spin"></i>
+						<p class="text-sm font-medium">New version found. Updating App.</p>
+					</div>
+				{/if}
+
 				{@const circumference = 2 * Math.PI * 54}
 				{@const offset = circumference - (loader.progress / 100) * circumference}
 				<div class="flex flex-col items-center gap-5">
