@@ -52,9 +52,9 @@
 		</div>
 		<div class="grid grid-cols-[1fr_auto] gap-4">
 			<div class="flex flex-col gap-1">
-				<label class="text-xs tracking-wide text-text-muted uppercase" for="resistance"
-					>Resistance ({workoutState.weightUnit})</label
-				>
+				<label class="text-xs tracking-wide text-text-muted uppercase" for="resistance">
+					Resistance ({workoutState.weightUnit})
+				</label>
 				<input id="resistance" type="number" min="1" max="200" bind:value={newBandResistance} />
 			</div>
 			<div class="flex flex-col gap-1">
