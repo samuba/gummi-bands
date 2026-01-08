@@ -505,25 +505,30 @@ export async function deleteSession(sessionId: string) {
 	await refreshStats();
 }
 
-// Update session notes
 export async function updateSessionNotes(sessionId: string, notes: string | null) {
 	await db.update(s.workoutSessions).set({ notes }).where(eq(s.workoutSessions.id, sessionId));
 }
 
-// Update weight unit setting
 export async function updateWeightUnit(unit: 'lbs' | 'kg') {
 	await db.update(s.settings).set({ weightUnit: unit }).where(eq(s.settings.id, 'global'));
 	weightUnit = unit;
 }
 
-// Weight conversion helpers
-export function formatWeight(lbs: number): string {
-	if (weightUnit === 'lbs') {
-		return `${Math.round(lbs * 10) / 10} lbs`;
-	} else {
-		const kg = lbs * 0.45359237;
-		return `${Math.round(kg * 10) / 10} kg`;
-	}
+export function formatWeight(lbsOrKg: number): string {
+	const val = weightUnit === 'lbs' ? lbsOrKg : lbsOrKg * 0.45359237;
+	const unit = weightUnit === 'lbs' ? 'pound' : 'kilogram';
+	return new Intl.NumberFormat(navigator.language, {
+		maximumFractionDigits: 1,
+		style: 'unit',
+		unit,
+		unitDisplay: 'short'
+	}).format(val);
+}
+
+export function formatNumber(num: number, maximumFractionDigits = 1): string {
+	return new Intl.NumberFormat(undefined, {
+		maximumFractionDigits
+	}).format(num);
 }
 
 export function toUserWeight(lbs: number): number {

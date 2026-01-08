@@ -78,13 +78,12 @@
 
 	// Format workout date
 	function formatDate(date: Date): string {
-		return new Intl.DateTimeFormat('en-GB', {
+		return new Intl.DateTimeFormat(navigator.language, {
 			day: 'numeric',
 			month: 'numeric',
 			year: 'numeric'
 		})
 			.format(new Date(date))
-			.replace(/\//g, '.');
 	}
 </script>
 

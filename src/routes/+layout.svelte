@@ -10,6 +10,8 @@
 	import EditBandDialog from '$lib/components/EditBandDialog.svelte';
 	import { preloadCode } from '$app/navigation';
 	import DbRepl from '$lib/components/DbRepl.svelte';
+	import { updated } from '$app/state';
+	import { browser } from '$app/environment';
 
 	let { children } = $props();
 
@@ -40,6 +42,13 @@
 		});
 		await Promise.all(routes.map((route) => preloadCode(route)));
 	}
+
+	// Reload page when a new version is deployed
+	$effect(() => {
+		if (browser && updated.current) {
+			location.reload();
+		}
+	});
 </script>
 
 <svelte:head>

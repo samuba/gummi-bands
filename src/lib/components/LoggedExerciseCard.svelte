@@ -11,10 +11,9 @@
 	let { log, onremove }: Props = $props();
 
 	function formatTime(date: Date): string {
-		return new Intl.DateTimeFormat('en-US', {
+		return new Intl.DateTimeFormat(navigator.language, {
 			hour: 'numeric',
 			minute: '2-digit',
-			hour12: true
 		}).format(new Date(date));
 	}
 
@@ -55,7 +54,7 @@
 
 		{#if log.bands.length > 0}
 			<div class="flex flex-wrap items-center gap-1">
-				{#each log.bands as band}
+				{#each log.bands as band (band.id)}
 					<span class="inline-flex items-center gap-1 px-2 py-0.5 text-[0.7rem] transition-all duration-200 border rounded-full bg-bg-tertiary text-text-secondary border-transparent">
 						<span class="w-1.5 h-1.5 rounded-full" style:background-color={band.color || '#666'}></span>
 						{workout.formatWeight(band.resistance)}

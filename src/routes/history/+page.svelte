@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { fade } from 'svelte/transition';
+	import { fade, slide } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import Header from '$lib/components/Header.svelte';
 	import * as workout from '$lib/stores/workout.svelte';
@@ -37,22 +37,20 @@
 
 	// Format workout date
 	function formatDate(date: Date): string {
-		return new Intl.DateTimeFormat('en-GB', {
+		return new Intl.DateTimeFormat(navigator.language, {
 			day: 'numeric',
 			month: 'numeric',
 			year: 'numeric'
 		})
 			.format(new Date(date))
-			.replace(/\//g, '.');
 	}
 
 	// Format session duration
 	function formatSessionDuration(start: Date, end: Date | null): string {
 		const startDate = new Date(start);
-		const timeStr = new Intl.DateTimeFormat('en-US', {
+		const timeStr = new Intl.DateTimeFormat(navigator.language, {
 			hour: 'numeric',
 			minute: '2-digit',
-			hour12: true
 		}).format(startDate);
 
 		if (!end) return `Started at ${timeStr}`;
@@ -92,8 +90,9 @@
 			{#each sessionHistory as session (session.id)}
 				<div
 					class="relative overflow-hidden rounded-lg border border-bg-tertiary bg-bg-secondary"
-					animate:flip={{ duration: 250 }}
-					transition:fade={{ duration: 200 }}
+					in:slide={{ duration: 150 }}
+					out:fade={{ duration: 150, delay: 150 }}
+					animate:flip={{ duration: 250, delay: 150 }}
 				>
 					<!-- Session Header -->
 					<div class="flex items-center justify-between border-b border-bg-tertiary p-4">
@@ -166,7 +165,7 @@
 									</div>
 									{#if log.bands.length > 0}
 										<div class="flex flex-wrap items-center gap-1">
-											{#each log.bands as band}
+											{#each log.bands as band (band.id)}
 												<span
 													class="inline-flex items-center gap-1 rounded-full bg-bg-tertiary px-2 py-0.5 text-[0.65rem] text-text-secondary"
 												>

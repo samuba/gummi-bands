@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { slide } from 'svelte/transition';
+	import { fade, slide } from 'svelte/transition';
 	import Header from '$lib/components/Header.svelte';
 	import { editBandDialog } from '$lib/components/EditBandDialog.svelte';
 	import * as workout from '$lib/stores/workout.svelte';
 	import type { Band } from '$lib/db/schema';
+	import { flip } from 'svelte/animate';
 
 	let workoutState = workout.getState();
 
@@ -72,10 +73,12 @@
 	</div>
 
 	<div class="flex flex-col gap-2">
-		{#each workoutState.bands as band}
+		{#each workoutState.bands as band (band.id)}
 			<button
 				class="flex items-center gap-4 rounded-md border border-bg-tertiary bg-bg-secondary p-4 text-left transition-colors hover:bg-bg-tertiary active:bg-bg-elevated cursor-pointer w-full"
-				transition:slide={{ duration: 150 }}
+				in:slide={{ duration: 150 }}
+				out:fade={{ duration: 150, delay: 150 }}
+				animate:flip={{ duration: 250, delay: 150 }}
 				onclick={() => handleEditBand(band)}
 			>
 				<div class="h-6 w-6 shrink-0 rounded-sm" style:background={band.color || '#666'}></div>

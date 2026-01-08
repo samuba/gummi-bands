@@ -8,7 +8,7 @@
 <div class="card flex flex-col gap-4">
 	<div class="flex items-center justify-between">
 		<h3 class="text-sm font-medium tracking-wide text-text-secondary uppercase">Workout Stats</h3>
-		<span class="text-[0.65rem] text-text-muted uppercase">This Week: {stats.thisWeekSessions}</span>
+		<span class="text-[0.65rem] text-text-muted uppercase">This Week: {workout.formatNumber(stats.thisWeekSessions, 0)}</span>
 	</div>
 
 	<div class="grid grid-cols-2 gap-4">
@@ -20,7 +20,7 @@
 			</div>
 			<div class="flex flex-col">
 				<span class="font-display text-2xl text-text-primary">
-					{workout.formatWeight(stats.totalVolume).split(' ')[0]}
+					{workout.formatNumber(workout.toUserWeight(stats.totalVolume))}
 				</span>
 				<span class="text-[0.65rem] text-text-muted uppercase">
 					{workoutState.weightUnit} moved
@@ -35,7 +35,7 @@
 				<span class="text-[0.65rem] font-bold tracking-wider uppercase">Reps</span>
 			</div>
 			<div class="flex flex-col">
-				<span class="font-display text-2xl text-text-primary">{stats.totalReps}</span>
+				<span class="font-display text-2xl text-text-primary">{workout.formatNumber(stats.totalReps, 0)}</span>
 				<span class="text-[0.65rem] text-text-muted uppercase">Total reps</span>
 			</div>
 		</div>
@@ -54,7 +54,7 @@
 				</div>
 			</div>
 			<div class="flex flex-col items-end">
-				<span class="font-display text-xl text-primary">{stats.totalSessions}</span>
+				<span class="font-display text-xl text-primary">{workout.formatNumber(stats.totalSessions, 0)}</span>
 				<span class="text-[0.65rem] text-text-muted uppercase">Total Workouts</span>
 			</div>
 		</div>

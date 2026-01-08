@@ -7,7 +7,13 @@ const config = {
 	// for more information about preprocessors
 	preprocess: vitePreprocess(),
 
-	kit: { adapter: adapter() }
+	kit: {
+		adapter: adapter(),
+		version: {
+			// Poll for new versions every 60 seconds
+			pollInterval: 60000
+		}
+	}
 };
 
 export default config;
