@@ -1,6 +1,7 @@
 import type { PgliteDatabase } from "drizzle-orm/pglite";
 import type * as schema from "./schema";
 import type { PgDialect, PgSession } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // cache the migration status for the current session
 let migrated = false;
@@ -14,8 +15,12 @@ let migrated = false;
  * @see https://github.com/drizzle-team/drizzle-orm/blob/main/drizzle-orm/src/pglite/migrator.ts
  * @see https://github.com/drizzle-team/drizzle-orm/blob/main/drizzle-orm/src/migrator.ts#L48
  */
-export async function migrate(database: PgliteDatabase<typeof schema>) {
+export async function migrate(database: PgliteDatabase<typeof schema>, extensionsToCreate: string[]) {
   if (migrated) return;
+
+  for (const extension of extensionsToCreate) {
+    await database.execute(`CREATE EXTENSION IF NOT EXISTS ${extension}`);
+  }
 
   const files = import.meta.glob<boolean, string, string>(
     // path should correspond to drizzle.config.ts, we cannot use public folder with dynamic imports

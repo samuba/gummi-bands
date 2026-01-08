@@ -3,6 +3,7 @@ import { drizzle, PgliteDatabase } from 'drizzle-orm/pglite';
 import * as schema from './schema';
 import { type Results, PGlite } from '@electric-sql/pglite';
 import { type LiveNamespace, live } from '@electric-sql/pglite/live';
+import { pg_uuidv7 } from '@electric-sql/pglite/pg_uuidv7';
 import { migrate } from './migrate';
 import { seedData } from './seed';
 
@@ -20,11 +21,11 @@ export async function initDatabase() {
 
 	initPromise = (async () => {
 		pglite = await PGlite.create("idb://gummi-bands-db", {
-			extensions: { live, }
+			extensions: { live, pg_uuidv7 }
 		});
 		db = drizzle(pglite, { schema, casing: 'snake_case' });
 
-		await migrate(db);
+		await migrate(db, ['pg_uuidv7']);
 		await seedData(db);
 	})();
 	

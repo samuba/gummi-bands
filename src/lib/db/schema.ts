@@ -1,10 +1,11 @@
+// uses drizzle auto snake_case conversion for column names 
 import { pgTable, text, integer, uuid, timestamp, real } from 'drizzle-orm/pg-core';
 import { relations,sql } from 'drizzle-orm';
 
-// uses drizzle auto snake_case conversion for column names 
+const uuidv7 = () => uuid().default(sql`uuid_generate_v7()`);
 
 export const bands = pgTable('bands', {
-	id: uuid().primaryKey().defaultRandom(),
+	id: uuidv7().primaryKey(),
 	name: text().notNull(),
 	resistance: real().notNull(), // in lbs
 	color: text(), // optional color for visual identification
@@ -20,7 +21,7 @@ export const settings = pgTable('settings', {
 });
 
 export const exercises = pgTable('exercises', {
-	id: uuid().primaryKey().defaultRandom(),
+	id: uuidv7().primaryKey(),
 	name: text().notNull(),
 	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
@@ -28,7 +29,7 @@ export const exercises = pgTable('exercises', {
 });
 
 export const workoutTemplates = pgTable('workout_templates', {
-	id: uuid().primaryKey().defaultRandom(),
+	id: uuidv7().primaryKey(),
 	name: text().notNull(),
 	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
@@ -37,14 +38,14 @@ export const workoutTemplates = pgTable('workout_templates', {
 
 // Junction table for exercises in templates
 export const workoutTemplateExercises = pgTable('workout_template_exercises', {
-	id: uuid().primaryKey().defaultRandom(),
+	id: uuidv7().primaryKey(),
 	templateId: uuid().notNull().references(() => workoutTemplates.id, { onDelete: 'cascade' }),
 	exerciseId: uuid().notNull().references(() => exercises.id, { onDelete: 'cascade' }),
 	sortOrder: integer().notNull().default(0)
 });
 
 export const workoutSessions = pgTable('workout_sessions', {
-	id: uuid().primaryKey().defaultRandom(),
+	id: uuidv7().primaryKey(),
 	templateId: uuid().references(() => workoutTemplates.id),
 	startedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
@@ -54,7 +55,7 @@ export const workoutSessions = pgTable('workout_sessions', {
 
 // Logged exercises within a workout session
 export const loggedExercises = pgTable('logged_exercises', {
-	id: uuid().primaryKey().defaultRandom(),
+	id: uuidv7().primaryKey(),
 	sessionId: uuid().notNull().references(() => workoutSessions.id, { onDelete: 'cascade' }),
 	exerciseId: uuid().notNull().references(() => exercises.id),
 	fullReps: integer().notNull().default(0),
@@ -65,7 +66,7 @@ export const loggedExercises = pgTable('logged_exercises', {
 
 // Junction table for bands used in logged exercises
 export const loggedExerciseBands = pgTable('logged_exercise_bands', {
-	id: uuid().primaryKey().defaultRandom(),
+	id: uuidv7().primaryKey(),
 	loggedExerciseId: uuid().notNull().references(() => loggedExercises.id, { onDelete: 'cascade' }),
 	bandId: uuid().notNull().references(() => bands.id)
 });

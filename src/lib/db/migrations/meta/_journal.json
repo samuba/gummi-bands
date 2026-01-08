@@ -50,6 +50,13 @@
       "when": 1767773102903,
       "tag": "0006_dusty_jackpot",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1767841557544,
+      "tag": "0007_petite_kylun",
+      "breakpoints": true
     }
   ]
 }
