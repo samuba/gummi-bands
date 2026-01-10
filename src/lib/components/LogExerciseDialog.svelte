@@ -146,89 +146,93 @@
 					{/if}
 				</div>
 
-				<div class="flex flex-wrap gap-2">
-					<!-- Selected bands list -->
-					{#each selectedBandsWithIndex as { band, index } (index)}
-						<button
-							type="button"
-							class="group flex cursor-pointer items-center gap-2 rounded-full border border-bg-elevated bg-bg-tertiary px-3 py-1.5 text-left hover:bg-bg-elevated"
-							onclick={() => removeBandAtIndex(index)}
-							animate:flip={{ duration: 200 }}
-							in:fade={{ duration: 150 }}
-							out:fade={{ duration: 100 }}
-						>
-							<span
-								class="h-2.5 w-2.5 shrink-0 rounded-full"
-								style:background-color={band.color || '#666'}
-								style:box-shadow={`0 0 6px ${band.color || '#666'}`}
-							></span>
-							<span class="text-sm font-medium text-text-primary">{band.name}</span>
-							<span class="text-xs text-text-muted">{workout.formatWeight(band.resistance)}</span>
-							<svg
-								class="h-3.5 w-3.5 text-text-muted transition-colors group-hover:text-red-400"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
+			<div class="flex flex-col gap-2">
+				<!-- Selected bands list -->
+				{#if selectedBandsWithIndex.length > 0}
+					<div class="flex flex-wrap gap-2">
+						{#each selectedBandsWithIndex as { band, index } (index)}
+							<button
+								type="button"
+								class="group flex cursor-pointer items-center gap-2 rounded-full border border-bg-elevated bg-bg-tertiary px-3 py-1.5 text-left hover:bg-bg-elevated"
+								onclick={() => removeBandAtIndex(index)}
+								animate:flip={{ duration: 200 }}
+								in:fade={{ duration: 150 }}
+								out:fade={{ duration: 100 }}
 							>
-								<line x1="18" y1="6" x2="6" y2="18" />
-								<line x1="6" y1="6" x2="18" y2="18" />
-							</svg>
-						</button>
-					{/each}
-
-					<!-- Add band select -->
-					{#if bands.length > 0}
-						<Select.Root
-							type="single"
-							onValueChange={(v) => addBand(v)}
-							items={bands.map((b) => ({ value: b.id, label: b.name }))}
-						>
-							<Select.Trigger
-								class="flex items-center gap-1.5 rounded-full border-2 border-dashed border-bg-elevated bg-bg-tertiary px-3 py-1.5 text-sm text-text-muted transition-colors hover:border-primary hover:text-text-secondary focus:border-primary focus:outline-none"
-							>
+								<span
+									class="h-2.5 w-2.5 shrink-0 rounded-full"
+									style:background-color={band.color || '#666'}
+									style:box-shadow={`0 0 6px ${band.color || '#666'}`}
+								></span>
+								<span class="text-sm font-medium text-text-primary">{band.name}</span>
+								<span class="text-xs text-text-muted">{workout.formatWeight(band.resistance)}</span>
 								<svg
-									class="h-3.5 w-3.5"
+									class="h-3.5 w-3.5 text-text-muted transition-colors group-hover:text-red-400"
 									viewBox="0 0 24 24"
 									fill="none"
 									stroke="currentColor"
 									stroke-width="2"
 								>
-									<line x1="12" y1="5" x2="12" y2="19" />
-									<line x1="5" y1="12" x2="19" y2="12" />
+									<line x1="18" y1="6" x2="6" y2="18" />
+									<line x1="6" y1="6" x2="18" y2="18" />
 								</svg>
-								<span>Add band</span>
-							</Select.Trigger>
-							<Select.Portal>
-								<Select.Content
-									class="z-100 max-h-60 overflow-y-auto rounded-lg border border-bg-elevated bg-bg-secondary p-1 shadow-xl"
-									sideOffset={4}
-								>
-									<Select.Viewport>
-										{#each bands as band (band.id)}
-											<Select.Item
-												class="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-text-primary outline-none data-highlighted:bg-bg-tertiary"
-												value={band.id}
-												label={band.name}
+							</button>
+						{/each}
+					</div>
+				{/if}
+
+				<!-- Add band select -->
+				{#if bands.length > 0}
+					<Select.Root
+						type="single"
+						onValueChange={(v) => addBand(v)}
+						items={bands.map((b) => ({ value: b.id, label: b.name }))}
+					>
+						<Select.Trigger
+							class="flex items-center gap-1.5 rounded-full border-2 border-dashed border-bg-elevated bg-bg-tertiary px-3 py-1.5 text-sm text-text-muted transition-colors hover:border-primary hover:text-text-secondary focus:border-primary focus:outline-none"
+						>
+							<svg
+								class="h-3.5 w-3.5"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<line x1="12" y1="5" x2="12" y2="19" />
+								<line x1="5" y1="12" x2="19" y2="12" />
+							</svg>
+							<span>Add band</span>
+						</Select.Trigger>
+						<Select.Portal>
+							<Select.Content
+								class="z-100 max-h-60 overflow-y-auto rounded-lg border border-bg-elevated bg-bg-secondary p-1 shadow-xl"
+								sideOffset={4}
+							>
+								<Select.Viewport>
+									{#each bands as band (band.id)}
+										<Select.Item
+											class="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-text-primary outline-none data-highlighted:bg-bg-tertiary"
+											value={band.id}
+											label={band.name}
+										>
+											<span
+												class="h-2.5 w-2.5 shrink-0 rounded-full"
+												style:background-color={band.color || '#666'}
+											></span>
+											<span class="flex-1">{band.name}</span>
+											<span class="text-xs text-text-muted"
+												>{workout.formatWeight(band.resistance)}</span
 											>
-												<span
-													class="h-2.5 w-2.5 shrink-0 rounded-full"
-													style:background-color={band.color || '#666'}
-												></span>
-												<span class="flex-1">{band.name}</span>
-												<span class="text-xs text-text-muted"
-													>{workout.formatWeight(band.resistance)}</span
-												>
-											</Select.Item>
-										{/each}
-									</Select.Viewport>
-								</Select.Content>
-							</Select.Portal>
-						</Select.Root>
-					{:else}
-						<p class="text-sm text-text-muted">No bands available</p>
-					{/if}
-				</div>
+										</Select.Item>
+									{/each}
+								</Select.Viewport>
+							</Select.Content>
+						</Select.Portal>
+					</Select.Root>
+				{:else}
+					<p class="text-sm text-text-muted">No bands available</p>
+				{/if}
+			</div>
 			</div>
 
 			<!-- Reps Input -->
