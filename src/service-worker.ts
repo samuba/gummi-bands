@@ -10,9 +10,12 @@ const sw = self as unknown as ServiceWorkerGlobalScope;
 // Unique cache per deployment - old caches are cleaned up on activate
 const CACHE = `assets-${version}`;
 
-// Only cache build assets (JS, CSS, WASM) and static files
-// We intentionally DO NOT cache HTML to prevent stale content issues
+// Only precache build assets (JS, CSS, WASM) and static files
+// HTML pages are cached on-demand after successful fetches
 const ASSETS = [...build, ...files];
+
+// Timeout for network requests before falling back to cache
+const NETWORK_TIMEOUT = 5000;
 
 sw.addEventListener('install', (event) => {
 	event.waitUntil(
@@ -40,10 +43,13 @@ sw.addEventListener('fetch', (event) => {
 	const url = new URL(request.url);
 	if (url.origin !== location.origin) return;
 
-	// NEVER intercept navigation - always let browser fetch fresh HTML
-	if (request.mode === 'navigate') return;
+	// Navigation: network-first with timeout, fallback to cache
+	if (request.mode === 'navigate') {
+		event.respondWith(handleNavigation(request));
+		return;
+	}
 
-	// For assets: cache-first for speed
+	// Assets: cache-first for speed
 	event.respondWith(
 		caches.match(request).then((cached) => {
 			if (cached) return cached;
@@ -58,3 +64,88 @@ sw.addEventListener('fetch', (event) => {
 		})
 	);
 });
+
+async function handleNavigation(request: Request): Promise<Response> {
+	const cache = await caches.open(CACHE);
+
+	// Race between network fetch and timeout
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => controller.abort(), NETWORK_TIMEOUT);
+
+	try {
+		const response = await fetch(request, { signal: controller.signal });
+		clearTimeout(timeoutId);
+
+		if (response.ok) {
+			// Cache the fresh HTML for offline use
+			cache.put(request, response.clone());
+			return response;
+		}
+
+		// Non-OK response, try cache
+		const cached = await cache.match(request);
+		return cached ?? response;
+	} catch {
+		clearTimeout(timeoutId);
+
+		// Network failed or timed out - serve from cache
+		const cached = await cache.match(request);
+		if (cached) return cached;
+
+		// No cache available - show offline page
+		return offlinePage();
+	}
+}
+
+function offlinePage(): Response {
+	return new Response(
+		`<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#0D0D0D">
+	<title>Offline | Gummi Bands</title>
+	<style>
+		* { box-sizing: border-box; }
+		body {
+			font-family: system-ui, -apple-system, sans-serif;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			min-height: 100vh;
+			margin: 0;
+			padding: 24px;
+			background: #0D0D0D;
+			color: #fff;
+		}
+		.container { text-align: center; max-width: 300px; }
+		h1 { margin: 0 0 12px; font-size: 24px; font-weight: 600; }
+		p { margin: 0 0 24px; color: #888; font-size: 16px; line-height: 1.5; }
+		button {
+			background: #fff;
+			color: #0D0D0D;
+			border: none;
+			padding: 12px 24px;
+			border-radius: 8px;
+			font-size: 16px;
+			font-weight: 500;
+			cursor: pointer;
+		}
+		button:active { opacity: 0.8; }
+	</style>
+</head>
+<body>
+	<div class="container">
+		<h1>You're Offline</h1>
+		<p>Check your internet connection and try again.</p>
+		<button onclick="location.reload()">Retry</button>
+	</div>
+</body>
+</html>`,
+		{
+			status: 503,
+			headers: { 'Content-Type': 'text/html; charset=utf-8' }
+		}
+	);
+}
