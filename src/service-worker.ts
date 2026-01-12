@@ -17,17 +17,11 @@ sw.addEventListener('install', (event) => {
 	event.waitUntil(
 		(async () => {
 			const cache = await caches.open(CACHE);
-			
-			// Try to cache everything, but don't fail the whole install if some fail
-			// We wrap each in a promise to handle errors individually if needed, 
-			// but for now we'll just try to cache them all and let it fail gracefully.
 			try {
 				await cache.addAll([...ASSETS]);
-			} catch (err) {
-				console.error('Service worker precaching failed:', err);
-				// Still skip waiting to let the worker activate and try caching on demand
+			} catch {
+				console.warn('Service worker: some assets failed to precache');
 			}
-			
 			await sw.skipWaiting();
 		})()
 	);
@@ -36,11 +30,8 @@ sw.addEventListener('install', (event) => {
 sw.addEventListener('activate', (event) => {
 	event.waitUntil(
 		(async () => {
-			// Delete old caches from previous deployments
 			for (const key of await caches.keys()) {
-				if (key !== CACHE) {
-					await caches.delete(key);
-				}
+				if (key !== CACHE) await caches.delete(key);
 			}
 			await sw.clients.claim();
 		})()
@@ -56,68 +47,39 @@ sw.addEventListener('fetch', (event) => {
 	// Skip cross-origin requests
 	if (url.origin !== location.origin) return;
 
-	event.respondWith(respond(event.request, url));
+	event.respondWith(respond(event.request));
 });
 
-async function respond(request: Request, url: URL): Promise<Response> {
+async function respond(request: Request): Promise<Response> {
 	const cache = await caches.open(CACHE);
 
-	// 1. Try to find an exact match in the cache
-	const cached = await cache.match(request);
-	
-	// 2. If it's an immutable asset, return cached or fetch once
-	if (url.pathname.includes('/_app/immutable/')) {
-		if (cached) return cached;
-		
+	// 1. For navigation requests (the initial page load)
+	// We use Network-First to avoid "white screen" caused by stale HTML
+	if (request.mode === 'navigate') {
 		try {
 			const response = await fetch(request);
-			if (response.ok) cache.put(request, response.clone());
-			return response;
+			if (response.ok) {
+				cache.put(request, response.clone());
+				return response;
+			}
 		} catch {
-			// If it's an immutable asset and we can't get it, we're in trouble
-			return new Response('Asset not found', { status: 404 });
-		}
-	}
-
-	// 3. For navigation requests
-	if (request.mode === 'navigate') {
-		// If definitely offline, return cached or offline page
-		if (!navigator.onLine) {
-			return cached ?? offlineResponse();
-		}
-
-		// If we have a cached version, return it but update in background
-		if (cached) {
-			fetch(request)
-				.then((response) => {
-					if (response.ok) cache.put(request, response.clone());
-				})
-				.catch(() => {});
-			return cached;
-		}
-
-		// No cache - try network with a timeout for "lie-fi"
-		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-		try {
-			const response = await fetch(request, { signal: controller.signal });
-			clearTimeout(timeoutId);
-			if (response.ok) cache.put(request, response.clone());
-			return response;
-		} catch {
-			clearTimeout(timeoutId);
+			// If network fails, try cache fallback
+			const cached = await cache.match(request);
+			if (cached) return cached;
 			return offlineResponse();
 		}
 	}
 
-	// 4. For other assets (JS, CSS, static files)
+	// 2. For all other assets (JS, CSS, WASM, images)
+	// We use Cache-First for maximum speed and offline support
+	const cached = await cache.match(request);
 	if (cached) return cached;
 
-	// Fallback to network
+	// 3. Fallback to network for assets not in cache
 	try {
 		const response = await fetch(request);
 		if (response.ok && response.status === 200) {
+			// Cache the new asset for next time
 			cache.put(request, response.clone());
 		}
 		return response;
@@ -129,10 +91,27 @@ async function respond(request: Request, url: URL): Promise<Response> {
 function offlineResponse() {
 	return new Response(
 		`<!DOCTYPE html>
-		<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-		<title>Offline</title><style>body{font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#0D0D0D;color:#fff}
-		div{text-align:center}h1{margin:0 0 .5rem}</style></head>
-		<body><div><h1>Offline</h1><p>Please check your connection</p></div></body></html>`,
-		{ status: 503, headers: { 'Content-Type': 'text/html' } }
+		<html lang="en">
+		<head>
+			<meta charset="utf-8">
+			<meta name="viewport" content="width=device-width,initial-scale=1">
+			<title>Offline | Gummi Bands</title>
+			<style>
+				body { font-family: system-ui; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #0D0D0D; color: #fff; text-align: center; padding: 20px; }
+				h1 { margin: 0 0 1rem; font-size: 1.5rem; }
+				p { color: #888; font-size: 1rem; }
+			</style>
+		</head>
+		<body>
+			<div>
+				<h1>You're Offline</h1>
+				<p>Please check your connection and try again.</p>
+			</div>
+		</body>
+		</html>`,
+		{ 
+			status: 503, 
+			headers: { 'Content-Type': 'text/html' } 
+		}
 	);
 }
