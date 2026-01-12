@@ -10,5 +10,17 @@
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">%sveltekit.body%</div>
+		<script>
+			// Detect if the app fails to load due to stale chunks/404s
+			window.addEventListener('error', (e) => {
+				if (e.message && (
+					e.message.includes('Failed to fetch dynamically imported module') ||
+					e.message.includes('importing a module script failed')
+				)) {
+					console.warn('App failed to load. Forcing reload...');
+					window.location.reload();
+				}
+			}, true);
+		</script>
 	</body>
 </html>
