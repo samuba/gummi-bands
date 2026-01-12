@@ -6,68 +6,6 @@
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 		<link rel="manifest" href="/manifest.json" />
 		<meta name="theme-color" content="#0D0D0D" />
-		<script>
-			// Listen for reload message from service worker
-			if ('serviceWorker' in navigator) {
-				navigator.serviceWorker.addEventListener('message', function(e) {
-					if (e.data && e.data.type === 'RELOAD') {
-						window.location.reload();
-					}
-				});
-			}
-
-			// Self-healing: detect and recover from stale cache issues
-			(function() {
-				var key = '__sw_reset__';
-				var last = sessionStorage.getItem(key);
-				if (last && Date.now() - parseInt(last) < 10000) return; // prevent loops
-
-				function reset() {
-					sessionStorage.setItem(key, String(Date.now()));
-					
-					// Clear all caches
-					if ('caches' in window) {
-						caches.keys().then(function(keys) {
-							return Promise.all(keys.map(function(k) { return caches.delete(k); }));
-						}).then(function() {
-							// Unregister service workers
-							if ('serviceWorker' in navigator) {
-								navigator.serviceWorker.getRegistrations().then(function(regs) {
-									regs.forEach(function(r) { r.unregister(); });
-								}).finally(function() {
-									window.location.reload();
-								});
-							} else {
-								window.location.reload();
-							}
-						});
-					} else {
-						window.location.reload();
-					}
-				}
-
-				// Catch script loading errors
-				window.addEventListener('error', function(e) {
-					if (e.target && e.target.tagName === 'SCRIPT') {
-						console.warn('Script failed to load, resetting...');
-						reset();
-					}
-					var msg = e.message || '';
-					if (msg.indexOf('dynamically imported') !== -1 || msg.indexOf('module') !== -1) {
-						console.warn('Module import failed, resetting...');
-						reset();
-					}
-				}, true);
-
-				window.addEventListener('unhandledrejection', function(e) {
-					var reason = String(e.reason || '');
-					if (reason.indexOf('dynamically imported') !== -1 || reason.indexOf('chunk') !== -1) {
-						console.warn('Dynamic import rejected, resetting...');
-						reset();
-					}
-				});
-			})();
-		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

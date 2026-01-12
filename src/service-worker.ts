@@ -3,39 +3,58 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
 
-// NUCLEAR RESET: This service worker clears all caches and unregisters itself.
-// Deploy this to fix users stuck with broken service workers.
-// After deploying this, deploy the real service worker.
+import { build, files, version } from '$service-worker';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
-sw.addEventListener('install', () => {
-	sw.skipWaiting();
+// Unique cache per deployment - old caches are cleaned up on activate
+const CACHE = `assets-${version}`;
+
+// Only cache build assets (JS, CSS, WASM) and static files
+// We intentionally DO NOT cache HTML to prevent stale content issues
+const ASSETS = [...build, ...files];
+
+sw.addEventListener('install', (event) => {
+	event.waitUntil(
+		caches.open(CACHE)
+			.then((cache) => cache.addAll(ASSETS))
+			.then(() => sw.skipWaiting())
+	);
 });
 
 sw.addEventListener('activate', (event) => {
 	event.waitUntil(
-		(async () => {
-			// Delete ALL caches
-			const keys = await caches.keys();
-			await Promise.all(keys.map((key) => caches.delete(key)));
-
-			// Take control
-			await sw.clients.claim();
-
-			// Tell all clients to reload
-			const clients = await sw.clients.matchAll({ type: 'window' });
-			clients.forEach((client) => {
-				client.postMessage({ type: 'RELOAD' });
-			});
-
-			// Unregister this service worker
-			await sw.registration.unregister();
-		})()
+		caches.keys()
+			.then((keys) => Promise.all(
+				keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))
+			))
+			.then(() => sw.clients.claim())
 	);
 });
 
-// Don't intercept any requests - let everything go to network
-sw.addEventListener('fetch', () => {
-	return;
+sw.addEventListener('fetch', (event) => {
+	const { request } = event;
+
+	if (request.method !== 'GET') return;
+
+	const url = new URL(request.url);
+	if (url.origin !== location.origin) return;
+
+	// NEVER intercept navigation - always let browser fetch fresh HTML
+	if (request.mode === 'navigate') return;
+
+	// For assets: cache-first for speed
+	event.respondWith(
+		caches.match(request).then((cached) => {
+			if (cached) return cached;
+
+			return fetch(request).then((response) => {
+				if (response.ok) {
+					const clone = response.clone();
+					caches.open(CACHE).then((cache) => cache.put(request, clone));
+				}
+				return response;
+			});
+		})
+	);
 });
