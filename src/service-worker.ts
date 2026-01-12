@@ -11,14 +11,23 @@ const sw = self as unknown as ServiceWorkerGlobalScope;
 const CACHE = `cache-${version}`;
 
 // Assets that are part of the build (JS, CSS, WASM, etc.)
-// Include prerendered pages (like /) so they load instantly offline
 const ASSETS = new Set([...build, ...files, ...prerendered]);
 
 sw.addEventListener('install', (event) => {
 	event.waitUntil(
 		(async () => {
 			const cache = await caches.open(CACHE);
-			await cache.addAll([...ASSETS]);
+			
+			// Try to cache everything, but don't fail the whole install if some fail
+			// We wrap each in a promise to handle errors individually if needed, 
+			// but for now we'll just try to cache them all and let it fail gracefully.
+			try {
+				await cache.addAll([...ASSETS]);
+			} catch (err) {
+				console.error('Service worker precaching failed:', err);
+				// Still skip waiting to let the worker activate and try caching on demand
+			}
+			
 			await sw.skipWaiting();
 		})()
 	);
@@ -53,34 +62,32 @@ sw.addEventListener('fetch', (event) => {
 async function respond(request: Request, url: URL): Promise<Response> {
 	const cache = await caches.open(CACHE);
 
-	// 1. Check if it's a precached asset (JS, CSS, or PRERENDERED HTML like /)
-	// These are served INSTANTLY from cache.
-	if (ASSETS.has(url.pathname)) {
-		const cached = await cache.match(url.pathname);
-		if (cached) return cached;
-	}
-
-	// 2. For immutable assets (content-hashed) - cache-first
+	// 1. Try to find an exact match in the cache
+	const cached = await cache.match(request);
+	
+	// 2. If it's an immutable asset, return cached or fetch once
 	if (url.pathname.includes('/_app/immutable/')) {
-		const cached = await cache.match(request);
 		if (cached) return cached;
-
-		const response = await fetch(request);
-		if (response.ok) cache.put(request, response.clone());
-		return response;
+		
+		try {
+			const response = await fetch(request);
+			if (response.ok) cache.put(request, response.clone());
+			return response;
+		} catch {
+			// If it's an immutable asset and we can't get it, we're in trouble
+			return new Response('Asset not found', { status: 404 });
+		}
 	}
 
-	// 3. For HTML/navigation
+	// 3. For navigation requests
 	if (request.mode === 'navigate') {
-		const cached = await cache.match(request);
-
-		// If we are definitely offline, return cached or offline page immediately
+		// If definitely offline, return cached or offline page
 		if (!navigator.onLine) {
 			return cached ?? offlineResponse();
 		}
 
+		// If we have a cached version, return it but update in background
 		if (cached) {
-			// Stale-while-revalidate: return cached, update in background
 			fetch(request)
 				.then((response) => {
 					if (response.ok) cache.put(request, response.clone());
@@ -89,9 +96,9 @@ async function respond(request: Request, url: URL): Promise<Response> {
 			return cached;
 		}
 
-		// Cache miss + Online: try network with a timeout for "lie-fi"
+		// No cache - try network with a timeout for "lie-fi"
 		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), 3000);
+		const timeoutId = setTimeout(() => controller.abort(), 4000);
 
 		try {
 			const response = await fetch(request, { signal: controller.signal });
@@ -104,15 +111,18 @@ async function respond(request: Request, url: URL): Promise<Response> {
 		}
 	}
 
-	// 4. For everything else (API, etc.) - network-first
+	// 4. For other assets (JS, CSS, static files)
+	if (cached) return cached;
+
+	// Fallback to network
 	try {
 		const response = await fetch(request);
-		if (response.ok) cache.put(request, response.clone());
+		if (response.ok && response.status === 200) {
+			cache.put(request, response.clone());
+		}
 		return response;
 	} catch {
-		const cached = await cache.match(request);
-		if (cached) return cached;
-		throw new Error(`Failed to fetch ${url.pathname}`);
+		return new Response('Not found', { status: 404 });
 	}
 }
 
@@ -126,4 +136,3 @@ function offlineResponse() {
 		{ status: 503, headers: { 'Content-Type': 'text/html' } }
 	);
 }
-
