@@ -7,74 +7,32 @@
 		<link rel="manifest" href="/manifest.json" />
 		<meta name="theme-color" content="#0D0D0D" />
 		<script>
-			// Self-healing script for PWA cache mismatches.
-			// When a new version is deployed, the old cached HTML might try to load
-			// JS files that no longer exist (they have new content hashes).
-			// This script detects that and forces a clean reload.
+			// Self-healing: if JS fails to load, clear caches and reload
 			(function() {
-				var RECOVERY_KEY = '__pwa_recovery__';
-				var RECOVERY_TIMEOUT = 10000; // 10 seconds
-
-				function shouldRecover() {
-					// Prevent infinite recovery loops
-					var lastRecovery = sessionStorage.getItem(RECOVERY_KEY);
-					if (lastRecovery) {
-						var elapsed = Date.now() - parseInt(lastRecovery, 10);
-						if (elapsed < RECOVERY_TIMEOUT) {
-							console.warn('PWA recovery attempted recently, skipping to prevent loop');
-							return false;
-						}
-					}
-					return true;
-				}
+				var recovering = sessionStorage.getItem('__recovering__');
+				if (recovering && Date.now() - parseInt(recovering) < 5000) return;
 
 				function recover() {
-					if (!shouldRecover()) return;
-					
-					console.warn('App failed to load. Attempting recovery...');
-					sessionStorage.setItem(RECOVERY_KEY, Date.now().toString());
-
-					// Clear service worker caches and reload
+					sessionStorage.setItem('__recovering__', String(Date.now()));
 					if ('caches' in window) {
-						caches.keys().then(function(names) {
-							return Promise.all(names.map(function(name) {
-								return caches.delete(name);
-							}));
-						}).then(function() {
-							window.location.reload();
-						}).catch(function() {
-							window.location.reload();
+						caches.keys().then(function(keys) {
+							return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+						}).finally(function() {
+							location.reload();
 						});
 					} else {
-						window.location.reload();
+						location.reload();
 					}
 				}
 
-				// Catch module loading failures (the main cause of white screens)
 				window.addEventListener('error', function(e) {
-					// Check if it's a script/module loading error
-					if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
-						recover();
-						return;
-					}
-					
-					// Check error message for dynamic import failures
-					var msg = (e.message || '').toLowerCase();
-					if (msg.includes('failed to fetch dynamically imported module') ||
-						msg.includes('importing a module script failed') ||
-						msg.includes('failed to load module script')) {
-						recover();
-					}
+					if (e.target && e.target.tagName === 'SCRIPT') recover();
+					if (e.message && e.message.includes('dynamically imported module')) recover();
 				}, true);
 
-				// Catch unhandled promise rejections from dynamic imports
 				window.addEventListener('unhandledrejection', function(e) {
-					var reason = String(e.reason || '').toLowerCase();
-					if (reason.includes('failed to fetch dynamically imported module') ||
-						reason.includes('loading chunk') ||
-						reason.includes('loading css chunk')) {
-						recover();
-					}
+					var r = String(e.reason || '');
+					if (r.includes('dynamically imported module') || r.includes('chunk')) recover();
 				});
 			})();
 		</script>
