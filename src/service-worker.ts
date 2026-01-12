@@ -34,13 +34,21 @@ sw.addEventListener('fetch', (event) => {
 	if (!url.protocol.startsWith('http')) return;
 	if (url.origin !== location.origin) return;
 
-	// For navigation (HTML), always try network first with a timeout
+	// For navigation (HTML), always try network first.
+	// We do NOT use the cache at all for navigation while online.
 	if (event.request.mode === 'navigate') {
-		event.respondWith(networkFirstWithTimeout(event.request, 3000));
+		event.respondWith(
+			fetch(event.request).catch(() => {
+				// Only use cache if we are truly offline
+				return caches.match(event.request).then((cached) => {
+					return cached || new Response('Offline', { status: 503 });
+				});
+			})
+		);
 		return;
 	}
 
-	// For assets, try cache first
+	// For assets (JS, CSS, WASM, images), try cache first
 	event.respondWith(
 		caches.match(event.request).then((cached) => {
 			if (cached) return cached;
@@ -55,26 +63,3 @@ sw.addEventListener('fetch', (event) => {
 		})
 	);
 });
-
-async function networkFirstWithTimeout(request: Request, timeout: number): Promise<Response> {
-	const cache = await caches.open(CACHE);
-
-	try {
-		const controller = new AbortController();
-		const id = setTimeout(() => controller.abort(), timeout);
-
-		const response = await fetch(request, { signal: controller.signal });
-		clearTimeout(id);
-
-		if (response.ok) {
-			cache.put(request, response.clone());
-			return response;
-		}
-	} catch {
-		// Network failed or timed out, try cache
-		const cached = await cache.match(request);
-		if (cached) return cached;
-	}
-
-	return new Response('Offline', { status: 503 });
-}

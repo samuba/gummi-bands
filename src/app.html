@@ -6,21 +6,47 @@
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 		<link rel="manifest" href="/manifest.json" />
 		<meta name="theme-color" content="#0D0D0D" />
+		<script>
+			// CRITICAL: Self-healing script to recover from stale PWA/Service Worker state
+			// This must be at the very top of the head to catch errors early
+			(function() {
+				function recover() {
+					console.warn('App failed to load resource. Clearing Service Workers and reloading...');
+					if ('serviceWorker' in navigator) {
+						navigator.serviceWorker.getRegistrations().then(function(registrations) {
+							for (var i = 0; i < registrations.length; i++) {
+								registrations[i].unregister();
+							}
+							window.location.reload(true);
+						});
+					} else {
+						window.location.reload(true);
+					}
+				}
+
+				window.addEventListener('error', function(e) {
+					var message = e.message || '';
+					if (
+						message.indexOf('Failed to fetch dynamically imported module') !== -1 ||
+						message.indexOf('importing a module script failed') !== -1 ||
+						(e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK'))
+					) {
+						recover();
+					}
+				}, true);
+
+				// Fallback for cases where errors don't bubble or are silent
+				window.addEventListener('unhandledrejection', function(e) {
+					var reason = e.reason && e.reason.toString() || '';
+					if (reason.indexOf('fetch') !== -1 || reason.indexOf('import') !== -1) {
+						recover();
+					}
+				});
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">%sveltekit.body%</div>
-		<script>
-			// Detect if the app fails to load due to stale chunks/404s
-			window.addEventListener('error', (e) => {
-				if (e.message && (
-					e.message.includes('Failed to fetch dynamically imported module') ||
-					e.message.includes('importing a module script failed')
-				)) {
-					console.warn('App failed to load. Forcing reload...');
-					window.location.reload();
-				}
-			}, true);
-		</script>
 	</body>
 </html>
