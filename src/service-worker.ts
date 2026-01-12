@@ -3,7 +3,7 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
 
-import { build, files, version } from '$service-worker';
+import { build, files, prerendered, version } from '$service-worker';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
@@ -11,18 +11,14 @@ const sw = self as unknown as ServiceWorkerGlobalScope;
 const CACHE = `cache-${version}`;
 
 // Assets that are part of the build (JS, CSS, WASM, etc.)
-const ASSETS = new Set([
-	...build,
-	...files
-]);
+// Include prerendered pages (like /) so they load instantly offline
+const ASSETS = new Set([...build, ...files, ...prerendered]);
 
 sw.addEventListener('install', (event) => {
 	event.waitUntil(
 		(async () => {
 			const cache = await caches.open(CACHE);
-			// Cache all build assets and static files
 			await cache.addAll([...ASSETS]);
-			// Activate immediately without waiting for tabs to close
 			await sw.skipWaiting();
 		})()
 	);
@@ -37,20 +33,19 @@ sw.addEventListener('activate', (event) => {
 					await caches.delete(key);
 				}
 			}
-			// Take control of all clients immediately
 			await sw.clients.claim();
 		})()
 	);
 });
 
 sw.addEventListener('fetch', (event) => {
-	// Only handle GET requests
 	if (event.request.method !== 'GET') return;
 
 	const url = new URL(event.request.url);
-
-	// Skip caching for non-http(s) requests (like chrome-extension://)
 	if (!url.protocol.startsWith('http')) return;
+
+	// Skip cross-origin requests
+	if (url.origin !== location.origin) return;
 
 	event.respondWith(respond(event.request, url));
 });
@@ -58,62 +53,77 @@ sw.addEventListener('fetch', (event) => {
 async function respond(request: Request, url: URL): Promise<Response> {
 	const cache = await caches.open(CACHE);
 
-	// For known build/static assets, always serve from cache first (cache-first strategy)
-	// These are immutable and versioned, so cache is always correct
+	// 1. Check if it's a precached asset (JS, CSS, or PRERENDERED HTML like /)
+	// These are served INSTANTLY from cache.
 	if (ASSETS.has(url.pathname)) {
 		const cached = await cache.match(url.pathname);
-		if (cached) {
-			return cached;
-		}
+		if (cached) return cached;
 	}
 
-	// For immutable assets (content-hashed), use cache-first with network fallback
+	// 2. For immutable assets (content-hashed) - cache-first
 	if (url.pathname.includes('/_app/immutable/')) {
 		const cached = await cache.match(request);
-		if (cached) {
-			return cached;
-		}
-		
-		// Not in cache, fetch and cache it
+		if (cached) return cached;
+
 		const response = await fetch(request);
-		if (response.ok) {
-			cache.put(request, response.clone());
-		}
+		if (response.ok) cache.put(request, response.clone());
 		return response;
 	}
 
-	// For HTML pages and other requests, use network-first with cache fallback
-	// This ensures users get fresh content when online
+	// 3. For HTML/navigation
+	if (request.mode === 'navigate') {
+		const cached = await cache.match(request);
+
+		// If we are definitely offline, return cached or offline page immediately
+		if (!navigator.onLine) {
+			return cached ?? offlineResponse();
+		}
+
+		if (cached) {
+			// Stale-while-revalidate: return cached, update in background
+			fetch(request)
+				.then((response) => {
+					if (response.ok) cache.put(request, response.clone());
+				})
+				.catch(() => {});
+			return cached;
+		}
+
+		// Cache miss + Online: try network with a timeout for "lie-fi"
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+		try {
+			const response = await fetch(request, { signal: controller.signal });
+			clearTimeout(timeoutId);
+			if (response.ok) cache.put(request, response.clone());
+			return response;
+		} catch {
+			clearTimeout(timeoutId);
+			return offlineResponse();
+		}
+	}
+
+	// 4. For everything else (API, etc.) - network-first
 	try {
 		const response = await fetch(request);
-
-		// Only cache successful responses
-		if (response.ok && response.status === 200) {
-			// Don't cache API responses or external requests
-			if (url.origin === location.origin) {
-				cache.put(request, response.clone());
-			}
-		}
-
+		if (response.ok) cache.put(request, response.clone());
 		return response;
 	} catch {
-		// Network failed, try cache
 		const cached = await cache.match(request);
-		if (cached) {
-			return cached;
-		}
-
-		// Nothing in cache either, return a basic offline response for navigations
-		if (request.mode === 'navigate') {
-			return new Response(
-				'<html><body><h1>Offline</h1><p>Please check your connection and try again.</p></body></html>',
-				{
-					status: 503,
-					headers: { 'Content-Type': 'text/html' }
-				}
-			);
-		}
-
-		throw new Error(`Network request failed for ${url.pathname}`);
+		if (cached) return cached;
+		throw new Error(`Failed to fetch ${url.pathname}`);
 	}
 }
+
+function offlineResponse() {
+	return new Response(
+		`<!DOCTYPE html>
+		<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+		<title>Offline</title><style>body{font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#0D0D0D;color:#fff}
+		div{text-align:center}h1{margin:0 0 .5rem}</style></head>
+		<body><div><h1>Offline</h1><p>Please check your connection</p></div></body></html>`,
+		{ status: 503, headers: { 'Content-Type': 'text/html' } }
+	);
+}
+
