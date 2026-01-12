@@ -7,32 +7,64 @@
 		<link rel="manifest" href="/manifest.json" />
 		<meta name="theme-color" content="#0D0D0D" />
 		<script>
-			// Self-healing: if JS fails to load, clear caches and reload
-			(function() {
-				var recovering = sessionStorage.getItem('__recovering__');
-				if (recovering && Date.now() - parseInt(recovering) < 5000) return;
+			// Listen for reload message from service worker
+			if ('serviceWorker' in navigator) {
+				navigator.serviceWorker.addEventListener('message', function(e) {
+					if (e.data && e.data.type === 'RELOAD') {
+						window.location.reload();
+					}
+				});
+			}
 
-				function recover() {
-					sessionStorage.setItem('__recovering__', String(Date.now()));
+			// Self-healing: detect and recover from stale cache issues
+			(function() {
+				var key = '__sw_reset__';
+				var last = sessionStorage.getItem(key);
+				if (last && Date.now() - parseInt(last) < 10000) return; // prevent loops
+
+				function reset() {
+					sessionStorage.setItem(key, String(Date.now()));
+					
+					// Clear all caches
 					if ('caches' in window) {
 						caches.keys().then(function(keys) {
 							return Promise.all(keys.map(function(k) { return caches.delete(k); }));
-						}).finally(function() {
-							location.reload();
+						}).then(function() {
+							// Unregister service workers
+							if ('serviceWorker' in navigator) {
+								navigator.serviceWorker.getRegistrations().then(function(regs) {
+									regs.forEach(function(r) { r.unregister(); });
+								}).finally(function() {
+									window.location.reload();
+								});
+							} else {
+								window.location.reload();
+							}
 						});
 					} else {
-						location.reload();
+						window.location.reload();
 					}
 				}
 
+				// Catch script loading errors
 				window.addEventListener('error', function(e) {
-					if (e.target && e.target.tagName === 'SCRIPT') recover();
-					if (e.message && e.message.includes('dynamically imported module')) recover();
+					if (e.target && e.target.tagName === 'SCRIPT') {
+						console.warn('Script failed to load, resetting...');
+						reset();
+					}
+					var msg = e.message || '';
+					if (msg.indexOf('dynamically imported') !== -1 || msg.indexOf('module') !== -1) {
+						console.warn('Module import failed, resetting...');
+						reset();
+					}
 				}, true);
 
 				window.addEventListener('unhandledrejection', function(e) {
-					var r = String(e.reason || '');
-					if (r.includes('dynamically imported module') || r.includes('chunk')) recover();
+					var reason = String(e.reason || '');
+					if (reason.indexOf('dynamically imported') !== -1 || reason.indexOf('chunk') !== -1) {
+						console.warn('Dynamic import rejected, resetting...');
+						reset();
+					}
 				});
 			})();
 		</script>

@@ -3,67 +3,39 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
 
-import { build, files, version } from '$service-worker';
+// NUCLEAR RESET: This service worker clears all caches and unregisters itself.
+// Deploy this to fix users stuck with broken service workers.
+// After deploying this, deploy the real service worker.
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
-// Unique cache name per deployment
-const CACHE = `cache-${version}`;
-
-// Only cache build assets (JS, CSS, WASM) and static files (images, fonts)
-// We intentionally DO NOT cache HTML pages to prevent stale content issues
-const ASSETS = [...build, ...files];
-
-sw.addEventListener('install', (event) => {
-	event.waitUntil(
-		caches.open(CACHE)
-			.then((cache) => cache.addAll(ASSETS))
-			.then(() => sw.skipWaiting())
-			.catch((err) => {
-				console.warn('Precache failed:', err);
-				return sw.skipWaiting();
-			})
-	);
+sw.addEventListener('install', () => {
+	sw.skipWaiting();
 });
 
 sw.addEventListener('activate', (event) => {
 	event.waitUntil(
-		caches.keys()
-			.then((keys) => Promise.all(
-				keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))
-			))
-			.then(() => sw.clients.claim())
+		(async () => {
+			// Delete ALL caches
+			const keys = await caches.keys();
+			await Promise.all(keys.map((key) => caches.delete(key)));
+
+			// Take control
+			await sw.clients.claim();
+
+			// Tell all clients to reload
+			const clients = await sw.clients.matchAll({ type: 'window' });
+			clients.forEach((client) => {
+				client.postMessage({ type: 'RELOAD' });
+			});
+
+			// Unregister this service worker
+			await sw.registration.unregister();
+		})()
 	);
 });
 
-sw.addEventListener('fetch', (event) => {
-	const { request } = event;
-
-	// Only handle GET requests
-	if (request.method !== 'GET') return;
-
-	// Only handle same-origin requests
-	const url = new URL(request.url);
-	if (url.origin !== location.origin) return;
-
-	// CRITICAL: Never intercept navigation requests (HTML pages)
-	// This prevents the "white screen" issue caused by stale HTML serving old JS hashes
-	// The browser will always fetch fresh HTML from the network
-	if (request.mode === 'navigate') return;
-
-	// For all other requests (JS, CSS, WASM, images), use cache-first
-	event.respondWith(
-		caches.match(request).then((cached) => {
-			if (cached) return cached;
-
-			return fetch(request).then((response) => {
-				// Only cache successful responses
-				if (response.ok && response.status === 200) {
-					const clone = response.clone();
-					caches.open(CACHE).then((cache) => cache.put(request, clone));
-				}
-				return response;
-			});
-		})
-	);
+// Don't intercept any requests - let everything go to network
+sw.addEventListener('fetch', () => {
+	return;
 });
