@@ -7,38 +7,72 @@
 		<link rel="manifest" href="/manifest.json" />
 		<meta name="theme-color" content="#0D0D0D" />
 		<script>
-			// CRITICAL: Self-healing script to recover from stale PWA/Service Worker state
-			// This must be at the very top of the head to catch errors early
+			// Self-healing script for PWA cache mismatches.
+			// When a new version is deployed, the old cached HTML might try to load
+			// JS files that no longer exist (they have new content hashes).
+			// This script detects that and forces a clean reload.
 			(function() {
+				var RECOVERY_KEY = '__pwa_recovery__';
+				var RECOVERY_TIMEOUT = 10000; // 10 seconds
+
+				function shouldRecover() {
+					// Prevent infinite recovery loops
+					var lastRecovery = sessionStorage.getItem(RECOVERY_KEY);
+					if (lastRecovery) {
+						var elapsed = Date.now() - parseInt(lastRecovery, 10);
+						if (elapsed < RECOVERY_TIMEOUT) {
+							console.warn('PWA recovery attempted recently, skipping to prevent loop');
+							return false;
+						}
+					}
+					return true;
+				}
+
 				function recover() {
-					console.warn('App failed to load resource. Clearing Service Workers and reloading...');
-					if ('serviceWorker' in navigator) {
-						navigator.serviceWorker.getRegistrations().then(function(registrations) {
-							for (var i = 0; i < registrations.length; i++) {
-								registrations[i].unregister();
-							}
-							window.location.reload(true);
+					if (!shouldRecover()) return;
+					
+					console.warn('App failed to load. Attempting recovery...');
+					sessionStorage.setItem(RECOVERY_KEY, Date.now().toString());
+
+					// Clear service worker caches and reload
+					if ('caches' in window) {
+						caches.keys().then(function(names) {
+							return Promise.all(names.map(function(name) {
+								return caches.delete(name);
+							}));
+						}).then(function() {
+							window.location.reload();
+						}).catch(function() {
+							window.location.reload();
 						});
 					} else {
-						window.location.reload(true);
+						window.location.reload();
 					}
 				}
 
+				// Catch module loading failures (the main cause of white screens)
 				window.addEventListener('error', function(e) {
-					var message = e.message || '';
-					if (
-						message.indexOf('Failed to fetch dynamically imported module') !== -1 ||
-						message.indexOf('importing a module script failed') !== -1 ||
-						(e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK'))
-					) {
+					// Check if it's a script/module loading error
+					if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+						recover();
+						return;
+					}
+					
+					// Check error message for dynamic import failures
+					var msg = (e.message || '').toLowerCase();
+					if (msg.includes('failed to fetch dynamically imported module') ||
+						msg.includes('importing a module script failed') ||
+						msg.includes('failed to load module script')) {
 						recover();
 					}
 				}, true);
 
-				// Fallback for cases where errors don't bubble or are silent
+				// Catch unhandled promise rejections from dynamic imports
 				window.addEventListener('unhandledrejection', function(e) {
-					var reason = e.reason && e.reason.toString() || '';
-					if (reason.indexOf('fetch') !== -1 || reason.indexOf('import') !== -1) {
+					var reason = String(e.reason || '').toLowerCase();
+					if (reason.includes('failed to fetch dynamically imported module') ||
+						reason.includes('loading chunk') ||
+						reason.includes('loading css chunk')) {
 						recover();
 					}
 				});
