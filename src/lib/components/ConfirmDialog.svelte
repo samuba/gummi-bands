@@ -71,7 +71,7 @@
 <Dialog.Root open={open} onOpenChange={(isOpen: boolean) => { if (!isOpen) handleCancel(); }}>
 	<Dialog.Portal>
 		<Dialog.Overlay class="z-[60]" />
-		<Dialog.Content class="z-[60] max-w-sm">
+		<Dialog.Content class="z-[60] max-w-sm" interactOutsideBehavior="ignore">
 			<!-- Icon -->
 			{#if dialogIconClass}
 				<div class="flex justify-center mb-4">

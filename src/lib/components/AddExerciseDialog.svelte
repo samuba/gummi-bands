@@ -58,7 +58,7 @@
 
 	<Dialog.Portal>
 		<Dialog.Overlay />
-		<Dialog.Content>
+		<Dialog.Content interactOutsideBehavior="ignore">
 			<Dialog.Title class="text-lg font-semibold tracking-wide text-text-primary font-display">
 				Add Exercise
 			</Dialog.Title>

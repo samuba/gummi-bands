@@ -109,7 +109,7 @@
 <Dialog.Root open={open} onOpenChange={(isOpen: boolean) => { if (!isOpen) handleCancel(); }}>
 	<Dialog.Portal>
 		<Dialog.Overlay />
-		<Dialog.Content class="max-w-sm">
+		<Dialog.Content class="max-w-sm" interactOutsideBehavior="ignore">
 			<Dialog.Title class="text-lg font-semibold tracking-wide text-text-primary font-display">
 				Edit Band
 			</Dialog.Title>

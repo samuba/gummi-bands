@@ -132,7 +132,7 @@
 
 	<Dialog.Portal>
 		<Dialog.Overlay />
-		<Dialog.Content class="max-h-[90vh] overflow-y-auto">
+		<Dialog.Content class="max-h-[90vh] overflow-y-auto" interactOutsideBehavior="ignore">
 			<Dialog.Title class="font-display text-xl font-semibold tracking-wide text-text-primary">
 				{exercise.name}
 			</Dialog.Title>
