@@ -50,8 +50,10 @@
 	const buildDate = new Intl.DateTimeFormat(navigator.language, {
 		year: 'numeric',
 		month: 'numeric',
-		day: 'numeric'
-	}).format(new Date(version));
+		day: 'numeric',
+		hour: 'numeric',
+		minute: 'numeric',
+	}).format(new Date(Number.parseInt(version)));
 </script>
 
 <div class="flex flex-col gap-6 animate-fade-in">
@@ -102,7 +104,7 @@
 		<div class="card flex flex-col gap-4">
 			<div class="flex flex-col gap-1">
 				<h3 class="text-lg font-medium text-text-primary">About</h3>
-				<p class="text-sm text-text-muted">Gummi Bands build on {buildDate}</p>
+				<p class="text-sm text-text-muted">Gummi Bands build from {buildDate}</p>
 			</div>
 			<div class="text-xs text-text-muted italic">
 				Keep pushing your limits.
