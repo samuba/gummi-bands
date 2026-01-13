@@ -2,7 +2,7 @@
 	import Header from '$lib/components/Header.svelte';
 	import * as workout from '$lib/stores/workout.svelte';
 	import { db } from '$lib/db/client';
-	import { browser } from '$app/environment';
+	import { browser, version } from '$app/environment';
 
 	let workoutState = workout.getState();
 
@@ -96,7 +96,7 @@
 		<div class="card flex flex-col gap-4">
 			<div class="flex flex-col gap-1">
 				<h3 class="text-lg font-medium text-text-primary">About</h3>
-				<p class="text-sm text-text-muted">Gummi Bands v1.0.0</p>
+				<p class="text-sm text-text-muted">Gummi Bands {version}</p>
 			</div>
 			<div class="text-xs text-text-muted italic">
 				Keep pushing your limits.
