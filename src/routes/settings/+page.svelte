@@ -103,7 +103,7 @@
 				</div>
 
 				<button
-					class="relative h-7 w-12 rounded-full transition-colors duration-200 {settings.keepScreenAwake
+					class="flex items-center h-7 w-12 rounded-full p-1 transition-colors duration-200 {settings.keepScreenAwake
 						? 'bg-primary'
 						: 'bg-bg-tertiary'}"
 					onclick={toggleKeepScreenAwake}
@@ -111,7 +111,7 @@
 					aria-label="Toggle keep screen awake"
 				>
 					<span
-						class="absolute top-1 left-1 size-5 rounded-full bg-white shadow-sm transition-transform duration-200 {settings.keepScreenAwake
+						class="size-5 rounded-full bg-white shadow-sm transition-transform duration-200 {settings.keepScreenAwake
 							? 'translate-x-5'
 							: 'translate-x-0'}"
 					></span>
