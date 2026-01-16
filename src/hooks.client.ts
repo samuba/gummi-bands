@@ -1,18 +1,18 @@
 import type { HandleClientError } from '@sveltejs/kit';
+import { errorDialog, type ErrorDetails } from '$lib/components/ErrorDialog.svelte';
 
-function formatErrorDetails(error: unknown): string {
-	const parts: string[] = [];
+// Queue for errors that happen before the dialog is ready
+const errorQueue: ErrorDetails[] = [];
+let dialogReady = false;
 
+function extractErrorInfo(error: unknown): { message: string; stack?: string } {
 	if (error instanceof Error) {
-		parts.push(`Name: ${error.name}`);
-		parts.push(`Message: ${error.message}`);
-
-		if (error.stack) {
-			parts.push(`\nStack trace:\n${error.stack}`);
-		}
-
+		let message = error.message;
+		
+		// Include cause if present
 		if (error.cause) {
-			parts.push(`\nCause: ${formatErrorDetails(error.cause)}`);
+			const causeInfo = extractErrorInfo(error.cause);
+			message += `\n\nCaused by: ${causeInfo.message}`;
 		}
 
 		// Include any additional properties
@@ -20,66 +20,82 @@ function formatErrorDetails(error: unknown): string {
 			(key) => !['name', 'message', 'stack', 'cause'].includes(key)
 		);
 		if (additionalProps.length > 0) {
-			parts.push('\nAdditional properties:');
+			message += '\n\nAdditional info:';
 			for (const key of additionalProps) {
 				try {
-					parts.push(`  ${key}: ${JSON.stringify((error as Record<string, unknown>)[key], null, 2)}`);
+					message += `\n${key}: ${JSON.stringify((error as unknown as Record<string, unknown>)[key])}`;
 				} catch {
-					parts.push(`  ${key}: [Unable to serialize]`);
+					message += `\n${key}: [Unable to serialize]`;
 				}
 			}
 		}
+
+		return {
+			message,
+			stack: error.stack
+		};
 	} else if (typeof error === 'string') {
-		parts.push(`Error: ${error}`);
+		return { message: error };
 	} else if (error !== null && typeof error === 'object') {
 		try {
-			parts.push(`Error object: ${JSON.stringify(error, null, 2)}`);
+			return { message: JSON.stringify(error, null, 2) };
 		} catch {
-			parts.push(`Error object: ${String(error)}`);
+			return { message: String(error) };
 		}
 	} else {
-		parts.push(`Unknown error: ${String(error)}`);
+		return { message: String(error) };
 	}
-
-	return parts.join('\n');
 }
 
-function showErrorAlert(title: string, error: unknown, event?: Event | string) {
-	const details = formatErrorDetails(error);
-
-	let message = `🚨 ${title}\n\n${details}`;
-
-	if (event && typeof event === 'string') {
-		message += `\n\nContext: ${event}`;
+function showError(details: ErrorDetails) {
+	if (dialogReady && errorDialog.show) {
+		errorDialog.show(details);
+	} else {
+		// Queue the error for when the dialog is ready
+		errorQueue.push(details);
 	}
+}
 
-	// Use setTimeout to ensure the alert doesn't block synchronous error handling
-	setTimeout(() => {
-		alert(message);
-	}, 0);
+// Called from the layout once ErrorDialog is mounted
+export function markDialogReady() {
+	dialogReady = true;
+	// Show any queued errors
+	while (errorQueue.length > 0) {
+		const details = errorQueue.shift()!;
+		errorDialog.show(details);
+	}
 }
 
 // Handle uncaught errors
 if (typeof window !== 'undefined') {
 	window.onerror = (message, source, lineno, colno, error) => {
-		const context = `Source: ${source || 'unknown'}\nLine: ${lineno || 'unknown'}, Column: ${colno || 'unknown'}`;
+		const context = [
+			`Source: ${source || 'unknown'}`,
+			`Line: ${lineno || 'unknown'}, Column: ${colno || 'unknown'}`
+		].join('\n');
 
-		showErrorAlert(
-			'Uncaught Error',
-			error || message,
+		const errorInfo = error ? extractErrorInfo(error) : { message: String(message) };
+
+		showError({
+			title: 'Uncaught Error',
+			message: errorInfo.message,
+			stack: errorInfo.stack,
 			context
-		);
+		});
 
 		// Return false to allow the error to propagate to the console as well
 		return false;
 	};
 
 	window.onunhandledrejection = (event: PromiseRejectionEvent) => {
-		showErrorAlert(
-			'Unhandled Promise Rejection',
-			event.reason,
-			'Promise rejected without catch handler'
-		);
+		const errorInfo = extractErrorInfo(event.reason);
+
+		showError({
+			title: 'Unhandled Promise Rejection',
+			message: errorInfo.message,
+			stack: errorInfo.stack,
+			context: 'Promise rejected without catch handler'
+		});
 	};
 }
 
@@ -94,7 +110,14 @@ export const handleError: HandleClientError = ({ error, event, status, message }
 		`Route: ${event.route.id || 'unknown'}`
 	].join('\n');
 
-	showErrorAlert('Application Error', error, context);
+	const errorInfo = extractErrorInfo(error);
+
+	showError({
+		title: 'Application Error',
+		message: errorInfo.message,
+		stack: errorInfo.stack,
+		context
+	});
 
 	return {
 		message: error instanceof Error ? error.message : 'An unexpected error occurred'

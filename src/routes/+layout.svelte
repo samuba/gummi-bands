@@ -8,6 +8,8 @@
 	import { loader } from '$lib/stores/initialLoader.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import EditBandDialog from '$lib/components/EditBandDialog.svelte';
+	import ErrorDialog from '$lib/components/ErrorDialog.svelte';
+	import { markDialogReady } from '../hooks.client';
 	import { preloadCode } from '$app/navigation';
 	import DbRepl from '$lib/components/DbRepl.svelte';
 	import { updated, page } from '$app/state';
@@ -21,6 +23,8 @@
 	let isUpdating = $state(false);
 
 	onMount(async () => {
+		markDialogReady();
+		
 		if (browser && sessionStorage.getItem('app-updating') === 'true') {
 			isUpdating = true;
 			sessionStorage.removeItem('app-updating');
@@ -136,5 +140,6 @@
 
 <ConfirmDialog />
 <EditBandDialog />
+<ErrorDialog />
 
 <DbRepl />
