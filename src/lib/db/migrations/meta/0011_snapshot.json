@@ -1,6 +1,6 @@
 {
-  "id": "2bf65bb2-d185-4ca2-9df5-d180524ba019",
-  "prevId": "63881520-9a9c-4bf0-a755-97802ae40c9c",
+  "id": "cd92f15e-5dab-4a5e-b24d-91790efade62",
+  "prevId": "2bf65bb2-d185-4ca2-9df5-d180524ba019",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -335,6 +335,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "planned_exercises": {
+          "name": "planned_exercises",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'::text[]"
         }
       },
       "indexes": {},

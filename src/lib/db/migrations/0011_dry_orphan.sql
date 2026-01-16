@@ -1,0 +1,1 @@
+ALTER TABLE "workout_sessions" ADD COLUMN "planned_exercises" text[] DEFAULT '{}'::text[];
