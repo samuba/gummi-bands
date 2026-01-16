@@ -17,77 +17,94 @@
 <script lang="ts">
 	import { Dialog } from './dialog';
 
-	let open = $state(false);
-	let errorTitle = $state('Error');
-	let errorMessage = $state('');
-	let errorStack = $state<string | undefined>(undefined);
-	let errorContext = $state<string | undefined>(undefined);
+	let errorQueue = $state<ErrorDetails[]>([]);
+	
+	const currentError = $derived(errorQueue[0]);
+	const open = $derived(errorQueue.length > 0);
+	const remainingCount = $derived(errorQueue.length);
 
 	function showError(details: ErrorDetails) {
-		errorTitle = details.title;
-		errorMessage = details.message;
-		errorStack = details.stack;
-		errorContext = details.context;
-		open = true;
+		errorQueue.push(details);
 	}
 
 	function handleDismiss() {
-		open = false;
+		errorQueue.shift();
+	}
+
+	function handleDismissAll() {
+		errorQueue = [];
 	}
 
 	errorDialog.show = showError;
 </script>
 
-<Dialog.Root bind:open onOpenChange={(isOpen) => { if (!isOpen) handleDismiss(); }}>
+<Dialog.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) handleDismiss(); }}>
 	<Dialog.Portal>
 		<Dialog.Overlay class="z-[100]" />
 		<Dialog.Content class="z-[100] max-w-lg max-h-[85vh] flex flex-col" interactOutsideBehavior="ignore">
-			<!-- Icon -->
-			<div class="flex justify-center mb-4">
-				<div class="flex items-center justify-center w-12 h-12 rounded-full bg-error/20">
-					<i class="icon-[ph--warning] size-6 text-error"></i>
-				</div>
-			</div>
-
-			<Dialog.Title class="text-lg font-semibold tracking-wide text-center text-text-primary font-display">
-				{errorTitle}
-			</Dialog.Title>
-			
-			<div class="flex-1 mt-4 overflow-y-auto">
-				<!-- Error Message -->
-				<div class="p-3 rounded-lg bg-bg-tertiary">
-					<p class="text-sm font-medium text-error break-words">{errorMessage}</p>
+			{#if currentError}
+				<!-- Icon -->
+				<div class="flex justify-center mb-4">
+					<div class="flex items-center justify-center w-12 h-12 rounded-full bg-error/20">
+						<i class="icon-[ph--warning] size-6 text-error"></i>
+					</div>
 				</div>
 
-				<!-- Context -->
-				{#if errorContext}
-					<div class="mt-3">
-						<p class="text-xs font-medium text-text-muted mb-1">Context</p>
-						<div class="p-3 rounded-lg bg-bg-tertiary">
-							<pre class="text-xs text-text-secondary whitespace-pre-wrap break-words font-mono">{errorContext}</pre>
-						</div>
-					</div>
-				{/if}
+				<Dialog.Title class="text-lg font-semibold tracking-wide text-center text-text-primary font-display">
+					{currentError.title}
+				</Dialog.Title>
 
-				<!-- Stack Trace -->
-				{#if errorStack}
-					<div class="mt-3">
-						<p class="text-xs font-medium text-text-muted mb-1">Stack Trace</p>
-						<div class="p-3 rounded-lg bg-bg-tertiary max-h-48 overflow-y-auto">
-							<pre class="text-xs text-text-secondary whitespace-pre-wrap break-words font-mono">{errorStack}</pre>
-						</div>
-					</div>
+				<!-- Error count badge -->
+				{#if remainingCount > 1}
+					<p class="text-xs text-center text-text-muted mt-1">
+						{remainingCount} errors remaining
+					</p>
 				{/if}
-			</div>
+				
+				<div class="flex-1 mt-4 overflow-y-auto">
+					<!-- Error Message -->
+					<div class="p-3 rounded-lg bg-bg-tertiary">
+						<p class="text-sm font-medium text-error break-words">{currentError.message}</p>
+					</div>
 
-			<div class="flex gap-3 mt-6">
-				<button
-					class="flex-1 px-4 py-3 text-sm font-medium transition-all duration-200 rounded-lg cursor-pointer bg-error hover:bg-error/80 text-white"
-					onclick={handleDismiss}
-				>
-					Dismiss
-				</button>
-			</div>
+					<!-- Context -->
+					{#if currentError.context}
+						<div class="mt-3">
+							<p class="text-xs font-medium text-text-muted mb-1">Context</p>
+							<div class="p-3 rounded-lg bg-bg-tertiary">
+								<pre class="text-xs text-text-secondary whitespace-pre-wrap break-words font-mono">{currentError.context}</pre>
+							</div>
+						</div>
+					{/if}
+
+					<!-- Stack Trace -->
+					{#if currentError.stack}
+						<div class="mt-3">
+							<p class="text-xs font-medium text-text-muted mb-1">Stack Trace</p>
+							<div class="p-3 rounded-lg bg-bg-tertiary max-h-48 overflow-y-auto">
+								<pre class="text-xs text-text-secondary whitespace-pre-wrap break-words font-mono">{currentError.stack}</pre>
+							</div>
+						</div>
+					{/if}
+				</div>
+
+				<div class="flex gap-3 mt-6">
+					{#if remainingCount > 1}
+						<button
+							class="flex-1 px-4 py-3 text-sm font-medium transition-all duration-200 border rounded-lg cursor-pointer bg-bg-tertiary border-bg-elevated text-text-secondary hover:bg-bg-elevated hover:text-text-primary"
+							onclick={handleDismissAll}
+						>
+							Dismiss All
+						</button>
+					{/if}
+					<button
+						class="flex-1 px-4 py-3 text-sm font-medium transition-all duration-200 rounded-lg cursor-pointer bg-error hover:bg-error/80 text-white"
+						onclick={handleDismiss}
+					>
+						{remainingCount > 1 ? 'Next' : 'Dismiss'}
+					</button>
+				</div>
+			{/if}
 		</Dialog.Content>
 	</Dialog.Portal>
 </Dialog.Root>
