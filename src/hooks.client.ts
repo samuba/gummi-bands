@@ -48,6 +48,12 @@ function extractErrorInfo(error: unknown): { message: string; stack?: string } {
 }
 
 function showError(details: ErrorDetails) {
+    console.error(details);
+
+    if (!dialogReady) {
+        alert(`${details.title}\n\n${details.message}`);
+    }
+    
 	if (dialogReady && errorDialog.show) {
 		errorDialog.show(details);
 	} else {
