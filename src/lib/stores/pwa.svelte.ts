@@ -1,4 +1,4 @@
-import { browser } from '$app/environment';
+import { browser, dev } from '$app/environment';
 
 interface BeforeInstallPromptEvent extends Event {
 	prompt: () => Promise<void>;
@@ -9,6 +9,15 @@ let deferredPrompt = $state<BeforeInstallPromptEvent | null>(null);
 
 export function setupPwa() {
 	if (browser) {
+		// Unregister service worker in development to avoid network interception
+		if (dev && 'serviceWorker' in navigator) {
+			navigator.serviceWorker.getRegistrations().then((registrations) => {
+				for (const registration of registrations) {
+					registration.unregister();
+				}
+			});
+		}
+
 		window.addEventListener('beforeinstallprompt', (e) => {
 			e.preventDefault();
 			deferredPrompt = e as BeforeInstallPromptEvent;
