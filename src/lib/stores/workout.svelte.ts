@@ -9,7 +9,7 @@ import type {
 	LoggedExercise,
 	WorkoutTemplate
 } from '$lib/db/schema';
-import { eq, desc, and, ne, asc, isNull, sql } from 'drizzle-orm';
+import { eq, desc, and, ne, asc, isNull, sql, inArray } from 'drizzle-orm';
 import { loader } from './initialLoader.svelte';
 import { settings } from './settings.svelte';
 
@@ -229,9 +229,22 @@ export async function deleteExercise(id: string) {
 
 // Start a new workout session
 export async function startSession(templateId?: string) {
+	let plannedExercises: string[] = [];
+
+	// If a template was selected, get exercises
+	if (templateId) {
+		const template = allTemplates.find((t) => t.id === templateId);
+		if (template) {
+			plannedExercises = template.exercises.map((e) => e.id);
+		}
+	}
+
 	const [session] = await db
 		.insert(s.workoutSessions)
-		.values({ templateId: templateId || null })
+		.values({ 
+			templateId: templateId || null,
+			plannedExercises
+		})
 		.returning();
 	currentSession = session;
 	sessionLogs = [];
@@ -351,9 +364,17 @@ export async function resumeSession(sessionId: string) {
 }
 
 // Add an exercise to the suggested exercises list
-export function addSuggestedExercise(exercise: Exercise) {
+export async function addSuggestedExercise(exercise: Exercise) {
 	if (!suggestedExercises.some((e) => e.id === exercise.id)) {
 		suggestedExercises = [...suggestedExercises, exercise];
+
+		if (currentSession && db) {
+			const plannedExercises = suggestedExercises.map((e) => e.id);
+			await db
+				.update(s.workoutSessions)
+				.set({ plannedExercises })
+				.where(eq(s.workoutSessions.id, currentSession.id));
+		}
 	}
 }
 
@@ -446,7 +467,36 @@ export async function getDetailedSessionHistory(): Promise<DetailedSession[]> {
 	});
 
 	// Transform to DetailedSession format and filter empty sessions
+	const emptySessions = sessions.filter(
+		(session) =>
+			session.loggedExercises.length === 0 &&
+			(!session.notes || session.notes.trim().length === 0) &&
+			(!session.plannedExercises || session.plannedExercises.length === 0)
+	);
+
+	if (emptySessions.length > 0) {
+		// Delete empty sessions in background, but exclude current session
+		const idsToDelete = emptySessions
+			.map((s) => s.id)
+			.filter((id) => !currentSession || id !== currentSession.id);
+
+		if (idsToDelete.length > 0) {
+			db.delete(s.workoutSessions)
+				.where(inArray(s.workoutSessions.id, idsToDelete))
+				.then(() => {
+					console.log(`Deleted ${idsToDelete.length} empty sessions`);
+				})
+				.catch((err) => console.error('Failed to delete empty sessions', err));
+		}
+	}
+
 	return sessions
+		.filter(
+			(session) =>
+				session.loggedExercises.length > 0 ||
+				(session.notes && session.notes.trim().length > 0) ||
+				(session.plannedExercises && session.plannedExercises.length > 0)
+		)
 		.map((session) => ({
 			id: session.id,
 			templateId: session.templateId,
@@ -463,8 +513,7 @@ export async function getDetailedSessionHistory(): Promise<DetailedSession[]> {
 				notes: log.notes,
 				bands: log.loggedExerciseBands.map((leb) => leb.band)
 			}))
-		}))
-		.filter((session) => session.logs.length > 0 || session.notes);
+		}));
 }
 
 // Get recent sessions with full details
@@ -472,7 +521,7 @@ export async function getRecentDetailedSessions(limit: number): Promise<Detailed
 	if (!browser || !db) return [];
 
 	// Fetch a few more to account for potentially empty sessions that will be filtered out
-	const fetchLimit = limit + 5;
+	const fetchLimit = limit + 20;
 
 	const sessions = await db.query.workoutSessions.findMany({
 		orderBy: desc(s.workoutSessions.startedAt),
@@ -493,7 +542,36 @@ export async function getRecentDetailedSessions(limit: number): Promise<Detailed
 		}
 	});
 
+	const emptySessions = sessions.filter(
+		(session) =>
+			session.loggedExercises.length === 0 &&
+			(!session.notes || session.notes.trim().length === 0) &&
+			(!session.plannedExercises || session.plannedExercises.length === 0)
+	);
+
+	if (emptySessions.length > 0) {
+		// Delete empty sessions in background, but exclude current session
+		const idsToDelete = emptySessions
+			.map((s) => s.id)
+			.filter((id) => !currentSession || id !== currentSession.id);
+
+		if (idsToDelete.length > 0) {
+			db.delete(s.workoutSessions)
+				.where(inArray(s.workoutSessions.id, idsToDelete))
+				.then(() => {
+					console.log(`Deleted ${idsToDelete.length} empty sessions`);
+				})
+				.catch((err) => console.error('Failed to delete empty sessions', err));
+		}
+	}
+
 	return sessions
+		.filter(
+			(session) =>
+				session.loggedExercises.length > 0 ||
+				(session.notes && session.notes.trim().length > 0) ||
+				(session.plannedExercises && session.plannedExercises.length > 0)
+		)
 		.map((session) => ({
 			id: session.id,
 			templateId: session.templateId,
@@ -511,7 +589,6 @@ export async function getRecentDetailedSessions(limit: number): Promise<Detailed
 				bands: log.loggedExerciseBands.map((leb) => leb.band)
 			}))
 		}))
-		.filter((session) => session.logs.length > 0 || session.notes)
 		.slice(0, limit);
 }
 
@@ -525,9 +602,38 @@ export async function editSession(sessionId: string) {
 		currentSession = session;
 		await refreshSessionLogs();
 
-		// Build suggested exercises from the session's logged exercises
-		const exerciseIds = sessionLogs.map((log) => log.exerciseId);
-		suggestedExercises = allExercises.filter((e) => exerciseIds.includes(e.id));
+		// Build suggested exercises
+		// Priority:
+		// 1. session.plannedExercises (if valid array and not empty)
+		// 2. sessionLogs (fallback for legacy sessions)
+		// 3. template (if no logs and no planned exercises - unlikely but possible for empty legacy session)
+
+		if (
+			session.plannedExercises &&
+			session.plannedExercises.length > 0
+		) {
+			const plannedIds = session.plannedExercises as string[];
+			// Preserve order from plannedExercises
+			suggestedExercises = plannedIds
+				.map((id) => allExercises.find((e) => e.id === id))
+				.filter((e): e is Exercise => e !== undefined);
+		} else {
+			// Fallback to legacy behavior: logged exercises
+			const exerciseIds = sessionLogs.map((log) => log.exerciseId);
+			if (exerciseIds.length > 0) {
+				suggestedExercises = allExercises.filter((e) => exerciseIds.includes(e.id));
+			} else if (session.templateId) {
+				// Fallback to template if no logs (e.g. empty legacy session created from template)
+				const template = allTemplates.find((t) => t.id === session.templateId);
+				if (template) {
+					suggestedExercises = template.exercises;
+				} else {
+					suggestedExercises = [];
+				}
+			} else {
+				suggestedExercises = [];
+			}
+		}
 	}
 
 	return session;

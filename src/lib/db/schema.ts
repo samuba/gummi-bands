@@ -51,7 +51,8 @@ export const workoutSessions = pgTable('workout_sessions', {
 	startedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
 	endedAt: timestamp({ withTimezone: true }),
-	notes: text()
+	notes: text(),
+	plannedExercises: text().array().default(sql`'{}'::text[]`)
 });
 
 // Logged exercises within a workout session

@@ -1,0 +1,1 @@
+ALTER TABLE "workout_sessions" ADD COLUMN "planned_exercises" json DEFAULT '[]'::json;
