@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import Header from '$lib/components/Header.svelte';
 	import Stats from '$lib/components/Stats.svelte';
@@ -11,15 +12,28 @@
 
 	let workoutState = workout.getState();
 	let recentSessions = $state<DetailedSession[]>([]);
+	let lastTotalSessions = $state(-1);
 
-	$effect(() => {
-		if (workoutState.isInitialized) {
-			// Dependencies to trigger re-fetch
-			const _ = workoutState.stats.totalSessions;
-			workout.getRecentDetailedSessions(2).then((sessions) => {
-				recentSessions = sessions;
-			});
+	async function loadRecentSessions() {
+		try {
+			recentSessions = await workout.getRecentDetailedSessions(2);
+		} catch (error) {
+			console.error('Failed to load recent sessions:', error);
 		}
+	}
+
+	// Initial load when component mounts (guaranteed to run after layout initialization)
+	onMount(() => {
+		loadRecentSessions();
+	});
+
+	// Re-fetch when totalSessions changes (after completing/deleting a workout)
+	$effect(() => {
+		const currentTotal = workoutState.stats.totalSessions;
+		if (lastTotalSessions !== -1 && currentTotal !== lastTotalSessions) {
+			loadRecentSessions();
+		}
+		lastTotalSessions = currentTotal;
 	});
 
 	async function handleStartWorkout(templateId?: string) {
