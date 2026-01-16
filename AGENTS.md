@@ -30,6 +30,7 @@ Never use raw sql strings if there is a drizzle native way instead.
 Always use timestamp({ withTimezone: true }) in schemas for timestamp columns.
 Always use uuidv7 when using uuid's in schema.
 Never generate migration files on your own, instead always use `npm run db:generate` for that.
+Always use implicit column names when defining them in the schema.
 
 ## localization
 Always use browsers locale when doing localization or date formating using Intl.*
