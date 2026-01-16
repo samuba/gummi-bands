@@ -95,7 +95,7 @@
 					<h3 class="text-lg font-medium text-text-primary">Keep Screen Awake</h3>
 					<p class="text-sm text-text-muted">
 						{#if wakeLock.isSupported}
-							Prevent screen from dimming during workouts.
+							Prevent screen from sleeping when app is open.
 						{:else}
 							Not supported on this device.
 						{/if}
