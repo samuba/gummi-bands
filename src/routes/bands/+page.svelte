@@ -3,6 +3,7 @@
 	import Header from '$lib/components/Header.svelte';
 	import { editBandDialog } from '$lib/components/EditBandDialog.svelte';
 	import * as workout from '$lib/stores/workout.svelte';
+	import { settings } from '$lib/stores/settings.svelte';
 	import type { Band } from '$lib/db/schema';
 	import { flip } from 'svelte/animate';
 
@@ -10,23 +11,23 @@
 
 	// Form state for adding bands
 	let newBandName = $state('');
-	let newBandResistance = $state(workoutState.weightUnit === 'lbs' ? 10 : 5);
+	let newBandResistance = $state(settings.weightUnit === 'lbs' ? 10 : 5);
 	let newBandColor = $state('#FF4444');
 
 	async function handleAddBand() {
 		if (!newBandName.trim()) return;
 		// Convert resistance to lbs if currently in kg
-		const resistanceInLbs = workout.fromUserWeight(newBandResistance);
+		const resistanceInLbs = settings.fromUserWeight(newBandResistance);
 		await workout.addBand(newBandName.trim(), resistanceInLbs, newBandColor);
 		newBandName = '';
-		newBandResistance = workout.getState().weightUnit === 'lbs' ? 10 : 5;
+		newBandResistance = settings.weightUnit === 'lbs' ? 10 : 5;
 	}
 
 	async function handleEditBand(band: Band) {
 		const result = await editBandDialog.open({
 			id: band.id,
 			name: band.name,
-			resistance: workout.toUserWeight(band.resistance),
+			resistance: settings.toUserWeight(band.resistance),
 			color: band.color || '#666666'
 		});
 
@@ -35,7 +36,7 @@
 				await workout.deleteBand(band.id);
 			} else {
 				// Convert result back to lbs before updating
-				const resistanceInLbs = workout.fromUserWeight(result.resistance);
+				const resistanceInLbs = settings.fromUserWeight(result.resistance);
 				await workout.updateBand(band.id, result.name, resistanceInLbs, result.color);
 			}
 		}
@@ -53,7 +54,7 @@
 		<div class="grid grid-cols-[1fr_auto] gap-4">
 			<div class="flex flex-col gap-1">
 				<label class="text-xs tracking-wide text-text-muted uppercase" for="resistance">
-					Resistance ({workoutState.weightUnit})
+					Resistance ({settings.weightUnit})
 				</label>
 				<input id="resistance" type="number" min="1" max="200" bind:value={newBandResistance} />
 			</div>
@@ -84,7 +85,7 @@
 				<div class="h-6 w-6 shrink-0 rounded-sm" style:background={band.color || '#666'}></div>
 				<div class="flex flex-1 flex-col gap-0.5">
 					<span class="text-sm text-text-primary">{band.name}</span>
-					<span class="text-xs text-text-muted">{workout.formatWeight(band.resistance)}</span>
+					<span class="text-xs text-text-muted">{settings.formatWeight(band.resistance)}</span>
 				</div>
 				<i class="icon-[ph--caret-right] size-5 text-text-muted"></i>
 			</button>

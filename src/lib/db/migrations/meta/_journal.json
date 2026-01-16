@@ -57,6 +57,13 @@
       "when": 1767841557544,
       "tag": "0007_petite_kylun",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1737043200000,
+      "tag": "0008_keep_screen_awake",
+      "breakpoints": true
     }
   ]
 }

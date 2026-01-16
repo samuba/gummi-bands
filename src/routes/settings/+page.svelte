@@ -1,13 +1,16 @@
 <script lang="ts">
 	import Header from '$lib/components/Header.svelte';
-	import * as workout from '$lib/stores/workout.svelte';
 	import { db } from '$lib/db/client';
 	import { browser, version } from '$app/environment';
-
-	let workoutState = workout.getState();
+	import { settings } from '$lib/stores/settings.svelte';
+	import { wakeLock } from '$lib/stores/wakeLock.svelte';
 
 	async function setWeightUnit(unit: 'lbs' | 'kg') {
-		await workout.updateWeightUnit(unit);
+		await settings.updateWeightUnit(unit);
+	}
+
+	async function toggleKeepScreenAwake() {
+		await settings.updateKeepScreenAwake(!settings.keepScreenAwake);
 	}
 
 	async function exportData() {
@@ -68,7 +71,7 @@
 
 			<div class="flex gap-2 p-1 bg-bg-tertiary rounded-lg">
 				<button
-					class="flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 {workoutState.weightUnit === 'lbs'
+					class="flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 {settings.weightUnit === 'lbs'
 						? 'bg-bg-elevated text-text-primary shadow-sm'
 						: 'text-text-muted hover:text-text-secondary'}"
 					onclick={() => setWeightUnit('lbs')}
@@ -76,12 +79,42 @@
 					Pounds (lbs)
 				</button>
 				<button
-					class="flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 {workoutState.weightUnit === 'kg'
+					class="flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 {settings.weightUnit === 'kg'
 						? 'bg-bg-elevated text-text-primary shadow-sm'
 						: 'text-text-muted hover:text-text-secondary'}"
 					onclick={() => setWeightUnit('kg')}
 				>
 					Kilograms (kg)
+				</button>
+			</div>
+		</div>
+
+		<div class="card flex flex-col gap-4">
+			<div class="flex items-center justify-between">
+				<div class="flex flex-col gap-1">
+					<h3 class="text-lg font-medium text-text-primary">Keep Screen Awake</h3>
+					<p class="text-sm text-text-muted">
+						{#if wakeLock.isSupported}
+							Prevent screen from dimming during workouts.
+						{:else}
+							Not supported on this device.
+						{/if}
+					</p>
+				</div>
+
+				<button
+					class="relative h-7 w-12 rounded-full transition-colors duration-200 {settings.keepScreenAwake
+						? 'bg-primary'
+						: 'bg-bg-tertiary'}"
+					onclick={toggleKeepScreenAwake}
+					disabled={!wakeLock.isSupported}
+					aria-label="Toggle keep screen awake"
+				>
+					<span
+						class="absolute top-1 left-1 size-5 rounded-full bg-white shadow-sm transition-transform duration-200 {settings.keepScreenAwake
+							? 'translate-x-5'
+							: 'translate-x-0'}"
+					></span>
 				</button>
 			</div>
 		</div>

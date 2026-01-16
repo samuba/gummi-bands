@@ -11,6 +11,7 @@ import type {
 } from '$lib/db/schema';
 import { eq, desc, and, ne, asc, isNull, sql } from 'drizzle-orm';
 import { loader } from './initialLoader.svelte';
+import { settings } from './settings.svelte';
 
 // Reactive state
 let isInitialized = $state(false);
@@ -21,7 +22,6 @@ let currentSession = $state<WorkoutSession | null>(null);
 let sessionLogs = $state<(LoggedExercise & { exercise: Exercise; bands: Band[] })[]>([]);
 let recentSessions = $state<WorkoutSession[]>([]);
 let suggestedExercises = $state<Exercise[]>([]);
-let weightUnit = $state<'lbs' | 'kg'>('lbs');
 
 const workoutStats = $state({
 	totalSessions: 0,
@@ -40,16 +40,7 @@ export async function initialize() {
 
 	loader.setLoading('Loading data...', 85);
 	// Initialize settings
-	const existingSettings = await db.query.settings.findFirst({
-		where: eq(s.settings.id, 'global')
-	});
-
-	if (!existingSettings) {
-		await db.insert(s.settings).values({ id: 'global', weightUnit: 'lbs' });
-		weightUnit = 'lbs';
-	} else {
-		weightUnit = existingSettings.weightUnit;
-	}
+	await settings.initialize();
 
 	// set allBands
 	await liveQuery(
@@ -557,38 +548,6 @@ export async function updateSessionNotes(sessionId: string, notes: string | null
 	await db.update(s.workoutSessions).set({ notes }).where(eq(s.workoutSessions.id, sessionId));
 }
 
-export async function updateWeightUnit(unit: 'lbs' | 'kg') {
-	await db.update(s.settings).set({ weightUnit: unit }).where(eq(s.settings.id, 'global'));
-	weightUnit = unit;
-}
-
-export function formatWeight(lbsOrKg: number): string {
-	const val = weightUnit === 'lbs' ? lbsOrKg : lbsOrKg * 0.45359237;
-	const unit = weightUnit === 'lbs' ? 'pound' : 'kilogram';
-	return new Intl.NumberFormat(navigator.language, {
-		maximumFractionDigits: 1,
-		style: 'unit',
-		unit,
-		unitDisplay: 'short'
-	}).format(val);
-}
-
-export function formatNumber(num: number, maximumFractionDigits = 1): string {
-	return new Intl.NumberFormat(undefined, {
-		maximumFractionDigits
-	}).format(num);
-}
-
-export function toUserWeight(lbs: number): number {
-	if (weightUnit === 'lbs') return lbs;
-	return Math.round((lbs * 0.45359237) * 10) / 10;
-}
-
-export function fromUserWeight(weight: number): number {
-	if (weightUnit === 'lbs') return weight;
-	return weight / 0.45359237;
-}
-
 // Save and close editing session (without setting endedAt if already set)
 export async function saveEditedSession(notes?: string) {
 	if (!browser || !db || !currentSession) return;
@@ -632,9 +591,6 @@ export function getState() {
 		},
 		get suggestedExercises() {
 			return suggestedExercises;
-		},
-		get weightUnit() {
-			return weightUnit;
 		},
 		get stats() {
 			return workoutStats;

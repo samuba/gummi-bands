@@ -7,6 +7,7 @@
 	import { page } from '$app/state';
 	import type { Band, Exercise } from '$lib/db/schema';
 	import * as workout from '$lib/stores/workout.svelte';
+	import { settings } from '$lib/stores/settings.svelte';
 
 	interface Props {
 		exercise: Exercise;
@@ -142,7 +143,7 @@
 				<div class="flex items-center justify-between">
 					<span class="text-sm font-medium text-text-secondary">Bands</span>
 					{#if selectedBandIds.length > 0}
-						<span class="text-sm text-primary">{workout.formatWeight(getTotalResistance())}</span>
+						<span class="text-sm text-primary">{settings.formatWeight(getTotalResistance())}</span>
 					{/if}
 				</div>
 
@@ -165,7 +166,7 @@
 									style:box-shadow={`0 0 6px ${band.color || '#666'}`}
 								></span>
 								<span class="text-sm font-medium text-text-primary">{band.name}</span>
-								<span class="text-xs text-text-muted">{workout.formatWeight(band.resistance)}</span>
+								<span class="text-xs text-text-muted">{settings.formatWeight(band.resistance)}</span>
 								<svg
 									class="h-3.5 w-3.5 text-text-muted transition-colors group-hover:text-red-400"
 									viewBox="0 0 24 24"
@@ -221,7 +222,7 @@
 											></span>
 											<span class="flex-1">{band.name}</span>
 											<span class="text-xs text-text-muted"
-												>{workout.formatWeight(band.resistance)}</span
+												>{settings.formatWeight(band.resistance)}</span
 											>
 										</Select.Item>
 									{/each}

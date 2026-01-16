@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { slide, fade } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
-	import * as workout from '$lib/stores/workout.svelte';
 	import type { DetailedSession } from '$lib/stores/workout.svelte';
+	import { settings } from '$lib/stores/settings.svelte';
 
 	interface Props {
 		session: DetailedSession;
@@ -124,7 +124,7 @@
 								</span>
 							{/each}
 							<span class="ml-auto text-[0.65rem] text-text-muted">
-								{workout.formatWeight(log.bands.reduce((sum, b) => sum + b.resistance, 0))}
+								{settings.formatWeight(log.bands.reduce((sum, b) => sum + b.resistance, 0))}
 							</span>
 						</div>
 					{/if}

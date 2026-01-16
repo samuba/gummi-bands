@@ -1,0 +1,1 @@
+ALTER TABLE "settings" ADD COLUMN "keep_screen_awake" boolean DEFAULT true NOT NULL;

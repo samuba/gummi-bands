@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Band } from '$lib/db/schema';
 	import { fade } from 'svelte/transition';
-	import * as workout from '$lib/stores/workout.svelte';
+	import { settings } from '$lib/stores/settings.svelte';
 
 	interface Props {
 		bands: Band[];
@@ -31,7 +31,7 @@
 		<span class="text-sm font-medium text-text-secondary">Select Bands</span>
 		{#if selectedIds.length > 0}
 			<span class="text-base tracking-wider text-primary font-display" transition:fade={{ duration: 150 }}>
-				{workout.formatWeight(getTotalResistance())} total
+				{settings.formatWeight(getTotalResistance())} total
 			</span>
 		{/if}
 	</div>
@@ -51,7 +51,7 @@
 					style:box-shadow={`0 0 8px ${band.color || '#666'}`}
 				></span>
 				<span class="text-[0.8rem] text-text-primary whitespace-nowrap">{band.name}</span>
-				<span class="text-xs text-text-muted">{workout.formatWeight(band.resistance)}</span>
+				<span class="text-xs text-text-muted">{settings.formatWeight(band.resistance)}</span>
 			</button>
 		{/each}
 	</div>

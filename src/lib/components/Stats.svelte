@@ -1,5 +1,6 @@
 <script lang="ts">
 	import * as workout from '$lib/stores/workout.svelte';
+	import { settings } from '$lib/stores/settings.svelte';
 
 	let workoutState = workout.getState();
 	let stats = $derived(workoutState.stats);
@@ -8,7 +9,7 @@
 <div class="card flex flex-col gap-4">
 	<div class="flex items-center justify-between">
 		<h3 class="text-sm font-medium tracking-wide text-text-secondary uppercase">Workout Stats</h3>
-		<span class="text-[0.65rem] text-text-muted uppercase">This Week: {workout.formatNumber(stats.thisWeekSessions, 0)}</span>
+		<span class="text-[0.65rem] text-text-muted uppercase">This Week: {settings.formatNumber(stats.thisWeekSessions, 0)}</span>
 	</div>
 
 	<div class="grid grid-cols-2 gap-4">
@@ -20,10 +21,10 @@
 			</div>
 			<div class="flex flex-col">
 				<span class="font-display text-2xl text-text-primary">
-					{workout.formatNumber(workout.toUserWeight(stats.totalVolume))}
+					{settings.formatNumber(settings.toUserWeight(stats.totalVolume))}
 				</span>
 				<span class="text-[0.65rem] text-text-muted uppercase">
-					{workoutState.weightUnit} moved
+					{settings.weightUnit} moved
 				</span>
 			</div>
 		</div>
@@ -35,7 +36,7 @@
 				<span class="text-[0.65rem] font-bold tracking-wider uppercase">Reps</span>
 			</div>
 			<div class="flex flex-col">
-				<span class="font-display text-2xl text-text-primary">{workout.formatNumber(stats.totalReps, 0)}</span>
+				<span class="font-display text-2xl text-text-primary">{settings.formatNumber(stats.totalReps, 0)}</span>
 				<span class="text-[0.65rem] text-text-muted uppercase">Total reps</span>
 			</div>
 		</div>
@@ -54,7 +55,7 @@
 				</div>
 			</div>
 			<div class="flex flex-col items-end">
-				<span class="font-display text-xl text-primary">{workout.formatNumber(stats.totalSessions, 0)}</span>
+				<span class="font-display text-xl text-primary">{settings.formatNumber(stats.totalSessions, 0)}</span>
 				<span class="text-[0.65rem] text-text-muted uppercase">Total Workouts</span>
 			</div>
 		</div>

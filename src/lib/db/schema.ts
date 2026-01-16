@@ -1,5 +1,5 @@
 // uses drizzle auto snake_case conversion for column names 
-import { pgTable, text, integer, uuid, timestamp, real } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, uuid, timestamp, real, boolean } from 'drizzle-orm/pg-core';
 import { relations,sql } from 'drizzle-orm';
 
 const uuidv7 = () => uuid().default(sql`uuid_generate_v7()`);
@@ -17,6 +17,7 @@ export const bands = pgTable('bands', {
 export const settings = pgTable('settings', {
 	id: text().primaryKey(), // We'll use a fixed ID like 'global'
 	weightUnit: text({ enum: ['lbs', 'kg'] }).notNull().default('lbs'),
+	keepScreenAwake: boolean().notNull().default(true),
 	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`)
 });
 
