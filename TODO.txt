@@ -1,1 +1,5 @@
+offline does not work
+startup takes too long
+
 test update only on home page
+

@@ -16,33 +16,22 @@
 	import { Dialog } from './dialog';
 	import { pushState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { SvelteMap } from 'svelte/reactivity';
 	import * as workout from '$lib/stores/workout.svelte';
-	import type { TemplateWithExerises } from '$lib/stores/workout.svelte';
 
 	const open = $derived(page.state.startWorkoutOpen === true);
 	let workoutState = workout.getState();
 	let resolvePromise: ((value: StartWorkoutResult) => void) | null = null;
-	let templateLastUsed = new SvelteMap<string, Date | null>();
+	let templateLastUsed: Awaited<ReturnType<typeof workout.getTemplateLastUsedDates>> = $state([]);
 
 	// Load last used dates when dialog opens
 	$effect(() => {
 		if (open) {
-			loadLastUsedDates();
+			workout.getTemplateLastUsedDates().then(x => templateLastUsed = x);
 		}
 	});
 
-	async function loadLastUsedDates() {
-		const lastUsedData = await workout.getTemplateLastUsedDates();
-		
-		// Clear and update with the fetched data
-		templateLastUsed.clear();
-		for (const [templateId, lastUsed] of lastUsedData) {
-			templateLastUsed.set(templateId, lastUsed);
-		}
-	}
-
 	function formatDaysAgo(date: Date | null): string {
+		console.log("date:",  );
 		if (!date) return 'Never used';
 
 		const now = new Date();
@@ -113,7 +102,7 @@
 							</div>
 							<div class="flex items-center gap-2 text-xs text-text-muted">
 								<i class="icon-[ph--clock] size-4"></i>
-								<span>{formatDaysAgo(templateLastUsed.get(template.id) ?? null)}</span>
+								<span>{formatDaysAgo(templateLastUsed.find(x => x[0] === template.id)?.[1] ?? null)}</span>
 							</div>
 						</button>
 					{/each}

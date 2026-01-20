@@ -9,7 +9,7 @@ import type {
 	LoggedExercise,
 	WorkoutTemplate
 } from '$lib/db/schema';
-import { eq, desc, and, ne, asc, isNull, isNotNull, sql, inArray } from 'drizzle-orm';
+import { eq, desc, and, ne, asc, isNull, isNotNull, max, sql, inArray } from 'drizzle-orm';
 import { loader } from './initialLoader.svelte';
 import { settings } from './settings.svelte';
 
@@ -750,16 +750,13 @@ export async function saveEditedSession(notes?: string) {
 	suggestedExercises = [];
 }
 
-// Get the last used date for each template
 export async function getTemplateLastUsedDates(): Promise<Array<[string, Date | null]>> {
 	if (!browser || !db) return [];
 
-	// Query to get the most recent startedAt for each templateId
-	// Using MAX with GROUP BY to get only the latest session per template
 	const result = await db
 		.select({
 			templateId: s.workoutSessions.templateId,
-			lastUsed: sql<Date>`MAX(${s.workoutSessions.startedAt})`
+			lastUsed: max(s.workoutSessions.startedAt)
 		})
 		.from(s.workoutSessions)
 		.where(
@@ -770,14 +767,12 @@ export async function getTemplateLastUsedDates(): Promise<Array<[string, Date | 
 		)
 		.groupBy(s.workoutSessions.templateId);
 	
-	// Build the result array with all templates
 	const tuples: Array<[string, Date | null]> = [];
 	
 	// Add all templates (with null for those never used)
 	for (const template of allTemplates) {
 		const sessionData = result.find(r => r.templateId === template.id);
-		const lastUsed = sessionData?.lastUsed ? new Date(sessionData.lastUsed) : null;
-		tuples.push([template.id, lastUsed]);
+		tuples.push([template.id, sessionData?.lastUsed ?? null]);
 	}
 
 	return tuples;
