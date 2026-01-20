@@ -70,25 +70,25 @@
 
 <Dialog.Root open={open} onOpenChange={(isOpen: boolean) => { if (!isOpen) handleCancel(); }}>
 	<Dialog.Portal>
-		<Dialog.Overlay class="z-[60]" />
-		<Dialog.Content class="z-[60] max-w-sm" interactOutsideBehavior="ignore">
+		<Dialog.Overlay class="z-60" />
+		<Dialog.Content class="z-60 max-w-sm flex flex-col" interactOutsideBehavior="ignore">
 			<!-- Icon -->
 			{#if dialogIconClass}
-				<div class="flex justify-center mb-4">
+				<div class="flex justify-center mb-4 shrink-0">
 					<div class="flex items-center justify-center w-12 h-12 rounded-full bg-error/20">
 						<i class="{dialogIconClass} size-6 text-error"></i>
 					</div>
 				</div>
 			{/if}
 
-			<Dialog.Title class="text-lg font-semibold tracking-wide text-center text-text-primary font-display">
+			<Dialog.Title class="text-lg font-semibold tracking-wide text-center text-text-primary font-display shrink-0">
 				{dialogTitle}
 			</Dialog.Title>
-			<Dialog.Description class="mt-2 text-sm text-center text-text-muted">
+			<Dialog.Description class="mt-2 text-sm text-center text-text-muted shrink-0">
 				{@html dialogHtml}
 			</Dialog.Description>
 
-			<div class="flex gap-3 mt-6">
+			<div class="flex gap-3 mt-6 shrink-0">
 				<button
 					class="flex-1 px-4 py-3 text-sm font-medium transition-all duration-200 border rounded-lg cursor-pointer bg-bg-tertiary border-bg-elevated text-text-secondary hover:bg-bg-elevated hover:text-text-primary"
 					onclick={handleCancel}

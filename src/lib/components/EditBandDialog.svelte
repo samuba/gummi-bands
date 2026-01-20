@@ -108,15 +108,15 @@
 <Dialog.Root open={open} onOpenChange={(isOpen: boolean) => { if (!isOpen) handleCancel(); }}>
 	<Dialog.Portal>
 		<Dialog.Overlay />
-		<Dialog.Content class="max-w-sm" interactOutsideBehavior="ignore">
-			<Dialog.Title class="text-lg font-semibold tracking-wide text-text-primary font-display">
+		<Dialog.Content class="max-w-sm flex flex-col" interactOutsideBehavior="ignore">
+			<Dialog.Title class="text-lg font-semibold tracking-wide text-text-primary font-display shrink-0">
 				Edit Band
 			</Dialog.Title>
-			<Dialog.Description class="mt-1 text-sm text-text-muted">
+			<Dialog.Description class="mt-1 text-sm text-text-muted shrink-0">
 				Update the band's name, resistance, and color.
 			</Dialog.Description>
 
-			<div class="mt-5 flex flex-col gap-4">
+			<div class="mt-5 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
 				<div class="flex flex-col gap-1">
 					<label class="text-xs tracking-wide text-text-muted uppercase" for="edit-band-name">
 						Name
@@ -158,7 +158,7 @@
 				</div>
 			</div>
 
-			<div class="flex gap-3 mt-6">
+			<div class="flex gap-3 mt-6 shrink-0">
 				<button
 					class="flex-1 px-4 py-3 text-sm font-medium transition-all duration-200 border rounded-lg cursor-pointer bg-bg-tertiary border-bg-elevated text-text-secondary hover:bg-bg-elevated hover:text-text-primary"
 					onclick={handleCancel}
@@ -175,7 +175,7 @@
 			</div>
 
 			<button
-				class="flex items-center justify-center gap-2 w-full mt-3 px-4 py-3 text-sm font-medium transition-all duration-200 rounded-lg cursor-pointer text-error hover:bg-error/10"
+				class="flex items-center justify-center gap-2 w-full mt-3 px-4 py-3 text-sm font-medium transition-all duration-200 rounded-lg cursor-pointer text-error hover:bg-error/10 shrink-0"
 				onclick={handleDelete}
 			>
 				<i class="icon-[ph--trash] size-4"></i>

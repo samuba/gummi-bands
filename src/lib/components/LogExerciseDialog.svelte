@@ -133,13 +133,14 @@
 
 	<Dialog.Portal>
 		<Dialog.Overlay />
-		<Dialog.Content class="max-h-[90vh] overflow-y-auto" interactOutsideBehavior="ignore">
-			<Dialog.Title class="font-display text-xl font-semibold tracking-wide text-text-primary">
+		<Dialog.Content class="flex flex-col" interactOutsideBehavior="ignore">
+			<Dialog.Title class="font-display text-xl font-semibold tracking-wide text-text-primary shrink-0">
 				{exercise.name}
 			</Dialog.Title>
 
-			<!-- Band Selection -->
-			<div class="mt-6 flex flex-col gap-3">
+			<div class="flex-1 min-h-0 overflow-y-auto">
+				<!-- Band Selection -->
+				<div class="mt-6 flex flex-col gap-3">
 				<div class="flex items-center justify-between">
 					<span class="text-sm font-medium text-text-secondary">Bands</span>
 					{#if selectedBandIds.length > 0}
@@ -338,23 +339,24 @@
 				</div>
 			</div>
 
-			<!-- Notes Input -->
-			<div class="mt-6 flex flex-col gap-2">
-				<label for="exercise-notes" class="text-sm font-medium text-text-secondary">Notes</label>
-				<textarea
-					id="exercise-notes"
-					placeholder="Optional notes about this set..."
-					bind:value={notes}
-					rows="2"
-					tabindex="-1"
-					class="w-full resize-none rounded-lg border-2 border-bg-elevated bg-bg-tertiary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none"
-				></textarea>
+				<!-- Notes Input -->
+				<div class="mt-6 flex flex-col gap-2">
+					<label for="exercise-notes" class="text-sm font-medium text-text-secondary">Notes</label>
+					<textarea
+						id="exercise-notes"
+						placeholder="Optional notes about this set..."
+						bind:value={notes}
+						rows="2"
+						tabindex="-1"
+						class="w-full resize-none rounded-lg border-2 border-bg-elevated bg-bg-tertiary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none"
+					></textarea>
+				</div>
 			</div>
 
 			<!-- Save Button -->
 			<button
 				type="button"
-				class="btn-primary mt-6 w-full rounded-lg py-3 font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
+				class="btn-primary mt-6 w-full rounded-lg py-3 font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 shrink-0"
 				disabled={!canSave}
 				onclick={handleSave}
 			>

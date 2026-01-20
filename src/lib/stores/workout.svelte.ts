@@ -776,7 +776,8 @@ export async function getTemplateLastUsedDates(): Promise<Array<[string, Date | 
 	// Add all templates (with null for those never used)
 	for (const template of allTemplates) {
 		const sessionData = result.find(r => r.templateId === template.id);
-		tuples.push([template.id, sessionData?.lastUsed ?? null]);
+		const lastUsed = sessionData?.lastUsed ? new Date(sessionData.lastUsed) : null;
+		tuples.push([template.id, lastUsed]);
 	}
 
 	return tuples;

@@ -18,7 +18,7 @@
 	import { page } from '$app/state';
 	import { SvelteMap } from 'svelte/reactivity';
 	import * as workout from '$lib/stores/workout.svelte';
-	import type { TemplateWithExercises } from '$lib/stores/workout.svelte';
+	import type { TemplateWithExerises } from '$lib/stores/workout.svelte';
 
 	const open = $derived(page.state.startWorkoutOpen === true);
 	let workoutState = workout.getState();
@@ -90,15 +90,15 @@
 <Dialog.Root open={open} onOpenChange={(isOpen: boolean) => { if (!isOpen) handleCancel(); }}>
 	<Dialog.Portal>
 		<Dialog.Overlay />
-		<Dialog.Content class="max-w-md max-h-[85vh] overflow-y-auto" interactOutsideBehavior="ignore">
-			<Dialog.Title class="text-lg font-semibold tracking-wide text-text-primary font-display">
+		<Dialog.Content class="max-w-md flex flex-col" interactOutsideBehavior="ignore">
+			<Dialog.Title class="text-lg font-semibold tracking-wide text-text-primary font-display shrink-0">
 				Start Workout
 			</Dialog.Title>
-			<Dialog.Description class="mt-1 text-sm text-text-muted">
+			<Dialog.Description class="mt-1 text-sm text-text-muted shrink-0">
 				Choose a workout template or start a custom session
 			</Dialog.Description>
 
-			<div class="mt-5 flex flex-col gap-3">
+			<div class="mt-5 flex flex-col gap-3 min-h-0 overflow-y-auto flex-1">
 				{#if workoutState.templates.length > 0}
 					{#each workoutState.templates as template (template.id)}
 						<button
@@ -133,7 +133,7 @@
 				</button>
 			</div>
 
-			<div class="flex gap-3 mt-6">
+			<div class="flex gap-3 mt-6 shrink-0">
 				<button
 					class="flex-1 px-4 py-3 text-sm font-medium transition-all duration-200 border rounded-lg cursor-pointer bg-bg-tertiary border-bg-elevated text-text-secondary hover:bg-bg-elevated hover:text-text-primary"
 					onclick={handleCancel}

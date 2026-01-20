@@ -58,15 +58,15 @@
 
 	<Dialog.Portal>
 		<Dialog.Overlay />
-		<Dialog.Content interactOutsideBehavior="ignore">
-			<Dialog.Title class="text-lg font-semibold tracking-wide text-text-primary font-display">
+		<Dialog.Content class="flex flex-col" interactOutsideBehavior="ignore">
+			<Dialog.Title class="text-lg font-semibold tracking-wide text-text-primary font-display shrink-0">
 				Add Exercise
 			</Dialog.Title>
-			<Dialog.Description class="mt-1 text-sm text-text-muted">
+			<Dialog.Description class="mt-1 text-sm text-text-muted shrink-0">
 				Select an exercise to add to your workout.
 			</Dialog.Description>
 
-			<div class="mt-4">
+			<div class="mt-4 shrink-0">
 				<input
 					type="text"
 					placeholder="Search exercises..."
@@ -75,7 +75,7 @@
 				/>
 			</div>
 
-			<div class="flex flex-col gap-2 mt-4 overflow-y-auto max-h-64">
+			<div class="flex flex-col gap-2 mt-4 overflow-y-auto flex-1 min-h-0">
 				{#if filteredExercises.length === 0}
 					<p class="py-4 text-sm text-center text-text-muted">No exercises available</p>
 				{:else}

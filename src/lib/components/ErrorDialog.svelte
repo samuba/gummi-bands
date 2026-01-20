@@ -40,28 +40,28 @@
 
 <Dialog.Root open={open} onOpenChange={(isOpen) => { if (!isOpen) handleDismiss(); }}>
 	<Dialog.Portal>
-		<Dialog.Overlay class="z-[100]" />
-		<Dialog.Content class="z-[100] max-w-lg max-h-[85vh] flex flex-col" interactOutsideBehavior="ignore">
+		<Dialog.Overlay class="z-100" />
+		<Dialog.Content class="z-100 max-w-lg flex flex-col" interactOutsideBehavior="ignore">
 			{#if currentError}
 				<!-- Icon -->
-				<div class="flex justify-center mb-4">
+				<div class="flex justify-center mb-4 shrink-0">
 					<div class="flex items-center justify-center w-12 h-12 rounded-full bg-error/20">
 						<i class="icon-[ph--warning] size-6 text-error"></i>
 					</div>
 				</div>
 
-				<Dialog.Title class="text-lg font-semibold tracking-wide text-center text-text-primary font-display">
+				<Dialog.Title class="text-lg font-semibold tracking-wide text-center text-text-primary font-display shrink-0">
 					{currentError.title}
 				</Dialog.Title>
 
 				<!-- Error count badge -->
 				{#if remainingCount > 1}
-					<p class="text-xs text-center text-text-muted mt-1">
+					<p class="text-xs text-center text-text-muted mt-1 shrink-0">
 						{remainingCount} errors remaining
 					</p>
 				{/if}
 				
-				<div class="flex-1 mt-4 overflow-y-auto">
+				<div class="flex-1 mt-4 overflow-y-auto min-h-0">
 					<!-- Error Message -->
 					<div class="p-3 rounded-lg bg-bg-tertiary">
 						<p class="text-sm font-medium text-error break-words">{currentError.message}</p>
@@ -88,7 +88,7 @@
 					{/if}
 				</div>
 
-				<div class="flex gap-3 mt-6">
+				<div class="flex gap-3 mt-6 shrink-0">
 					{#if remainingCount > 1}
 						<button
 							class="flex-1 px-4 py-3 text-sm font-medium transition-all duration-200 border rounded-lg cursor-pointer bg-bg-tertiary border-bg-elevated text-text-secondary hover:bg-bg-elevated hover:text-text-primary"
