@@ -227,6 +227,37 @@ export async function deleteExercise(id: string) {
 	}
 }
 
+export async function addTemplate(name: string) {
+	await db.insert(s.workoutTemplates).values({ name });
+	await refreshTemplates();
+}
+
+export async function deleteTemplate(id: string) {
+	await db.delete(s.workoutTemplates).where(eq(s.workoutTemplates.id, id));
+	await refreshTemplates();
+}
+
+export async function updateTemplate(id: string, name: string, exerciseIds: string[]) {
+	// Update template name
+	await db.update(s.workoutTemplates).set({ name }).where(eq(s.workoutTemplates.id, id));
+
+	// Delete existing exercise associations
+	await db.delete(s.workoutTemplateExercises).where(eq(s.workoutTemplateExercises.templateId, id));
+
+	// Insert new exercise associations with sort order
+	if (exerciseIds.length > 0) {
+		await db.insert(s.workoutTemplateExercises).values(
+			exerciseIds.map((exerciseId, index) => ({
+				templateId: id,
+				exerciseId,
+				sortOrder: index
+			}))
+		);
+	}
+
+	await refreshTemplates();
+}
+
 // Start a new workout session
 export async function startSession(templateId?: string) {
 	let plannedExercises: string[] = [];

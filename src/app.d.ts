@@ -10,6 +10,7 @@ declare global {
 			addExerciseOpen?: boolean;
 			confirmOpen?: boolean;
 			editBandOpen?: boolean;
+			editTemplateOpen?: boolean;
 		}
 		// interface Platform {}
 	}

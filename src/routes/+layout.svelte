@@ -8,6 +8,7 @@
 	import { loader } from '$lib/stores/initialLoader.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import EditBandDialog from '$lib/components/EditBandDialog.svelte';
+	import EditTemplateDialog from '$lib/components/EditTemplateDialog.svelte';
 	import ErrorDialog from '$lib/components/ErrorDialog.svelte';
 	import { markDialogReady } from '../hooks.client';
 	import { preloadCode } from '$app/navigation';
@@ -140,6 +141,7 @@
 
 <ConfirmDialog />
 <EditBandDialog />
+<EditTemplateDialog />
 <ErrorDialog />
 
 <DbRepl />

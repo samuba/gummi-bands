@@ -91,12 +91,11 @@
 						class="group flex cursor-pointer items-center gap-3 rounded-lg border-2 border-bg-tertiary bg-bg-secondary p-4 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
 						onclick={() => handleStartWorkout(template.id)}
 					>
-						<i class="icon-[ph--lightning-fill] text-3xl text-amber-400"></i>
 						<span
-							class="font-display text-lg tracking-wide text-text-primary group-hover:text-primary"
+							class="flex-1 font-display text-lg tracking-wide text-text-primary group-hover:text-primary"
 							>{template.name}</span
 						>
-						<span class="ml-auto font-display text-xs tracking-widest text-primary uppercase"
+						<span class="font-display text-xs tracking-widest text-primary uppercase"
 							>Start →</span
 						>
 					</button>
@@ -132,7 +131,6 @@
 					<SessionCard
 						{session}
 						onEdit={handleEditSession}
-						onDelete={handleDeleteSession}
 					/>
 				{/each}
 
@@ -159,41 +157,56 @@
 				</div>
 			</a>
 		{/if}
+	</div>
+
+	<div class="grid grid-cols-2 gap-4">
 		<a
 			href={resolve('/bands')}
-			class="flex cursor-pointer items-center gap-4 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
+			class="flex cursor-pointer flex-col gap-2 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
 		>
-			<i class="icon-[ph--infinity] text-3xl text-primary"></i>
-			<div>
-				<span class="block font-display text-lg tracking-wide text-text-primary"
+			<div class="flex items-center gap-3">
+				<i class="icon-[ph--infinity] text-2xl text-primary"></i>
+				<span class="font-display text-lg tracking-wide text-text-primary"
 					>Bands</span
 				>
-				<span class="block text-xs text-text-muted">Add or remove resistance bands</span>
 			</div>
+			<span class="block text-xs text-text-muted">Add or remove resistance bands</span>
 		</a>
 		<a
 			href={resolve('/exercises')}
-			class="flex cursor-pointer items-center gap-4 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
+			class="flex cursor-pointer flex-col gap-2 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
 		>
-			<i class="icon-[ph--barbell] text-3xl text-primary"></i>
-			<div>
-				<span class="block font-display text-lg tracking-wide text-text-primary"
+			<div class="flex items-center gap-3">
+				<i class="icon-[ph--barbell] text-2xl text-primary"></i>
+				<span class="font-display text-lg tracking-wide text-text-primary"
 					>Exercises</span
 				>
-				<span class="block text-xs text-text-muted">Customize your exercise list</span>
 			</div>
+			<span class="block text-xs text-text-muted">Customize your exercise list</span>
+		</a>
+		<a
+			href={resolve('/templates')}
+			class="flex cursor-pointer flex-col gap-2 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
+		>
+			<div class="flex items-center gap-3">
+				<i class="icon-[ph--lightning] text-2xl text-primary"></i>
+				<span class="font-display text-lg tracking-wide text-text-primary"
+					>Templates</span
+				>
+			</div>
+			<span class="block text-xs text-text-muted">Create and manage workout templates</span>
 		</a>
 		<a
 			href={resolve('/settings')}
-			class="flex cursor-pointer items-center gap-4 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
+			class="flex cursor-pointer flex-col gap-2 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
 		>
-			<i class="icon-[ph--gear-six] text-3xl text-primary"></i>
-			<div>
-				<span class="block font-display text-lg tracking-wide text-text-primary"
+			<div class="flex items-center gap-3">
+				<i class="icon-[ph--gear-six] text-2xl text-primary"></i>
+				<span class="font-display text-lg tracking-wide text-text-primary"
 					>Settings</span
 				>
-				<span class="block text-xs text-text-muted">Units, app preferences and more</span>
 			</div>
+			<span class="block text-xs text-text-muted">App preferences and more</span>
 		</a>
 	</div>
 </div>
