@@ -9,7 +9,7 @@ import type {
 	LoggedExercise,
 	WorkoutTemplate
 } from '$lib/db/schema';
-import { eq, desc, and, ne, asc, isNull, sql, inArray } from 'drizzle-orm';
+import { eq, desc, and, ne, asc, isNull, isNotNull, sql, inArray } from 'drizzle-orm';
 import { loader } from './initialLoader.svelte';
 import { settings } from './settings.svelte';
 
@@ -71,7 +71,7 @@ export async function initialize() {
 
 	await liveQuery(
 		db.query.workoutTemplates.findMany({
-			orderBy: asc(s.workoutTemplates.name),
+			orderBy: asc(s.workoutTemplates.sortOrder),
 			with: {
 				workoutTemplateExercises: {
 					with: {
@@ -88,6 +88,7 @@ export async function initialize() {
 				createdAt: template.createdAt,
 				updatedAt: template.updatedAt,
 				icon: template.icon,
+				sortOrder: template.sortOrder,
 				exercises: template.workoutTemplateExercises
 					.sort((a, b) => a.sortOrder - b.sortOrder)
 					.map((wte) => wte.exercise)
@@ -165,7 +166,7 @@ async function refreshStats() {
 async function refreshTemplates() {
 	// can not use liveQuery() because it does not support `with`
 	const rows = await db.query.workoutTemplates.findMany({
-		orderBy: asc(s.workoutTemplates.name),
+		orderBy: asc(s.workoutTemplates.sortOrder),
 		with: {
 			workoutTemplateExercises: {
 				with: {
@@ -181,6 +182,7 @@ async function refreshTemplates() {
 		createdAt: template.createdAt,
 		updatedAt: template.updatedAt,
 		icon: template.icon,
+		sortOrder: template.sortOrder,
 		exercises: template.workoutTemplateExercises
 			.sort((a, b) => a.sortOrder - b.sortOrder)
 			.map((wte) => wte.exercise)
@@ -228,7 +230,11 @@ export async function deleteExercise(id: string) {
 }
 
 export async function addTemplate(name: string) {
-	await db.insert(s.workoutTemplates).values({ name });
+	// Get the highest sortOrder and add 1
+	const templates = await db.select().from(s.workoutTemplates).orderBy(desc(s.workoutTemplates.sortOrder)).limit(1);
+	const nextSortOrder = templates.length > 0 ? (templates[0].sortOrder ?? 0) + 1 : 0;
+	
+	await db.insert(s.workoutTemplates).values({ name, sortOrder: nextSortOrder });
 	await refreshTemplates();
 }
 
@@ -254,6 +260,48 @@ export async function updateTemplate(id: string, name: string, exerciseIds: stri
 			}))
 		);
 	}
+
+	await refreshTemplates();
+}
+
+export async function moveTemplateUp(id: string) {
+	const currentIndex = allTemplates.findIndex((t) => t.id === id);
+	if (currentIndex <= 0) return;
+
+	const currentTemplate = allTemplates[currentIndex];
+	const previousTemplate = allTemplates[currentIndex - 1];
+
+	// Swap sortOrder values
+	await db
+		.update(s.workoutTemplates)
+		.set({ sortOrder: previousTemplate.sortOrder })
+		.where(eq(s.workoutTemplates.id, currentTemplate.id));
+
+	await db
+		.update(s.workoutTemplates)
+		.set({ sortOrder: currentTemplate.sortOrder })
+		.where(eq(s.workoutTemplates.id, previousTemplate.id));
+
+	await refreshTemplates();
+}
+
+export async function moveTemplateDown(id: string) {
+	const currentIndex = allTemplates.findIndex((t) => t.id === id);
+	if (currentIndex < 0 || currentIndex >= allTemplates.length - 1) return;
+
+	const currentTemplate = allTemplates[currentIndex];
+	const nextTemplate = allTemplates[currentIndex + 1];
+
+	// Swap sortOrder values
+	await db
+		.update(s.workoutTemplates)
+		.set({ sortOrder: nextTemplate.sortOrder })
+		.where(eq(s.workoutTemplates.id, currentTemplate.id));
+
+	await db
+		.update(s.workoutTemplates)
+		.set({ sortOrder: currentTemplate.sortOrder })
+		.where(eq(s.workoutTemplates.id, nextTemplate.id));
 
 	await refreshTemplates();
 }
@@ -700,6 +748,38 @@ export async function saveEditedSession(notes?: string) {
 	currentSession = null;
 	sessionLogs = [];
 	suggestedExercises = [];
+}
+
+// Get the last used date for each template
+export async function getTemplateLastUsedDates(): Promise<Array<[string, Date | null]>> {
+	if (!browser || !db) return [];
+
+	// Query to get the most recent startedAt for each templateId
+	// Using MAX with GROUP BY to get only the latest session per template
+	const result = await db
+		.select({
+			templateId: s.workoutSessions.templateId,
+			lastUsed: sql<Date>`MAX(${s.workoutSessions.startedAt})`
+		})
+		.from(s.workoutSessions)
+		.where(
+			and(
+				isNotNull(s.workoutSessions.templateId),
+				isNotNull(s.workoutSessions.endedAt)
+			)
+		)
+		.groupBy(s.workoutSessions.templateId);
+	
+	// Build the result array with all templates
+	const tuples: Array<[string, Date | null]> = [];
+	
+	// Add all templates (with null for those never used)
+	for (const template of allTemplates) {
+		const sessionData = result.find(r => r.templateId === template.id);
+		tuples.push([template.id, sessionData?.lastUsed ?? null]);
+	}
+
+	return tuples;
 }
 
 // Get state accessors

@@ -11,6 +11,7 @@ declare global {
 			confirmOpen?: boolean;
 			editBandOpen?: boolean;
 			editTemplateOpen?: boolean;
+			startWorkoutOpen?: boolean;
 		}
 		// interface Platform {}
 	}

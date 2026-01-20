@@ -36,6 +36,16 @@
 			}
 		}
 	}
+
+	async function handleMoveTemplateUp(template: TemplateWithExercises, event: Event) {
+		event.stopPropagation();
+		await workout.moveTemplateUp(template.id);
+	}
+
+	async function handleMoveTemplateDown(template: TemplateWithExercises, event: Event) {
+		event.stopPropagation();
+		await workout.moveTemplateDown(template.id);
+	}
 </script>
 
 <div class="flex flex-col gap-6 animate-fade-in">
@@ -65,12 +75,35 @@
 				<p>No templates yet. Create your first one!</p>
 			</div>
 		{:else}
-			{#each workoutState.templates as template (template.id)}
+		{#each workoutState.templates as template, index (template.id)}
+			<div
+				class="flex items-center gap-2 rounded-md border border-bg-tertiary bg-bg-secondary"
+				in:slide={{ duration: 150 }}
+				out:fade={{ duration: 150, delay: 150 }}
+				animate:flip={{ duration: 250, delay: 150 }}
+			>
+				<div class="flex flex-col gap-0.5 p-2">
+					<button
+						type="button"
+						class="flex items-center justify-center rounded bg-bg-tertiary p-1 text-text-secondary hover:bg-bg-elevated hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+						onclick={(e) => handleMoveTemplateUp(template, e)}
+						disabled={index === 0}
+						aria-label="Move {template.name} up"
+					>
+						<i class="icon-[ph--caret-up] size-5"></i>
+					</button>
+					<button
+						type="button"
+						class="flex items-center justify-center rounded bg-bg-tertiary p-1 text-text-secondary hover:bg-bg-elevated hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+						onclick={(e) => handleMoveTemplateDown(template, e)}
+						disabled={index === workoutState.templates.length - 1}
+						aria-label="Move {template.name} down"
+					>
+						<i class="icon-[ph--caret-down] size-5"></i>
+					</button>
+				</div>
 				<button
-					class="flex items-center gap-4 rounded-md border border-bg-tertiary bg-bg-secondary p-4 text-left transition-colors hover:bg-bg-tertiary active:bg-bg-elevated cursor-pointer w-full"
-					in:slide={{ duration: 150 }}
-					out:fade={{ duration: 150, delay: 150 }}
-					animate:flip={{ duration: 250, delay: 150 }}
+					class="flex flex-1 items-center gap-4 p-4 text-left transition-colors hover:bg-bg-tertiary active:bg-bg-elevated cursor-pointer"
 					onclick={() => handleEditTemplate(template)}
 				>
 					<div class="flex flex-1 flex-col gap-0.5">
@@ -82,7 +115,8 @@
 					</div>
 					<i class="icon-[ph--caret-right] size-5 text-text-muted"></i>
 				</button>
-			{/each}
+			</div>
+		{/each}
 		{/if}
 	</div>
 </div>

@@ -7,6 +7,8 @@
 	import * as workout from '$lib/stores/workout.svelte';
 	import SessionCard from '$lib/components/SessionCard.svelte';
 	import { confirmDialog } from '$lib/components/ConfirmDialog.svelte';
+	import { startWorkoutDialog } from '$lib/components/StartWorkoutDialog.svelte';
+	import StartWorkoutDialog from '$lib/components/StartWorkoutDialog.svelte';
 	import type { DetailedSession } from '$lib/stores/workout.svelte';
 	import { resolve } from '$app/paths';
 
@@ -36,12 +38,15 @@
 		lastTotalSessions = currentTotal;
 	});
 
-	async function handleStartWorkout(templateId?: string) {
-		await workout.startSession(templateId);
-		if (templateId) {
-			goto(`${resolve('/workout')}?template=${templateId}`);
-		} else {
-			goto(resolve('/workout'));
+	async function handleOpenStartWorkout() {
+		const result = await startWorkoutDialog.open();
+		if (result) {
+			await workout.startSession(result.templateId);
+			if (result.templateId) {
+				goto(`${resolve('/workout')}?template=${result.templateId}`);
+			} else {
+				goto(resolve('/workout'));
+			}
 		}
 	}
 
@@ -69,7 +74,7 @@
 <div class="flex flex-col gap-6" in:fade={{ duration: 200 }}>
 	<Header />
 
-	<div class="flex flex-col items-center gap-4 py-6 text-center">
+	<div class="flex flex-col items-center gap-6 py-6 text-center">
 		<div class="flex flex-col gap-2">
 			<h2
 				class="bg-clip-text font-display text-3xl tracking-wide text-transparent uppercase"
@@ -77,46 +82,20 @@
 			>
 				Ready to Stretch Your Limits?
 			</h2>
-			<p class="text-sm text-text-secondary">Choose a workout template or go freestyle</p>
+			<p class="text-sm text-text-secondary">Time to put in the work</p>
 		</div>
-	</div>
 
-	<!-- Workout Templates -->
-	{#if workoutState.templates.length > 0}
-		<div class="flex flex-col gap-3">
-			<h3 class="text-sm tracking-wide text-text-secondary uppercase">Start Workout</h3>
-			<div class="flex flex-col gap-3">
-				{#each workoutState.templates as template (template.id)}
-					<button
-						class="group flex cursor-pointer items-center gap-3 rounded-lg border-2 border-bg-tertiary bg-bg-secondary p-4 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
-						onclick={() => handleStartWorkout(template.id)}
-					>
-						<span
-							class="flex-1 font-display text-lg tracking-wide text-text-primary group-hover:text-primary"
-							>{template.name}</span
-						>
-						<span class="font-display text-xs tracking-widest text-primary uppercase"
-							>Start →</span
-						>
-					</button>
-				{/each}
-				<button
-					class="flex cursor-pointer items-center gap-4 rounded-lg border-2 border-dashed border-bg-elevated bg-bg-secondary/50 p-4 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
-					onclick={() => handleStartWorkout()}
-				>
-					<div class="flex-1">
-						<span class="block font-display text-lg tracking-wide text-text-primary"
-							>Custom Workout</span
-						>
-						<span class="block text-xs text-text-muted">Add exercises as you go</span>
-					</div>
-					<span class="font-display text-xs tracking-widest text-text-secondary uppercase"
-						>Start →</span
-					>
-				</button>
-			</div>
-		</div>
-	{/if}
+		<!-- Big Start Workout Button -->
+		<button
+			class="group flex cursor-pointer items-center justify-center gap-4 rounded-2xl border-2 border-primary bg-linear-to-br from-primary to-primary/80 p-6 shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-100 w-full max-w-sm"
+			onclick={handleOpenStartWorkout}
+		>
+			<i class="icon-[ph--lightning-fill] text-4xl text-white"></i>
+			<span class="font-display text-2xl tracking-wide text-white uppercase">
+				Start Workout
+			</span>
+		</button>
+	</div>
 	
 	<Stats />
 
@@ -210,3 +189,5 @@
 		</a>
 	</div>
 </div>
+
+<StartWorkoutDialog />

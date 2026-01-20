@@ -35,6 +35,7 @@ export const workoutTemplates = pgTable('workout_templates', {
 	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
 	icon: text(),
+	sortOrder: integer().notNull().default(0)
 });
 
 // Junction table for exercises in templates
