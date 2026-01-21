@@ -25,6 +25,7 @@
 
 	onMount(async () => {
 		markDialogReady();
+		updated.check();
 		
 		if (browser && sessionStorage.getItem('app-updating') === 'true') {
 			isUpdating = true;
@@ -37,8 +38,13 @@
 			await preloadAllRoutes();
 			loader.complete();
 		} catch (error) {
-			console.error(error);
+			console.error('Failed to initialize app:', error);
 			loadingError = error as Error;
+
+			// If we're offline, provide a more helpful error message
+			if (!navigator.onLine) {
+				loadingError = new Error('App failed to load offline. Please check your internet connection and try again.');
+			}
 		}
 		isLoading = false;
 	});
@@ -52,7 +58,14 @@
 			if (path === '') path = '/'; // Handle the root route specifically
 			return path;
 		});
-		await Promise.all(routes.map((route) => preloadCode(resolve(route as any))));
+
+		// Preload routes but don't fail if offline
+		try {
+			await Promise.allSettled(routes.map((route) => preloadCode(resolve(route as any))));
+		} catch (error) {
+			// Ignore preloading errors when offline - the routes will load when accessed
+			console.warn('Route preloading failed (possibly offline):', error);
+		}
 	}
 
 	// Reload page when a new version is deployed, but only when user is on home screen
@@ -135,6 +148,7 @@
 			{/if}
 		</div>
 	{:else}
+	{page.route.id}
 		{@render children()}
 	{/if}
 </div>
