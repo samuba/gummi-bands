@@ -20,6 +20,12 @@ class Updater {
 		// Start polling for updates
 		updated.check();
 
+		// Check for updates when browser comes back online
+		window.addEventListener('online', () => {
+			console.log('Browser came online, checking for updates');
+			updated.check();
+		});
+
 		// Watch for updates and trigger reload when on home screen
 		$effect(() => {
 			console.log('update effect', { updated: updated.current, routeId: page.route.id, isUpdating: this.isUpdating, version });
