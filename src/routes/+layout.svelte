@@ -74,11 +74,50 @@
 	$effect(() => {
 		console.log('effect in layout', { updated: updated.current, routeId: page.route.id, isUpdating, version });
 		if (browser && updated.current && page.route.id === '/' && !isUpdating) {
-			console.log('Triggering app update reload');
-			sessionStorage.setItem('app-updating', 'true');
-			location.reload();
+			handleAppUpdate();
 		}
 	});
+
+	async function handleAppUpdate() {
+		console.log('Triggering app update');
+		sessionStorage.setItem('app-updating', 'true');
+
+		// Wait for the new service worker to take control before reloading
+		// This ensures the reload is handled by the new SW and cached properly
+		await waitForServiceWorker();
+		location.reload();
+	}
+
+	async function waitForServiceWorker() {
+		if (!('serviceWorker' in navigator)) return;
+
+		const registration = await navigator.serviceWorker.getRegistration();
+		if (!registration) return;
+
+		if (registration.waiting) {
+			// There's a waiting service worker - tell it to skip waiting
+			registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+
+			// Wait for the new service worker to take control
+			await new Promise<void>((resolve) => {
+				navigator.serviceWorker.addEventListener('controllerchange', () => resolve(), { once: true });
+			});
+			return;
+		}
+
+		if (registration.installing) {
+			// Service worker is still installing - wait for it to activate
+			await new Promise<void>((resolve) => {
+				const sw = registration.installing!;
+				sw.addEventListener('statechange', function onStateChange() {
+					if (sw.state === 'activated') {
+						sw.removeEventListener('statechange', onStateChange);
+						resolve();
+					}
+				});
+			});
+		}
+	}
 </script>
 
 <svelte:head>

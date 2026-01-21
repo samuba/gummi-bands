@@ -35,6 +35,13 @@ sw.addEventListener('activate', (event) => {
 	);
 });
 
+// Allow pages to tell a waiting service worker to activate immediately
+sw.addEventListener('message', (event) => {
+	if (event.data?.type === 'SKIP_WAITING') {
+		sw.skipWaiting();
+	}
+});
+
 sw.addEventListener('fetch', (event) => {
 	const { request } = event;
 
