@@ -53,38 +53,54 @@ sw.addEventListener('fetch', (event) => {
 	// Never cache or serve version.json from cache - always fetch fresh for update checks
 	if (url.pathname === '/_app/version.json') return;
 
+	// Respect hard refresh (Cmd+Shift+R) - bypass service worker entirely
+	// request.cache will be 'reload' for hard refresh
+	if (request.cache === 'reload') return;
+
 	// Navigation: network-first with timeout, fallback to cache
 	if (request.mode === 'navigate') {
 		event.respondWith(handleNavigation(request));
 		return;
 	}
 
-	// Assets: cache-first for speed
-	event.respondWith(
-		caches.match(request).then((cached) => {
-			if (cached) return cached;
-
-			return fetch(request).then((response) => {
-				if (response.ok) {
-					const clone = response.clone();
-					caches.open(CACHE).then((cache) => cache.put(request, clone));
-				}
-				return response;
-			});
-		})
-	);
+	// Assets: cache-first for speed, but network-first if hard refreshing
+	event.respondWith(handleAsset(request));
 });
+
+async function handleAsset(request: Request): Promise<Response> {
+	// Check cache first
+	const cached = await caches.match(request);
+	if (cached) return cached;
+
+	// Not in cache, fetch from network
+	const response = await fetch(request);
+	if (response.ok) {
+		const cache = await caches.open(CACHE);
+		cache.put(request, response.clone());
+	}
+	return response;
+}
 
 async function handleNavigation(request: Request): Promise<Response> {
 	const cache = await caches.open(CACHE);
 
-	// Race between network fetch and timeout
+	// For refresh requests, always try network first without timeout
+	// This ensures manual refresh always gets fresh content
+	const isRefresh = request.cache === 'reload' || 
+		request.headers.get('Cache-Control')?.includes('no-cache');
+
+	// Race between network fetch and timeout (skip timeout for refresh)
 	const controller = new AbortController();
-	const timeoutId = setTimeout(() => controller.abort(), NETWORK_TIMEOUT);
+	const timeoutId = isRefresh ? null : setTimeout(() => controller.abort(), NETWORK_TIMEOUT);
 
 	try {
-		const response = await fetch(request, { signal: controller.signal });
-		clearTimeout(timeoutId);
+		// Always fetch navigation requests from network, bypassing HTTP cache
+		// This ensures we always get the latest HTML from the server
+		const response = await fetch(request, { 
+			signal: controller.signal,
+			cache: 'no-store'  // Bypass browser HTTP cache
+		});
+		if (timeoutId) clearTimeout(timeoutId);
 
 		if (response.ok) {
 			// Cache the fresh HTML for offline use
@@ -96,7 +112,7 @@ async function handleNavigation(request: Request): Promise<Response> {
 		const cached = await cache.match(request);
 		return cached ?? response;
 	} catch {
-		clearTimeout(timeoutId);
+		if (timeoutId) clearTimeout(timeoutId);
 
 		// Network failed or timed out - serve from cache
 		const cached = await cache.match(request);
