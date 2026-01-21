@@ -33,7 +33,7 @@ class Updater {
 				// Prevent loops: don't update if we already tried updating to this version
 				const lastUpdateVersion = sessionStorage.getItem(UPDATE_VERSION_KEY);
 				if (lastUpdateVersion === version) {
-					console.warn('Update loop detected - already on version', version);
+					console.warn('Update loop detected');
 					return;
 				}
 				this.performUpdate();

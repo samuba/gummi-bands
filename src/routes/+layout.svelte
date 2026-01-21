@@ -70,7 +70,7 @@
 	<meta name="description" content="Track your rubber band workouts with ease" />
 	<meta name="theme-color" content="#0D0D0D" />
 </svelte:head>
-3
+
 <div
 	class="relative z-1 mx-auto min-h-screen max-w-[480px] p-4 pb-[calc(2rem+env(safe-area-inset-bottom,0))]"
 >
