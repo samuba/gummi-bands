@@ -1,6 +1,8 @@
-You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
+## Product requirements Document
+located at ./PRD.md
 
 ## Available MCP Tools:
+You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
 
 ### 1. list-sections
 Use this FIRST to discover all available documentation sections. Returns a structured list with titles, use_cases, and paths.
