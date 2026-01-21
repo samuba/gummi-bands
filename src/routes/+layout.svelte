@@ -69,7 +69,6 @@
 	<title>Gummi Bands - Workout Tracker</title>
 	<meta name="description" content="Track your rubber band workouts with ease" />
 	<meta name="theme-color" content="#0D0D0D" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 </svelte:head>
 
 <div

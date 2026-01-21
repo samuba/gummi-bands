@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 @plugin '@tailwindcss/forms';
 @plugin '@iconify/tailwind4';
+@import '@fontsource/bebas-neue';
+@import '@fontsource/inter';
 
 @theme {
 	/* Core palette - energetic sporty theme */
@@ -52,23 +54,6 @@
 	}
 	--animate-fade-in: fade-in 0.2s ease-out;
 }
-
-@font-face {
-	font-family: 'Bebas Neue';
-	src: url('https://fonts.gstatic.com/s/bebasneue/v14/JTUSjIg69CK48gW7PXoo9Wlhyw.woff2') format('woff2');
-	font-weight: 400;
-	font-style: normal;
-	font-display: swap;
-}
-
-@font-face {
-	font-family: 'Inter';
-	src: url('https://fonts.gstatic.com/s/inter/v18/UcCo3FwrK3iLTcviYwY.woff2') format('woff2');
-	font-weight: 400 700;
-	font-style: normal;
-	font-display: swap;
-}
-
 :root {
 	/* Gradients */
 	--gradient-fire: linear-gradient(135deg, #FF3D00 0%, #FF6E40 50%, #FFD600 100%);
