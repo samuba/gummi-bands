@@ -4,7 +4,7 @@
 	import { browser, dev } from '$app/environment';
 
 	onMount(async () => {
-		if (!dev) return;
+		// if (!dev) return;
 
 		await import('https://cdn.jsdelivr.net/npm/@electric-sql/pglite-repl/dist-webcomponent/Repl.js' as any);
 		const db = await import('$lib/db/client');
@@ -13,6 +13,6 @@
 	});
 </script>
 
-{#if dev && browser}
+{#if browser}
     <pglite-repl id="pglite-repl"></pglite-repl>
 {/if}
