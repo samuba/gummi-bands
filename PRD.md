@@ -1,11 +1,5 @@
 # Gummi Bands - Product Requirements Document
 
-**Version:** 1.0  
-**Last Updated:** January 21, 2026  
-**Status:** Early Development (MVP Phase)
-
----
-
 ## Executive Summary
 
 ### Product Overview
