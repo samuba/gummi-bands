@@ -87,7 +87,7 @@
 
 		<!-- Big Start Workout Button -->
 		<button
-			class="group flex cursor-pointer items-center justify-center gap-4 rounded-2xl border-2 border-primary bg-linear-to-br from-primary to-primary/80 p-6 shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-100 w-full max-w-sm"
+			class="group flex cursor-pointer items-center justify-center gap-4 rounded-2xl border-2 border-primary bg-linear-to-br from-primary to-primary/80 p-4 shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-100 w-full max-w-sm"
 			onclick={handleOpenStartWorkout}
 		>
 			<i class="icon-[ph--lightning-fill] text-4xl text-white"></i>
