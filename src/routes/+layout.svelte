@@ -156,7 +156,6 @@
 			{/if}
 		</div>
 	{:else}
-	{page.route.id}
 		{@render children()}
 	{/if}
 </div>
