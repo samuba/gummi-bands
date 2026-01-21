@@ -14,9 +14,6 @@ const CACHE = `assets-${version}`;
 // HTML pages are cached on-demand after successful fetches
 const ASSETS = [...build, ...files];
 
-// Timeout for network requests before falling back to cache
-const NETWORK_TIMEOUT = 5000;
-
 sw.addEventListener('install', (event) => {
 	event.waitUntil(
 		caches.open(CACHE)
@@ -53,13 +50,19 @@ sw.addEventListener('fetch', (event) => {
 	// Never cache or serve version.json from cache - always fetch fresh for update checks
 	if (url.pathname === '/_app/version.json') return;
 
-	// Respect hard refresh (Cmd+Shift+R) - bypass service worker entirely
-	// request.cache will be 'reload' for hard refresh
-	if (request.cache === 'reload') return;
-
-	// Navigation: network-first with timeout, fallback to cache
+	// Navigation requests: only intercept when offline or network fails
+	// This ensures refresh ALWAYS gets fresh content from the server
 	if (request.mode === 'navigate') {
-		event.respondWith(handleNavigation(request));
+		// If online, let the browser handle it normally (no interception)
+		// Only intercept to provide offline fallback
+		if (navigator.onLine) {
+			// Don't intercept - let browser fetch from network directly
+			// But still cache the response for offline use via a background fetch
+			event.waitUntil(cacheNavigationInBackground(request));
+			return;
+		}
+		// Offline: serve from cache
+		event.respondWith(handleOfflineNavigation(request));
 		return;
 	}
 
@@ -81,51 +84,32 @@ async function handleAsset(request: Request): Promise<Response> {
 	return response;
 }
 
-async function handleNavigation(request: Request): Promise<Response> {
-	const cache = await caches.open(CACHE);
-
-	// For refresh requests, always try network first without timeout
-	// This ensures manual refresh always gets fresh content
-	const isRefresh = request.cache === 'reload' || 
-		request.headers.get('Cache-Control')?.includes('no-cache');
-
-	// Race between network fetch and timeout (skip timeout for refresh)
-	const controller = new AbortController();
-	const timeoutId = isRefresh ? null : setTimeout(() => controller.abort(), NETWORK_TIMEOUT);
-
+// Cache navigation response in background (doesn't block the page load)
+async function cacheNavigationInBackground(request: Request): Promise<void> {
 	try {
-		// Always fetch navigation requests from network, bypassing HTTP cache
-		// This ensures we always get the latest HTML from the server
-		const response = await fetch(request, { 
-			signal: controller.signal,
-			cache: 'no-store'  // Bypass browser HTTP cache
-		});
-		if (timeoutId) clearTimeout(timeoutId);
-
+		const response = await fetch(request, { cache: 'no-store' });
 		if (response.ok) {
-			// Cache the fresh HTML for offline use
-			cache.put(request, response.clone());
-			return response;
+			const cache = await caches.open(CACHE);
+			await cache.put(request, response);
 		}
-
-		// Non-OK response, try cache
-		const cached = await cache.match(request);
-		return cached ?? response;
 	} catch {
-		if (timeoutId) clearTimeout(timeoutId);
-
-		// Network failed or timed out - serve from cache
-		const cached = await cache.match(request);
-		if (cached) return cached;
-
-		// For the home page, try to serve a basic offline version that still loads the app
-		if (request.url === location.origin + '/' || request.url === location.origin) {
-			return offlineAppPage();
-		}
-
-		// No cache available - show offline page
-		return offlinePage();
+		// Ignore errors - this is just background caching
 	}
+}
+
+// Handle navigation when offline
+async function handleOfflineNavigation(request: Request): Promise<Response> {
+	const cache = await caches.open(CACHE);
+	const cached = await cache.match(request);
+	if (cached) return cached;
+
+	// For the home page, try to serve a basic offline version
+	if (request.url === location.origin + '/' || request.url === location.origin) {
+		return offlineAppPage();
+	}
+
+	// No cache available - show offline page
+	return offlinePage();
 }
 
 function offlineAppPage(): Response {
