@@ -94,29 +94,60 @@
 		const registration = await navigator.serviceWorker.getRegistration();
 		if (!registration) return;
 
-		if (registration.waiting) {
-			// There's a waiting service worker - tell it to skip waiting
-			registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-
-			// Wait for the new service worker to take control
-			await new Promise<void>((resolve) => {
-				navigator.serviceWorker.addEventListener('controllerchange', () => resolve(), { once: true });
-			});
+		// Force check for new service worker NOW (version.json change doesn't trigger SW update)
+		try {
+			await registration.update();
+		} catch {
+			// Might fail if offline
 			return;
 		}
 
-		if (registration.installing) {
-			// Service worker is still installing - wait for it to activate
-			await new Promise<void>((resolve) => {
-				const sw = registration.installing!;
-				sw.addEventListener('statechange', function onStateChange() {
-					if (sw.state === 'activated') {
-						sw.removeEventListener('statechange', onStateChange);
+		// Wait for any new service worker to activate
+		await new Promise<void>((resolve) => {
+			const waitForActivation = (worker: ServiceWorker) => {
+				if (worker.state === 'activated') {
+					resolve();
+					return;
+				}
+				worker.addEventListener('statechange', () => {
+					if (worker.state === 'activated') {
 						resolve();
 					}
 				});
-			});
-		}
+				// If it's waiting, tell it to skip
+				if (worker.state === 'installed') {
+					worker.postMessage({ type: 'SKIP_WAITING' });
+				}
+			};
+
+			// Check if there's already a worker installing/waiting
+			if (registration.installing) {
+				waitForActivation(registration.installing);
+				return;
+			}
+			if (registration.waiting) {
+				waitForActivation(registration.waiting);
+				return;
+			}
+
+			// Listen for new service worker (updatefound fires when SW starts installing)
+			const onUpdateFound = () => {
+				registration.removeEventListener('updatefound', onUpdateFound);
+				clearTimeout(timeout);
+				if (registration.installing) {
+					waitForActivation(registration.installing);
+				} else {
+					resolve();
+				}
+			};
+			registration.addEventListener('updatefound', onUpdateFound);
+
+			// If no update found within 2 seconds, proceed anyway
+			const timeout = setTimeout(() => {
+				registration.removeEventListener('updatefound', onUpdateFound);
+				resolve();
+			}, 2000);
+		});
 	}
 </script>
 
