@@ -22,11 +22,17 @@
 	let isLoading = $state(true);
 	let loadingError = $state<Error | null>(null);
 	let isUpdating = $state(false);
+	let updateChecked = $state(false);
 
 	onMount(async () => {
 		markDialogReady();
-		updated.check();
-		
+
+		// // Only check for updates once per session to avoid loops
+		// if (!updateChecked) {
+		// 	updateChecked = true;
+		// 	updated.check();
+		// }
+
 		if (browser && sessionStorage.getItem('app-updating') === 'true') {
 			isUpdating = true;
 			sessionStorage.removeItem('app-updating');
@@ -70,8 +76,9 @@
 
 	// Reload page when a new version is deployed, but only when user is on home screen
 	$effect(() => {
-		console.log('effect in layout', page.route.id);
-		if (browser && updated.current && page.route.id === '/') {
+		console.log('effect in layout', { routeId: page.route.id, updated: updated.current, isUpdating });
+		if (browser && updated.current && page.route.id === '/' && !isUpdating) {
+			console.log('Triggering app update reload');
 			sessionStorage.setItem('app-updating', 'true');
 			location.reload();
 		}
