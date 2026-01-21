@@ -11,7 +11,7 @@ const config = {
 		adapter: adapter(),
 		version: {
 			// Poll for new versions every 60 seconds
-			pollInterval: 60000
+			pollInterval: 10000
 		}
 	}
 };
