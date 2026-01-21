@@ -5,6 +5,7 @@
 	import { fade } from 'svelte/transition';
 	import * as workout from '$lib/stores/workout.svelte';
 	import * as pwa from '$lib/stores/pwa.svelte';
+	import { updater } from '$lib/stores/updater.svelte';
 	import { loader } from '$lib/stores/initialLoader.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import EditBandDialog from '$lib/components/EditBandDialog.svelte';
@@ -13,24 +14,16 @@
 	import { markDialogReady } from '../hooks.client';
 	import { preloadCode } from '$app/navigation';
 	import DbRepl from '$lib/components/DbRepl.svelte';
-	import { updated, page } from '$app/state';
-	import { browser, version } from '$app/environment';
 	import { resolve } from '$app/paths';
 
 	let { children } = $props();
 
 	let isLoading = $state(true);
 	let loadingError = $state<Error | null>(null);
-	let isUpdating = $state(false);
 
 	onMount(async () => {
 		markDialogReady();
-		updated.check();
-
-		if (browser && sessionStorage.getItem('app-updating') === 'true') {
-			isUpdating = true;
-			sessionStorage.removeItem('app-updating');
-		}
+		updater.setup();
 
 		try {
 			pwa.setupPwa();
@@ -46,7 +39,7 @@
 				loadingError = new Error('App failed to load offline. Please check your internet connection and try again.');
 			}
 		} finally {
-			isUpdating = false;
+			updater.clearUpdating();
 		}
 		isLoading = false;
 	});
@@ -68,86 +61,6 @@
 			// Ignore preloading errors when offline - the routes will load when accessed
 			console.warn('Route preloading failed (possibly offline):', error);
 		}
-	}
-
-	// Reload page when a new version is deployed, but only when user is on home screen
-	$effect(() => {
-		console.log('effect in layout', { updated: updated.current, routeId: page.route.id, isUpdating, version });
-		if (browser && updated.current && page.route.id === '/' && !isUpdating) {
-			handleAppUpdate();
-		}
-	});
-
-	async function handleAppUpdate() {
-		console.log('Triggering app update');
-		sessionStorage.setItem('app-updating', 'true');
-
-		// Wait for the new service worker to take control before reloading
-		// This ensures the reload is handled by the new SW and cached properly
-		await waitForServiceWorker();
-		location.reload();
-	}
-
-	async function waitForServiceWorker() {
-		if (!('serviceWorker' in navigator)) return;
-
-		const registration = await navigator.serviceWorker.getRegistration();
-		if (!registration) return;
-
-		// Force check for new service worker NOW (version.json change doesn't trigger SW update)
-		try {
-			await registration.update();
-		} catch {
-			// Might fail if offline
-			return;
-		}
-
-		// Wait for any new service worker to activate
-		await new Promise<void>((resolve) => {
-			const waitForActivation = (worker: ServiceWorker) => {
-				if (worker.state === 'activated') {
-					resolve();
-					return;
-				}
-				worker.addEventListener('statechange', () => {
-					if (worker.state === 'activated') {
-						resolve();
-					}
-				});
-				// If it's waiting, tell it to skip
-				if (worker.state === 'installed') {
-					worker.postMessage({ type: 'SKIP_WAITING' });
-				}
-			};
-
-			// Check if there's already a worker installing/waiting
-			if (registration.installing) {
-				waitForActivation(registration.installing);
-				return;
-			}
-			if (registration.waiting) {
-				waitForActivation(registration.waiting);
-				return;
-			}
-
-			// Listen for new service worker (updatefound fires when SW starts installing)
-			const onUpdateFound = () => {
-				registration.removeEventListener('updatefound', onUpdateFound);
-				clearTimeout(timeout);
-				if (registration.installing) {
-					waitForActivation(registration.installing);
-				} else {
-					resolve();
-				}
-			};
-			registration.addEventListener('updatefound', onUpdateFound);
-
-			// If no update found within 2 seconds, proceed anyway
-			const timeout = setTimeout(() => {
-				registration.removeEventListener('updatefound', onUpdateFound);
-				resolve();
-			}, 2000);
-		});
 	}
 </script>
 
@@ -175,7 +88,7 @@
 					</p>
 				</div>
 			{:else}
-				{#if isUpdating}
+				{#if updater.isUpdating}
 					<div
 						class="mb-4 flex items-center gap-3 rounded-xl bg-bg-tertiary p-4 text-text-secondary"
 						in:fade={{ duration: 200, delay: 200 }}
