@@ -26,6 +26,7 @@
 
 	onMount(async () => {
 		markDialogReady();
+		updated.check();
 
 		// // Only check for updates once per session to avoid loops
 		// if (!updateChecked) {
