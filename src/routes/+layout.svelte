@@ -14,7 +14,7 @@
 	import { preloadCode } from '$app/navigation';
 	import DbRepl from '$lib/components/DbRepl.svelte';
 	import { updated, page } from '$app/state';
-	import { browser } from '$app/environment';
+	import { browser, version } from '$app/environment';
 	import { resolve } from '$app/paths';
 
 	let { children } = $props();
@@ -77,7 +77,7 @@
 
 	// Reload page when a new version is deployed, but only when user is on home screen
 	$effect(() => {
-		console.log('effect in layout', { routeId: page.route.id, updated: updated.current, isUpdating });
+		console.log('effect in layout', { routeId: page.route.id, updated: updated.current, isUpdating, version });
 		if (browser && updated.current && page.route.id === '/' && !isUpdating) {
 			console.log('Triggering app update reload');
 			sessionStorage.setItem('app-updating', 'true');
