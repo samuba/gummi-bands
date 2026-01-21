@@ -44,7 +44,7 @@ sw.addEventListener('fetch', (event) => {
 	if (url.origin !== location.origin) return;
 
 	// Never cache or serve version.json from cache - always fetch fresh
-	if (url.pathname === '/version.json') return;
+	if (url.pathname === '/_app/version.json') return;
 
 	// Navigation: network-first with timeout, fallback to cache
 	if (request.mode === 'navigate') {
