@@ -51,7 +51,7 @@ sw.addEventListener('fetch', (event) => {
 	// Never cache or serve version.json from cache - always fetch fresh for update checks
 	if (url.pathname === '/_app/version.json') return;
 
-	// Navigation: try network first, only use cache if network fails
+	// Navigation: try network first, only use cache if network fails (offline support)
 	if (request.mode === 'navigate') {
 		event.respondWith(
 			fetch(request)
@@ -68,23 +68,18 @@ sw.addEventListener('fetch', (event) => {
 		return;
 	}
 
-	// Assets: cache-first for speed, but network-first if hard refreshing
-	event.respondWith(handleAsset(request));
-});
-
-async function handleAsset(request: Request): Promise<Response> {
-	// Check cache first
-	const cached = await caches.match(request);
-	if (cached) return cached;
-
-	// Not in cache, fetch from network
-	const response = await fetch(request);
-	if (response.ok) {
-		const cache = await caches.open(CACHE);
-		cache.put(request, response.clone());
+	// Assets: only serve from cache if offline, otherwise let browser handle normally
+	// This prevents issues with stale caches serving wrong versions during deployments
+	if (!navigator.onLine) {
+		event.respondWith(
+			caches.match(request).then((cached) => cached ?? fetch(request))
+		);
+		return;
 	}
-	return response;
-}
+
+	// Online: don't intercept, let browser fetch directly
+	// Browser will use HTTP caching naturally (SvelteKit assets have long cache headers)
+});
 
 async function handleOfflineNavigation(request: Request): Promise<Response> {
 	const cache = await caches.open(CACHE);
