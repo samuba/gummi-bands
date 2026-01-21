@@ -57,7 +57,8 @@
 
 	// Reload page when a new version is deployed, but only when user is on home screen
 	$effect(() => {
-		if (browser && updated.current && page.url.pathname === '/') {
+		console.log('effect in layout', page.route.id);
+		if (browser && updated.current && page.route.id === '/') {
 			sessionStorage.setItem('app-updating', 'true');
 			location.reload();
 		}
