@@ -132,6 +132,17 @@ function offlineAppPage(): Response {
 		.container { text-align: center; max-width: 300px; }
 		h1 { margin: 0 0 12px; font-size: 24px; font-weight: 600; }
 		p { margin: 0 0 24px; color: #888; font-size: 16px; line-height: 1.5; }
+		button {
+			background: #fff;
+			color: #0D0D0D;
+			border: none;
+			padding: 12px 24px;
+			border-radius: 8px;
+			font-size: 16px;
+			font-weight: 500;
+			cursor: pointer;
+		}
+		button:active { opacity: 0.8; }
 		.spinner {
 			width: 40px;
 			height: 40px;
@@ -145,33 +156,51 @@ function offlineAppPage(): Response {
 			0% { transform: rotate(0deg); }
 			100% { transform: rotate(360deg); }
 		}
+		.hidden { display: none; }
 	</style>
 </head>
 <body>
 	<div class="container">
-		<div class="spinner"></div>
-		<h1>Loading Offline</h1>
-		<p>Your workout data is stored locally. The app will load shortly.</p>
+		<div id="loading">
+			<div class="spinner"></div>
+			<h1>Loading Offline</h1>
+			<p>Your workout data is stored locally. The app will load shortly.</p>
+		</div>
+		<div id="offline" class="hidden">
+			<h1>You're Offline</h1>
+			<p>The app needs to be loaded online at least once before it can work offline.</p>
+			<button onclick="location.reload()">Retry</button>
+		</div>
 	</div>
 	<script>
-		// If service worker is available, try to load the app
-		if ('serviceWorker' in navigator) {
-			navigator.serviceWorker.register('/service-worker.js')
-				.then(() => {
-					// Try to reload the page to get the cached version
-					setTimeout(() => {
+		(function() {
+			var RELOAD_KEY = 'offline-reload-attempt';
+			var reloadAttempt = parseInt(sessionStorage.getItem(RELOAD_KEY) || '0', 10);
+			
+			// If we've already tried reloading, show the offline message
+			if (reloadAttempt >= 1) {
+				sessionStorage.removeItem(RELOAD_KEY);
+				document.getElementById('loading').classList.add('hidden');
+				document.getElementById('offline').classList.remove('hidden');
+				return;
+			}
+			
+			// If service worker is available, try one reload
+			if ('serviceWorker' in navigator) {
+				navigator.serviceWorker.ready.then(function() {
+					sessionStorage.setItem(RELOAD_KEY, String(reloadAttempt + 1));
+					setTimeout(function() {
 						window.location.reload();
-					}, 1000);
-				})
-				.catch(() => {
-					// If service worker fails, show offline message
-					document.querySelector('.container').innerHTML = \`
-						<h1>You're Offline</h1>
-						<p>Check your internet connection and try again.</p>
-						<button onclick="location.reload()">Retry</button>
-					\`;
+					}, 500);
+				}).catch(function() {
+					document.getElementById('loading').classList.add('hidden');
+					document.getElementById('offline').classList.remove('hidden');
 				});
-		}
+			} else {
+				document.getElementById('loading').classList.add('hidden');
+				document.getElementById('offline').classList.remove('hidden');
+			}
+		})();
 	</script>
 </body>
 </html>`,
