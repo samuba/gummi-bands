@@ -4,6 +4,7 @@
 	import { browser, version } from '$app/environment';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { wakeLock } from '$lib/stores/wakeLock.svelte';
+	import { dbRepl } from '$lib/components/DbRepl.svelte';
 
 	async function setWeightUnit(unit: 'lbs' | 'kg') {
 		await settings.updateWeightUnit(unit);
@@ -134,7 +135,10 @@
 			</button>
 		</div>
 
-		<div class="card flex flex-col gap-4">
+		<button
+			class="card flex flex-col gap-4 text-left cursor-pointer hover:bg-bg-elevated transition-colors"
+			onclick={() => dbRepl.registerClick()}
+		>
 			<div class="flex flex-col gap-1">
 				<h3 class="text-lg font-medium text-text-primary">About</h3>
 				<p class="text-sm text-text-muted">Gummi Bands build from {buildDate}</p>
@@ -142,6 +146,6 @@
 			<div class="text-xs text-text-muted italic">
 				Keep pushing your limits.
 			</div>
-		</div>
+		</button>
 	</div>
 </div>
