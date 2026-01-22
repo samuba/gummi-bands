@@ -51,6 +51,13 @@ sw.addEventListener('fetch', (event) => {
 	// Never cache or serve version.json from cache - always fetch fresh for update checks
 	if (url.pathname === '/_app/version.json') return;
 
+	// Don't intercept JavaScript module requests in Safari to prevent import failures
+	// Safari has issues with service workers intercepting ES module imports
+	const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+	if (isSafari && (url.pathname.endsWith('.js') || request.destination === 'script')) {
+		return;
+	}
+
 	// Navigation: try network first, only use cache if network fails (offline support)
 	if (request.mode === 'navigate') {
 		event.respondWith(
