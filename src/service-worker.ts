@@ -64,6 +64,10 @@ sw.addEventListener('activate', (event) => {
 		// iOS PWA users often update while online, then later open the app offline without
 		// having done a manual refresh — this warm-up prevents an "You're Offline" lockout.
 		await warmAppShell();
+
+		// Keep storage bounded while still keeping enough history to safely recover from
+		// non-atomic deploys and Safari edge cases.
+		await cleanupOldAssetCaches(12);
 	})());
 });
 
@@ -225,6 +229,19 @@ async function warmAppShell() {
 	} catch {
 		// If offline or fetch fails, ignore — offline will use previous cached shells if available.
 	}
+}
+
+async function cleanupOldAssetCaches(keepLatest: number) {
+	if (keepLatest <= 0) return;
+
+	const keys = await caches.keys();
+	const assetCaches = keys
+		.map((key) => ({ key, v: parseAssetCacheVersion(key) }))
+		.filter((x): x is { key: string; v: number } => x.v !== null)
+		.sort((a, b) => b.v - a.v);
+
+	const toDelete = assetCaches.slice(keepLatest).map((x) => x.key);
+	await Promise.allSettled(toDelete.map((key) => caches.delete(key)));
 }
 
 function offlineAppPage(): Response {
