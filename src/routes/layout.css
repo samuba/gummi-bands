@@ -2,8 +2,8 @@
 @import "tw-animate-css";
 @plugin '@tailwindcss/forms';
 @plugin '@iconify/tailwind4';
-@import '@fontsource/bebas-neue';
-@import '@fontsource/inter';
+@import '@fontsource/bebas-neue/latin.css';
+@import '@fontsource/inter/latin.css';
 
 @theme {
 	/* Core palette - energetic sporty theme */
