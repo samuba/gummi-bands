@@ -3,6 +3,14 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
 
+/* Specification:
+	- Most Important:This implementation should be as robust as possible, so that there is never a situation where clients dont receive updates anymore because of caching.
+	- Updates should be possible and seamless via implementation in updater.svelte.ts
+	- Should be able to handle offline scenarios gracefully.
+	- Should be able to handle network failures gracefully.
+	- Should work for chrome/firefox based browsers as well as safari. If any of them have known issues take them into account.
+*/
+
 import { build, files, version } from '$service-worker';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
@@ -10,8 +18,8 @@ const sw = self as unknown as ServiceWorkerGlobalScope;
 // Unique cache per deployment - old caches are cleaned up on activate
 const CACHE = `assets-${version}`;
 
-// Only precache build assets (JS, CSS, WASM) and static files
-// HTML pages are cached on-demand after successful fetches
+// Precache all build assets and static files
+// JS files are handled specially in fetch handler for update robustness
 const ASSETS = [...build, ...files];
 
 
@@ -51,10 +59,62 @@ sw.addEventListener('fetch', (event) => {
 	// Never cache or serve version.json from cache - always fetch fresh for update checks
 	if (url.pathname === '/_app/version.json') return;
 
-	// Don't intercept JavaScript module requests in Safari to prevent import failures
-	// Safari has issues with service workers intercepting ES module imports
-	const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-	if (isSafari && (url.pathname.endsWith('.js') || request.destination === 'script')) {
+	// Handle JavaScript files specially to balance update robustness with offline functionality
+	// Critical for preventing stale module imports while maintaining graceful offline behavior
+	if (url.pathname.endsWith('.js') || request.destination === 'script') {
+		event.respondWith(
+			fetch(request)
+				.then((response) => {
+					// Cache successful JS responses for offline use, but mark them as potentially stale
+					if (response.ok) {
+						const responseClone = response.clone();
+						caches.open(CACHE).then((cache) => {
+							// Add a custom header to mark cached JS as potentially needing refresh
+							const cachedResponse = new Response(responseClone.body, {
+								status: responseClone.status,
+								statusText: responseClone.statusText,
+								headers: {
+									...Object.fromEntries(responseClone.headers.entries()),
+									'X-Cached-At': Date.now().toString(),
+									'X-Cache-Type': 'js-module'
+								}
+							});
+							cache.put(request, cachedResponse);
+						});
+					}
+					return response;
+				})
+				.catch(() => {
+					// Network failed - try cache, but log that this might be stale
+					console.warn('JS module fetch failed, serving from cache (may be stale)');
+					return caches.match(request).then((cached) => {
+						if (cached) {
+							// Add header to indicate this is cached/stale JS
+							const staleResponse = new Response(cached.body, {
+								status: cached.status,
+								statusText: cached.statusText,
+								headers: {
+									...Object.fromEntries(cached.headers.entries()),
+									'X-Served-From': 'cache-stale'
+								}
+							});
+							return staleResponse;
+						}
+						// No cache available - return offline error for JS
+						return new Response(
+							'// Offline: JavaScript modules require network connection for updates\n' +
+							'console.warn("App is offline - some features may not work with cached JavaScript");',
+							{
+								status: 503,
+								headers: {
+									'Content-Type': 'application/javascript',
+									'X-Offline-Message': 'JavaScript modules cached offline'
+								}
+							}
+						);
+					});
+				})
+		);
 		return;
 	}
 
