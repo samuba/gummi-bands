@@ -75,7 +75,35 @@ class Updater {
 		// Wait for the new service worker to take control before reloading
 		// This ensures the reload is handled by the new SW and cached properly
 		await this.waitForServiceWorker();
+		await this.maybeHardResetSafari(attempts);
 		this.reloadWithCacheBust();
+	}
+
+	private async maybeHardResetSafari(attempts: number) {
+		// If Safari gets stuck serving the previous build after an update is detected,
+		// we need a "last resort" that guarantees fresh assets.
+		// Only do this when online and after at least one failed attempt.
+		if (attempts < 2) return;
+		if (!navigator.onLine) return;
+
+		const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+		if (!isSafari) return;
+
+		console.warn('Safari hard-resetting SW + caches to complete update', { attempts });
+
+		try {
+			const registration = await navigator.serviceWorker.getRegistration();
+			await registration?.unregister();
+		} catch {
+			// ignore
+		}
+
+		try {
+			const keys = await caches.keys();
+			await Promise.all(keys.map((k) => caches.delete(k)));
+		} catch {
+			// ignore
+		}
 	}
 
 	private reloadWithCacheBust() {
@@ -98,52 +126,41 @@ class Updater {
 			return;
 		}
 
-		// Wait for any new service worker to activate
-		await new Promise<void>((resolve) => {
-			const waitForActivation = (worker: ServiceWorker) => {
-				if (worker.state === 'activated') {
-					resolve();
-					return;
-				}
-				worker.addEventListener('statechange', () => {
-					if (worker.state === 'activated') {
-						resolve();
-					}
-				});
-				// If it's waiting, tell it to skip
-				if (worker.state === 'installed') {
-					worker.postMessage({ type: 'SKIP_WAITING' });
-				}
-			};
-
-			// Check if there's already a worker installing/waiting
-			if (registration.installing) {
-				waitForActivation(registration.installing);
-				return;
-			}
-			if (registration.waiting) {
-				waitForActivation(registration.waiting);
-				return;
-			}
-
-			// Listen for new service worker (updatefound fires when SW starts installing)
-			const onUpdateFound = () => {
-				registration.removeEventListener('updatefound', onUpdateFound);
-				clearTimeout(timeout);
-				if (registration.installing) {
-					waitForActivation(registration.installing);
-				} else {
-					resolve();
-				}
-			};
-			registration.addEventListener('updatefound', onUpdateFound);
-
-			// If no update found within 2 seconds, proceed anyway
-			const timeout = setTimeout(() => {
-				registration.removeEventListener('updatefound', onUpdateFound);
+		// Prefer waiting for the new worker to *control the page* (controllerchange),
+		// especially on Safari where install/activate can take longer than expected.
+		const controllerBefore = navigator.serviceWorker.controller;
+		const controllerChange = new Promise<void>((resolve) => {
+			const onControllerChange = () => {
+				navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
 				resolve();
-			}, 2000);
+			};
+			navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
 		});
+
+		// If there is a waiting worker, request immediate activation.
+		if (registration.waiting) {
+			registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+		}
+
+		// If an installing worker transitions to installed, request skip waiting.
+		if (registration.installing) {
+			registration.installing.addEventListener('statechange', () => {
+				if (registration.waiting) {
+					registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+				}
+			});
+		}
+
+		// If controller already changed, we're done.
+		if (navigator.serviceWorker.controller && controllerBefore && navigator.serviceWorker.controller !== controllerBefore) {
+			return;
+		}
+
+		// Otherwise, wait (bounded) for control to switch.
+		await Promise.race([
+			controllerChange,
+			new Promise<void>((resolve) => setTimeout(resolve, 15000))
+		]);
 	}
 }
 
