@@ -27,11 +27,28 @@ const ASSETS = [...build, ...files];
 
 
 sw.addEventListener('install', (event) => {
-	event.waitUntil(
-		caches.open(CACHE)
-			.then((cache) => cache.addAll(ASSETS))
-			.then(() => sw.skipWaiting())
-	);
+	// IMPORTANT: never let a single missing/404 asset prevent the new service worker
+	// from installing/activating. `cache.addAll()` fails the whole install if any
+	// request fails, which can brick updates on Safari (and during non-atomic deploys).
+	event.waitUntil((async () => {
+		const cache = await caches.open(CACHE);
+
+		await Promise.allSettled(
+			ASSETS.map(async (asset) => {
+				try {
+					// Ensure we don't pull from HTTP cache during an update.
+					const request = new Request(asset, { cache: 'reload' });
+					const response = await fetch(request);
+					if (!response.ok) return;
+					await cache.put(request, response);
+				} catch {
+					// Best-effort: ignore individual failures.
+				}
+			})
+		);
+
+		await sw.skipWaiting();
+	})());
 });
 
 sw.addEventListener('activate', (event) => {

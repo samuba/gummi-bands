@@ -3,6 +3,7 @@ import { page, updated } from '$app/state';
 
 const UPDATE_VERSION_KEY = 'app-update-version';
 const UPDATE_FLAG_KEY = 'app-updating';
+const UPDATE_ATTEMPTS_KEY = 'app-update-attempts';
 
 class Updater {
 	isUpdating = $state(false);
@@ -30,10 +31,17 @@ class Updater {
 		$effect(() => {
 			console.log('update effect', { updated: updated.current, routeId: page.route.id, isUpdating: this.isUpdating, version });
 			if (updated.current && page.route.id === '/' && !this.isUpdating) {
-				// Prevent loops: don't update if we already tried updating to this version
+				// Prevent tight loops, but DO allow retries (Safari/non-atomic deploys can need it)
 				const lastUpdateVersion = sessionStorage.getItem(UPDATE_VERSION_KEY);
 				if (lastUpdateVersion === version) {
-					console.warn('Update loop detected');
+					const attempts = Number(sessionStorage.getItem(UPDATE_ATTEMPTS_KEY) ?? '0');
+					if (attempts >= 3) {
+						console.warn('Update loop detected (max retries reached)');
+						return;
+					}
+
+					console.warn('Update loop detected, retrying', { attempts });
+					this.performUpdate();
 					return;
 				}
 				this.performUpdate();
@@ -50,13 +58,16 @@ class Updater {
 			if (lastUpdateVersion && lastUpdateVersion !== version) {
 				// Successfully updated to a new version
 				sessionStorage.removeItem(UPDATE_VERSION_KEY);
+				sessionStorage.removeItem(UPDATE_ATTEMPTS_KEY);
 			}
 		}
 	}
 
 	private async performUpdate() {
 		console.log('Triggering app update from version', version);
+		const attempts = Number(sessionStorage.getItem(UPDATE_ATTEMPTS_KEY) ?? '0') + 1;
 		sessionStorage.setItem(UPDATE_FLAG_KEY, 'true');
+		sessionStorage.setItem(UPDATE_ATTEMPTS_KEY, `${attempts}`);
 		// Track which version we're updating FROM - if we're still on this version after
 		// reload, we know the update failed and we're in a loop
 		sessionStorage.setItem(UPDATE_VERSION_KEY, version);
@@ -64,7 +75,13 @@ class Updater {
 		// Wait for the new service worker to take control before reloading
 		// This ensures the reload is handled by the new SW and cached properly
 		await this.waitForServiceWorker();
-		location.reload();
+		this.reloadWithCacheBust();
+	}
+
+	private reloadWithCacheBust() {
+		const url = new URL(location.href);
+		url.searchParams.set('__update', `${Date.now()}`);
+		location.replace(url.toString());
 	}
 
 	private async waitForServiceWorker() {
