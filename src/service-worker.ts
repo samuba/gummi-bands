@@ -114,10 +114,21 @@ sw.addEventListener('fetch', (event) => {
 
 	// Navigation: try network first, only use cache if network fails (offline support)
 	if (request.mode === 'navigate') {
+		const normalized = normalizeNavigationRequest(request);
 		event.respondWith(
 			// Always force a fresh HTML document when online to avoid stale HTML referencing
 			// removed hashed assets (common cause of Safari update white-screens).
 			fetch(new Request(request.url, { cache: 'no-store' }))
+				.then((response) => {
+					// Cache successful HTML for offline startup.
+					// Use a normalized key (strip search params like __update) so offline launches
+					// can still find the cached app shell.
+					if (response.ok) {
+						const responseClone = response.clone();
+						void caches.open(CACHE).then((cache) => cache.put(normalized, responseClone));
+					}
+					return response;
+				})
 				.catch(() => handleOfflineNavigation(request))
 		);
 		return;
@@ -136,13 +147,21 @@ sw.addEventListener('fetch', (event) => {
 	// Browser will use HTTP caching naturally (SvelteKit assets have long cache headers)
 });
 
+function normalizeNavigationRequest(request: Request): Request {
+	const url = new URL(request.url);
+	url.search = '';
+	url.hash = '';
+	return new Request(url.toString(), { method: 'GET' });
+}
+
 async function handleOfflineNavigation(request: Request): Promise<Response> {
 	const cache = await caches.open(CACHE);
-	const cached = await cache.match(request);
+	const normalized = normalizeNavigationRequest(request);
+	const cached = (await cache.match(normalized)) ?? (await cache.match(request));
 	if (cached) return cached;
 
 	// For the home page, try to serve a basic offline version
-	if (request.url === location.origin + '/' || request.url === location.origin) {
+	if (normalized.url === location.origin + '/' || normalized.url === location.origin) {
 		return offlineAppPage();
 	}
 
