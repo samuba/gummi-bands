@@ -8,6 +8,7 @@
 	- Updates should be possible and seamless via implementation in updater.svelte.ts
 	- Should be able to handle offline scenarios and network failures gracefully.
 	- Specifically should be able to show offline version after update got installed without manual browser refresh.
+	- When using cached version, should always use latest cached version
 	- All of the above can have different behaviour in chrome vs safari. Safari is especially tricky, make sure to account for that.
 */
 
@@ -91,7 +92,7 @@ sw.addEventListener('fetch', (event) => {
 	// white-screen brick, and the updater flow can retry and move the client forward.
 	if (url.pathname.endsWith('.js') || request.destination === 'script') {
 		event.respondWith((async () => {
-			const cached = await caches.match(request);
+			const cached = await matchFromLatestAssetCache(request);
 
 			try {
 				const response = await fetch(request);
@@ -144,7 +145,7 @@ sw.addEventListener('fetch', (event) => {
 	// This avoids relying on `navigator.onLine` (which is unreliable on iOS PWAs) and ensures
 	// offline startups work consistently after updates.
 	event.respondWith((async () => {
-		const cached = await caches.match(request);
+		const cached = await matchFromLatestAssetCache(request);
 		if (cached) return cached;
 
 		try {
@@ -173,9 +174,9 @@ function normalizeNavigationRequest(request: Request): Request {
 
 async function handleOfflineNavigation(request: Request): Promise<Response> {
 	const normalized = normalizeNavigationRequest(request);
-	// Match across *all* caches so we can still boot offline even if the newest cache
-	// hasn't yet stored the app shell (e.g. user updated, then immediately went offline).
-	const cached = (await caches.match(normalized)) ?? (await caches.match(request));
+	// Prefer the newest cached app shell first (Chrome can otherwise pick a very old cache).
+	// Fall back to older caches only if the newest doesn't have the request.
+	const cached = (await matchFromLatestAssetCache(normalized)) ?? (await matchFromLatestAssetCache(request));
 	if (cached) return cached;
 
 	// For the home page, try to serve a basic offline version
@@ -185,6 +186,31 @@ async function handleOfflineNavigation(request: Request): Promise<Response> {
 
 	// No cache available - show offline page
 	return offlinePage();
+}
+
+function parseAssetCacheVersion(key: string): number | null {
+	// Cache names are `assets-${version}` where version is a unix timestamp string
+	if (!key.startsWith('assets-')) return null;
+	const raw = key.slice('assets-'.length);
+	const parsed = Number(raw);
+	return Number.isFinite(parsed) ? parsed : null;
+}
+
+async function matchFromLatestAssetCache(request: Request): Promise<Response | undefined> {
+	const keys = await caches.keys();
+	const assetKeys = keys
+		.map((key) => ({ key, v: parseAssetCacheVersion(key) }))
+		.filter((x): x is { key: string; v: number } => x.v !== null)
+		.sort((a, b) => b.v - a.v)
+		.map((x) => x.key);
+
+	for (const key of assetKeys) {
+		const cache = await caches.open(key);
+		const match = await cache.match(request);
+		if (match) return match;
+	}
+
+	return undefined;
 }
 
 async function warmAppShell() {
