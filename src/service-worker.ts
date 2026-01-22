@@ -6,9 +6,9 @@
 /* Specification:
 	- Most Important:This implementation should be as robust as possible, so that there is never a situation where clients dont receive updates anymore because of caching.
 	- Updates should be possible and seamless via implementation in updater.svelte.ts
-	- Should be able to handle offline scenarios gracefully.
-	- Should be able to handle network failures gracefully.
-	- Should work for chrome/firefox based browsers as well as safari. If any of them have known issues take them into account.
+	- Should be able to handle offline scenarios and network failures gracefully.
+	- Specifically should be able to show offline version after update got installed without manual browser refresh.
+	- All of the above can have different behaviour in chrome vs safari. Safari is especially tricky, make sure to account for that.
 */
 
 import { build, files, version } from '$service-worker';
@@ -52,13 +52,18 @@ sw.addEventListener('install', (event) => {
 });
 
 sw.addEventListener('activate', (event) => {
-	event.waitUntil(
+	event.waitUntil((async () => {
 		// Do NOT aggressively delete old caches here.
 		// If we delete old caches, a client that still has an older HTML document
 		// can end up requesting old hashed JS files that 404 on the network and are
 		// no longer available in Cache Storage, causing a hard-brick white screen.
-		sw.clients.claim()
-	);
+		await sw.clients.claim();
+
+		// Ensure the app shell is available offline *immediately* after an update installs.
+		// iOS PWA users often update while online, then later open the app offline without
+		// having done a manual refresh — this warm-up prevents an "You're Offline" lockout.
+		await warmAppShell();
+	})());
 });
 
 // Allow pages to tell a waiting service worker to activate immediately
@@ -134,14 +139,26 @@ sw.addEventListener('fetch', (event) => {
 		return;
 	}
 
-	// Assets: only serve from cache if offline, otherwise let browser handle normally
-	// This prevents issues with stale caches serving wrong versions during deployments
-	if (!navigator.onLine) {
-		event.respondWith(
-			caches.match(request).then((cached) => cached ?? fetch(request))
-		);
-		return;
-	}
+	// Other assets (CSS/images/fonts/etc):
+	// Use cache-first with network fallback, and populate cache on successful network responses.
+	// This avoids relying on `navigator.onLine` (which is unreliable on iOS PWAs) and ensures
+	// offline startups work consistently after updates.
+	event.respondWith((async () => {
+		const cached = await caches.match(request);
+		if (cached) return cached;
+
+		try {
+			const response = await fetch(request);
+			if (response.ok) {
+				const responseClone = response.clone();
+				void caches.open(CACHE).then((cache) => cache.put(request, responseClone));
+			}
+			return response;
+		} catch {
+			return new Response('', { status: 503 });
+		}
+	})());
+	return;
 
 	// Online: don't intercept, let browser fetch directly
 	// Browser will use HTTP caching naturally (SvelteKit assets have long cache headers)
@@ -155,9 +172,10 @@ function normalizeNavigationRequest(request: Request): Request {
 }
 
 async function handleOfflineNavigation(request: Request): Promise<Response> {
-	const cache = await caches.open(CACHE);
 	const normalized = normalizeNavigationRequest(request);
-	const cached = (await cache.match(normalized)) ?? (await cache.match(request));
+	// Match across *all* caches so we can still boot offline even if the newest cache
+	// hasn't yet stored the app shell (e.g. user updated, then immediately went offline).
+	const cached = (await caches.match(normalized)) ?? (await caches.match(request));
 	if (cached) return cached;
 
 	// For the home page, try to serve a basic offline version
@@ -167,6 +185,20 @@ async function handleOfflineNavigation(request: Request): Promise<Response> {
 
 	// No cache available - show offline page
 	return offlinePage();
+}
+
+async function warmAppShell() {
+	try {
+		const request = new Request(location.origin + '/', { cache: 'no-store' });
+		const response = await fetch(request);
+		if (!response.ok) return;
+		const normalized = normalizeNavigationRequest(request);
+		const responseClone = response.clone();
+		const cache = await caches.open(CACHE);
+		await cache.put(normalized, responseClone);
+	} catch {
+		// If offline or fetch fails, ignore — offline will use previous cached shells if available.
+	}
 }
 
 function offlineAppPage(): Response {
