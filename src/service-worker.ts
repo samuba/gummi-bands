@@ -15,7 +15,10 @@ import { build, files, version } from '$service-worker';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
-// Unique cache per deployment - old caches are cleaned up on activate
+// Cache per deployment.
+// IMPORTANT: we intentionally keep older caches to avoid "white screen" situations
+// during/after updates when a stale HTML document references old hashed JS files
+// that are no longer available on the server/CDN.
 const CACHE = `assets-${version}`;
 
 // Precache all build assets and static files
@@ -33,11 +36,11 @@ sw.addEventListener('install', (event) => {
 
 sw.addEventListener('activate', (event) => {
 	event.waitUntil(
-		caches.keys()
-			.then((keys) => Promise.all(
-				keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))
-			))
-			.then(() => sw.clients.claim())
+		// Do NOT aggressively delete old caches here.
+		// If we delete old caches, a client that still has an older HTML document
+		// can end up requesting old hashed JS files that 404 on the network and are
+		// no longer available in Cache Storage, causing a hard-brick white screen.
+		sw.clients.claim()
 	);
 });
 
@@ -59,77 +62,45 @@ sw.addEventListener('fetch', (event) => {
 	// Never cache or serve version.json from cache - always fetch fresh for update checks
 	if (url.pathname === '/_app/version.json') return;
 
-	// Handle JavaScript files specially to balance update robustness with offline functionality
-	// Critical for preventing stale module imports while maintaining graceful offline behavior
+	// JavaScript modules: network-first, but FALL BACK TO CACHE on 404/error.
+	// This is critical for Safari robustness during updates:
+	// an older HTML document can reference old hashed JS filenames that temporarily/permanently
+	// 404 on the network during/after deployments. Serving from Cache Storage prevents a hard
+	// white-screen brick, and the updater flow can retry and move the client forward.
 	if (url.pathname.endsWith('.js') || request.destination === 'script') {
-		event.respondWith(
-			fetch(request)
-				.then((response) => {
-					// Cache successful JS responses for offline use, but mark them as potentially stale
-					if (response.ok) {
-						const responseClone = response.clone();
-						caches.open(CACHE).then((cache) => {
-							// Add a custom header to mark cached JS as potentially needing refresh
-							const cachedResponse = new Response(responseClone.body, {
-								status: responseClone.status,
-								statusText: responseClone.statusText,
-								headers: {
-									...Object.fromEntries(responseClone.headers.entries()),
-									'X-Cached-At': Date.now().toString(),
-									'X-Cache-Type': 'js-module'
-								}
-							});
-							cache.put(request, cachedResponse);
-						});
-					}
+		event.respondWith((async () => {
+			const cached = await caches.match(request);
+
+			try {
+				const response = await fetch(request);
+
+				// If the network serves the file, refresh the cache for offline use.
+				if (response.ok) {
+					const responseClone = response.clone();
+					void caches.open(CACHE).then((cache) => cache.put(request, responseClone));
 					return response;
-				})
-				.catch(() => {
-					// Network failed - try cache, but log that this might be stale
-					console.warn('JS module fetch failed, serving from cache (may be stale)');
-					return caches.match(request).then((cached) => {
-						if (cached) {
-							// Add header to indicate this is cached/stale JS
-							const staleResponse = new Response(cached.body, {
-								status: cached.status,
-								statusText: cached.statusText,
-								headers: {
-									...Object.fromEntries(cached.headers.entries()),
-									'X-Served-From': 'cache-stale'
-								}
-							});
-							return staleResponse;
-						}
-						// No cache available - return offline error for JS
-						return new Response(
-							'// Offline: JavaScript modules require network connection for updates\n' +
-							'console.warn("App is offline - some features may not work with cached JavaScript");',
-							{
-								status: 503,
-								headers: {
-									'Content-Type': 'application/javascript',
-									'X-Offline-Message': 'JavaScript modules cached offline'
-								}
-							}
-						);
-					});
-				})
-		);
+				}
+
+				// If the network 404s but we have a cached copy, serve it.
+				// This avoids module import failures and white screens.
+				if (response.status === 404 && cached) return cached;
+
+				return response;
+			} catch {
+				// Network failed. Serve cached if possible.
+				if (cached) return cached;
+				return new Response('', { status: 503 });
+			}
+		})());
 		return;
 	}
 
 	// Navigation: try network first, only use cache if network fails (offline support)
 	if (request.mode === 'navigate') {
 		event.respondWith(
-			fetch(request)
-				.then((response) => {
-					// Cache successful responses for offline use
-					if (response.ok) {
-						const responseClone = response.clone();
-						caches.open(CACHE).then((cache) => cache.put(request, responseClone));
-					}
-					return response;
-				})
+			// Always force a fresh HTML document when online to avoid stale HTML referencing
+			// removed hashed assets (common cause of Safari update white-screens).
+			fetch(new Request(request.url, { cache: 'no-store' }))
 				.catch(() => handleOfflineNavigation(request))
 		);
 		return;
