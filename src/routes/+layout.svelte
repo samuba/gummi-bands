@@ -1,6 +1,5 @@
 <script lang="ts">
 	import './layout.css';
-	import favicon from '$lib/assets/favicon.svg';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import * as workout from '$lib/stores/workout.svelte';
@@ -65,7 +64,6 @@
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
 	<title>Gummi Bands - Workout Tracker</title>
 	<meta name="description" content="Track your rubber band workouts with ease" />
 	<meta name="theme-color" content="#0D0D0D" />
