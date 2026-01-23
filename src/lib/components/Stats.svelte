@@ -6,7 +6,7 @@
 	let stats = $derived(workoutState.stats);
 </script>
 
-<div class="card flex flex-col gap-4">
+<div class="card flex flex-col gap-4 px-6 py-5">
 	<div class="flex items-center justify-between">
 		<h3 class="text-sm font-medium tracking-wide text-text-secondary uppercase">Workout Stats</h3>
 		<span class="text-[0.65rem] text-text-muted uppercase">This Week: {settings.formatNumber(stats.thisWeekSessions, 0)}</span>
@@ -14,7 +14,7 @@
 
 	<div class="grid grid-cols-2 gap-4">
 		<!-- Total Volume -->
-		<div class="flex flex-col gap-2 rounded-lg bg-bg-tertiary/50 p-3 border border-bg-tertiary">
+		<div class="flex flex-col gap-2 rounded-lg bg-bg-tertiary/50 px-4 py-3 border border-bg-tertiary">
 			<div class="flex items-center gap-2 text-text-muted">
 				<i class="icon-[ph--armchair-fill] text-primary size-4"></i>
 				<span class="text-[0.65rem] font-bold tracking-wider uppercase">Volume</span>
@@ -30,7 +30,7 @@
 		</div>
 
 		<!-- Total Reps -->
-		<div class="flex flex-col gap-2 rounded-lg bg-bg-tertiary/50 p-3 border border-bg-tertiary">
+		<div class="flex flex-col gap-2 rounded-lg bg-bg-tertiary/50 px-4 py-3 border border-bg-tertiary">
 			<div class="flex items-center gap-2 text-text-muted">
 				<i class="icon-[ph--repeat-fill] text-secondary size-4"></i>
 				<span class="text-[0.65rem] font-bold tracking-wider uppercase">Reps</span>
@@ -42,7 +42,7 @@
 		</div>
 
 		<!-- Top Exercise -->
-		<div class="col-span-2 flex items-center justify-between rounded-lg bg-bg-tertiary/50 p-3 border border-bg-tertiary">
+		<div class="col-span-2 flex items-center justify-between rounded-lg bg-bg-tertiary/50 px-4 py-3 border border-bg-tertiary">
 			<div class="flex items-center gap-3">
 				<div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
 					<i class="icon-[ph--crown-fill] size-6"></i>

@@ -8,6 +8,7 @@ import type { Db } from "./client";
 
 export async function seedData(db: Db) {
 	if (!db) return;
+	const start = performance.now();
 
 	// Seed default bands if none exist
 	const [bandCount] = await db.select({ count: count() }).from(s.bands);
@@ -122,5 +123,7 @@ export async function seedData(db: Db) {
 			}
 		}
 	}
+	const end = performance.now();
+	console.log(`Seed data took ${end - start}ms`);
 }
 //

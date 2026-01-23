@@ -22,7 +22,7 @@
 	}
 </script>
 
-<div class="flex flex-col p-4 border rounded-lg shadow-card bg-bg-secondary border-bg-tertiary gap-2" transition:fly={{ y: 20, duration: 200 }}>
+<div class="card flex flex-col gap-2 p-4" transition:fly={{ y: 20, duration: 200 }}>
 	<div class="flex items-start justify-between">
 		<h3 class="text-base tracking-wide uppercase font-display text-text-primary">{log.exercise.name}</h3>
 		<button 

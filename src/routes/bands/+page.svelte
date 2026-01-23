@@ -46,7 +46,7 @@
 <div class="flex flex-col gap-6 animate-fade-in">
 	<Header title="Bands" showBack />
 
-	<div class="card flex flex-col gap-4">
+	<div class="card flex flex-col gap-4 p-6">
 		<h3 class="text-base font-medium text-text-secondary">Add New Band</h3>
 		<div class="flex gap-4">
 			<input type="text" placeholder="Band name (e.g., Red - Light)" bind:value={newBandName} />
@@ -76,7 +76,7 @@
 	<div class="flex flex-col gap-2">
 		{#each workoutState.bands as band (band.id)}
 			<button
-				class="flex items-center gap-4 rounded-md border border-bg-tertiary bg-bg-secondary p-4 text-left transition-colors hover:bg-bg-tertiary active:bg-bg-elevated cursor-pointer w-full"
+				class="card card-hover px-5 py-3 flex items-center gap-4 text-left w-full active:bg-bg-elevated"
 				in:slide={{ duration: 150 }}
 				out:fade={{ duration: 150, delay: 150 }}
 				animate:flip={{ duration: 250, delay: 150 }}

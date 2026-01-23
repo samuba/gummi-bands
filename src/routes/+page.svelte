@@ -87,7 +87,8 @@
 
 		<!-- Big Start Workout Button -->
 		<button
-			class="group flex cursor-pointer items-center justify-center gap-4 rounded-2xl border-2 border-primary bg-linear-to-br from-primary to-primary/80 p-4 shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-100 w-full max-w-sm"
+			class="group flex cursor-pointer items-center justify-center gap-4 rounded-2xl p-4 shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-100 w-full max-w-sm text-white"
+			style="background-image: var(--gradient-fire); box-shadow: 0 0 20px rgba(255, 61, 0, 0.3);"
 			onclick={handleOpenStartWorkout}
 		>
 			<i class="icon-[ph--lightning-fill] text-4xl text-white"></i>
@@ -125,7 +126,7 @@
 		{:else}
 			<a
 				href={resolve('/history')}
-				class="flex cursor-pointer items-center gap-4 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
+				class="card card-hover flex items-center gap-4 text-left px-6 py-5"
 			>
 				<i class="icon-[ph--clipboard-text] text-3xl text-primary"></i>
 				<div>
@@ -141,7 +142,7 @@
 	<div class="grid grid-cols-2 gap-4">
 		<a
 			href={resolve('/bands')}
-			class="flex cursor-pointer flex-col gap-2 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
+			class="card card-hover flex flex-col gap-2 text-left px-6 py-5"
 		>
 			<div class="flex items-center gap-3">
 				<i class="icon-[ph--infinity] text-2xl text-primary"></i>
@@ -153,7 +154,7 @@
 		</a>
 		<a
 			href={resolve('/exercises')}
-			class="flex cursor-pointer flex-col gap-2 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
+			class="card card-hover flex flex-col gap-2 text-left px-6 py-5"
 		>
 			<div class="flex items-center gap-3">
 				<i class="icon-[ph--barbell] text-2xl text-primary"></i>
@@ -165,7 +166,7 @@
 		</a>
 		<a
 			href={resolve('/templates')}
-			class="flex cursor-pointer flex-col gap-2 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
+			class="card card-hover flex flex-col gap-2 text-left px-6 py-5"
 		>
 			<div class="flex items-center gap-3">
 				<i class="icon-[ph--lightning] text-2xl text-primary"></i>
@@ -177,7 +178,7 @@
 		</a>
 		<a
 			href={resolve('/settings')}
-			class="flex cursor-pointer flex-col gap-2 rounded-lg border border-bg-tertiary bg-bg-secondary p-6 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
+			class="card card-hover flex flex-col gap-2 text-left px-6 py-5"
 		>
 			<div class="flex items-center gap-3">
 				<i class="icon-[ph--gear-six] text-2xl text-primary"></i>

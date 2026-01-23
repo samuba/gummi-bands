@@ -16,16 +16,16 @@
 	
 	--color-accent: #FFD600;
 	
-	/* Dark theme base */
-	--color-bg-primary: #0D0D0D;
-	--color-bg-secondary: #1A1A1A;
-	--color-bg-tertiary: #262626;
-	--color-bg-elevated: #333333;
+	/* Dark theme base - Material Design Dark inspired for better contrast */
+	--color-bg-primary: #121212;
+	--color-bg-secondary: #1E1E1E;
+	--color-bg-tertiary: #2C2C2C;
+	--color-bg-elevated: #383838;
 	
-	/* Text colors */
+	/* Text colors - Improved contrast */
 	--color-text-primary: #FFFFFF;
-	--color-text-secondary: #B3B3B3;
-	--color-text-muted: #666666;
+	--color-text-secondary: #E5E7EB; /* Gray 200 */
+	--color-text-muted: #9CA3AF; /* Gray 400 */
 	
 	/* Status colors */
 	--color-success: #00E676;
@@ -58,7 +58,7 @@
 	/* Gradients */
 	--gradient-fire: linear-gradient(135deg, #FF3D00 0%, #FF6E40 50%, #FFD600 100%);
 	--gradient-energy: linear-gradient(135deg, #00E676 0%, #00BFA5 100%);
-	--gradient-dark: linear-gradient(180deg, #1A1A1A 0%, #0D0D0D 100%);
+	--gradient-dark: linear-gradient(180deg, #1E1E1E 0%, #121212 100%);
 	
 	/* Maintain variables for non-tailwind usage if needed */
 	--color-primary: #FF3D00;
@@ -67,13 +67,13 @@
 	--color-secondary: #00E676;
 	--color-secondary-dark: #00C853;
 	--color-accent: #FFD600;
-	--color-bg-primary: #0D0D0D;
-	--color-bg-secondary: #1A1A1A;
-	--color-bg-tertiary: #262626;
-	--color-bg-elevated: #333333;
+	--color-bg-primary: #121212;
+	--color-bg-secondary: #1E1E1E;
+	--color-bg-tertiary: #2C2C2C;
+	--color-bg-elevated: #383838;
 	--color-text-primary: #FFFFFF;
-	--color-text-secondary: #B3B3B3;
-	--color-text-muted: #666666;
+	--color-text-secondary: #E5E7EB;
+	--color-text-muted: #9CA3AF;
 	--color-success: #00E676;
 	--color-warning: #FFD600;
 	--color-error: #FF5252;
@@ -169,7 +169,11 @@ body::before {
 
 /* Card styles */
 .card {
-	@apply bg-bg-secondary border border-bg-tertiary rounded-lg p-6 shadow-card;
+	@apply bg-bg-secondary border border-bg-tertiary rounded-lg shadow-card transition-all duration-200;
+}
+
+.card-hover {
+	@apply hover:border-primary hover:bg-bg-tertiary cursor-pointer;
 }
 
 .card-elevated {
@@ -179,11 +183,13 @@ body::before {
 /* Input styles */
 input[type="text"],
 input[type="number"],
-select {
+select,
+textarea {
 	@apply w-full p-4 text-base transition-colors duration-200 border-2 bg-bg-tertiary border-bg-elevated text-text-primary rounded-md focus:outline-none focus:border-primary;
 }
 
-input[type="text"]::placeholder {
+input[type="text"]::placeholder,
+textarea::placeholder {
 	@apply text-text-muted;
 }
 

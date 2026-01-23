@@ -138,7 +138,7 @@
 	<!-- Exercises List -->
 	<div class="flex flex-col gap-2">
 		<span class="text-xs tracking-widest text-text-muted uppercase">Exercises</span>
-		<div class="overflow-hidden rounded-lg border border-bg-tertiary bg-bg-secondary">
+		<div class="card overflow-hidden p-0">
 			{#each workoutState.suggestedExercises as exercise (exercise.id)}
 				<LogExerciseDialog
 					{exercise}
@@ -170,7 +170,7 @@
 			placeholder="How was your workout? Any notes for next time..."
 			bind:value={sessionNotes}
 			rows="2"
-			class="w-full resize-none rounded-lg border border-bg-tertiary bg-bg-secondary px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none"
+			class="resize-none"
 		></textarea>
 	</div>
 

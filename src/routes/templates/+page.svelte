@@ -51,7 +51,7 @@
 <div class="flex flex-col gap-6 animate-fade-in">
 	<Header title="Templates" showBack />
 
-	<div class="card flex flex-col gap-4">
+	<div class="card flex flex-col gap-4 p-6">
 		<h3 class="text-base font-medium text-text-secondary">Create New Template</h3>
 		<div class="flex flex-col gap-1">
 			<label class="text-xs tracking-wide text-text-muted uppercase" for="name">
@@ -77,7 +77,7 @@
 		{:else}
 		{#each workoutState.templates as template, index (template.id)}
 			<div
-				class="flex items-center gap-2 rounded-md border border-bg-tertiary bg-bg-secondary"
+				class="card p-0 overflow-hidden flex items-center gap-2"
 				in:slide={{ duration: 150 }}
 				out:fade={{ duration: 150, delay: 150 }}
 				animate:flip={{ duration: 250, delay: 150 }}

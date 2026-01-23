@@ -44,7 +44,7 @@
 </script>
 
 <div
-	class="relative overflow-hidden rounded-lg border border-bg-tertiary bg-bg-secondary"
+	class="card relative overflow-hidden p-0"
 >
 	<!-- Session Header -->
 	<div class="flex items-center justify-between border-b border-bg-tertiary p-4">
