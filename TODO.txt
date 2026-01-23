@@ -1,3 +1,2 @@
-offline does not work after a update was installed 
 startup takes too long
 home screen jumps when going back cuz loading recent activity is not instant

@@ -8,7 +8,7 @@ const config = {
 	kit: {
 		adapter: adapter(),
 		version: {
-			pollInterval: 10000
+			pollInterval: 30000
 		}
 	}
 };
