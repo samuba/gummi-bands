@@ -28,7 +28,7 @@
 	import { pushState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { confirmDialog } from './ConfirmDialog.svelte';
-	import * as workout from '$lib/stores/workout.svelte';
+	import { workout } from '$lib/stores/workout.svelte';
 	import { flip } from 'svelte/animate';
 	import { fade } from 'svelte/transition';
 
@@ -39,7 +39,6 @@
 	let selectedExercises = $state<Exercise[]>([]);
 	let pendingOptions = $state<EditTemplateOptions | null>(null);
 
-	let workoutState = workout.getState();
 
 	let resolvePromise: ((value: EditTemplateResult) => void) | null = null;
 
@@ -110,7 +109,7 @@
 	}
 
 	function addExercise(exerciseId: string) {
-		const exercise = workoutState.exercises.find((e) => e.id === exerciseId);
+		const exercise = workout.allExercises.find((e) => e.id === exerciseId);
 		if (exercise && !selectedExercises.some((e) => e.id === exerciseId)) {
 			selectedExercises = [...selectedExercises, exercise];
 		}
@@ -144,7 +143,7 @@
 
 	const isValid = $derived(templateName.trim().length > 0);
 	const availableExercises = $derived(
-		workoutState.exercises.filter((e) => !selectedExercises.some((se) => se.id === e.id))
+		workout.allExercises.filter((e) => !selectedExercises.some((se) => se.id === e.id))
 	);
 </script>
 

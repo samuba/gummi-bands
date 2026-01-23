@@ -6,7 +6,7 @@
 	import { pushState } from '$app/navigation';
 	import { page } from '$app/state';
 	import type { Band, Exercise } from '$lib/db/schema';
-	import * as workout from '$lib/stores/workout.svelte';
+	import { workout } from '$lib/stores/workout.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 
 	interface Props {

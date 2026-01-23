@@ -1,9 +1,8 @@
 <script lang="ts">
-	import * as workout from '$lib/stores/workout.svelte';
+	import { workout } from '$lib/stores/workout.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 
-	let workoutState = workout.getState();
-	let stats = $derived(workoutState.stats);
+	let stats = $derived(workout.workoutStats);
 </script>
 
 <div class="card flex flex-col gap-4 px-6 py-5">

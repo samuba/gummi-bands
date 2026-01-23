@@ -2,12 +2,10 @@
 	import { fade, slide } from 'svelte/transition';
 	import Header from '$lib/components/Header.svelte';
 	import { editBandDialog } from '$lib/components/EditBandDialog.svelte';
-	import * as workout from '$lib/stores/workout.svelte';
+	import { workout } from '$lib/stores/workout.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import type { Band } from '$lib/db/schema';
 	import { flip } from 'svelte/animate';
-
-	let workoutState = workout.getState();
 
 	// Form state for adding bands
 	let newBandName = $state('');
@@ -74,7 +72,7 @@
 	</div>
 
 	<div class="flex flex-col gap-2">
-		{#each workoutState.bands as band (band.id)}
+		{#each workout.allBands as band (band.id)}
 			<button
 				class="card card-hover px-5 py-3 flex items-center gap-4 text-left w-full active:bg-bg-elevated"
 				in:slide={{ duration: 150 }}

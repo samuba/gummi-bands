@@ -2,10 +2,8 @@
 	import { slide } from 'svelte/transition';
 	import Header from '$lib/components/Header.svelte';
 	import { confirmDialog } from '$lib/components/ConfirmDialog.svelte';
-	import * as workout from '$lib/stores/workout.svelte';
+	import { workout } from '$lib/stores/workout.svelte';
 	import type { Exercise } from '$lib/db/schema';
-
-	let workoutState = workout.getState();
 
 	// Form state for adding exercises
 	let newExerciseName = $state('');
@@ -49,7 +47,7 @@
 	</div>
 
 	<div class="flex flex-col gap-2">
-		{#each workoutState.exercises as exercise (exercise.id)}
+		{#each workout.allExercises as exercise (exercise.id)}
 			<div
 				class="card px-5 py-2 flex items-center gap-4"
 				transition:slide={{ duration: 150 }}

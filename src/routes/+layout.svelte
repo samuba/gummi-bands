@@ -2,7 +2,7 @@
 	import './layout.css';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import * as workout from '$lib/stores/workout.svelte';
+	import { workout } from '$lib/stores/workout.svelte';
 	import * as pwa from '$lib/stores/pwa.svelte';
 	import { updater } from '$lib/stores/updater.svelte';
 	import { loader } from '$lib/stores/initialLoader.svelte';

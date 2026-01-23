@@ -16,10 +16,9 @@
 	import { Dialog } from './dialog';
 	import { pushState } from '$app/navigation';
 	import { page } from '$app/state';
-	import * as workout from '$lib/stores/workout.svelte';
+	import { workout } from '$lib/stores/workout.svelte';
 
 	const open = $derived(page.state.startWorkoutOpen === true);
-	let workoutState = workout.getState();
 	let resolvePromise: ((value: StartWorkoutResult) => void) | null = null;
 	let templateLastUsed: Awaited<ReturnType<typeof workout.getTemplateLastUsedDates>> = $state([]);
 
@@ -88,8 +87,8 @@
 			</Dialog.Description>
 
 			<div class="mt-5 flex flex-col gap-3 min-h-0 overflow-y-auto flex-1">
-				{#if workoutState.templates.length > 0}
-					{#each workoutState.templates as template (template.id)}
+				{#if workout.allTemplates.length > 0}
+					{#each workout.allTemplates as template (template.id)}
 						<button
 							class="group flex cursor-pointer flex-col gap-1 rounded-lg border-2 border-bg-tertiary bg-bg-secondary p-4 text-left transition-all duration-200 hover:border-primary hover:bg-bg-tertiary"
 							onclick={() => handleSelectTemplate(template.id)}

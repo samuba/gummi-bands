@@ -4,15 +4,13 @@
 	import { fade } from 'svelte/transition';
 	import Header from '$lib/components/Header.svelte';
 	import Stats from '$lib/components/Stats.svelte';
-	import * as workout from '$lib/stores/workout.svelte';
+	import { workout } from '$lib/stores/workout.svelte';
 	import SessionCard from '$lib/components/SessionCard.svelte';
 	import { confirmDialog } from '$lib/components/ConfirmDialog.svelte';
 	import { startWorkoutDialog } from '$lib/components/StartWorkoutDialog.svelte';
 	import StartWorkoutDialog from '$lib/components/StartWorkoutDialog.svelte';
 	import type { DetailedSession } from '$lib/stores/workout.svelte';
 	import { resolve } from '$app/paths';
-
-	let workoutState = workout.getState();
 	let recentSessions = $state<DetailedSession[]>([]);
 	let lastTotalSessions = $state(-1);
 
@@ -31,7 +29,7 @@
 
 	// Re-fetch when totalSessions changes (after completing/deleting a workout)
 	$effect(() => {
-		const currentTotal = workoutState.stats.totalSessions;
+		const currentTotal = workout.workoutStats.totalSessions;
 		if (lastTotalSessions !== -1 && currentTotal !== lastTotalSessions) {
 			loadRecentSessions();
 		}

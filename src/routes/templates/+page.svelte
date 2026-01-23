@@ -2,11 +2,9 @@
 	import { fade, slide } from 'svelte/transition';
 	import Header from '$lib/components/Header.svelte';
 	import { editTemplateDialog } from '$lib/components/EditTemplateDialog.svelte';
-	import * as workout from '$lib/stores/workout.svelte';
+	import { workout } from '$lib/stores/workout.svelte';
 	import type { TemplateWithExercises } from '$lib/stores/workout.svelte';
 	import { flip } from 'svelte/animate';
-
-	let workoutState = workout.getState();
 
 	// Form state for adding templates
 	let newTemplateName = $state('');
@@ -70,12 +68,12 @@
 	</div>
 
 	<div class="flex flex-col gap-2">
-		{#if workoutState.templates.length === 0}
+		{#if workout.allTemplates.length === 0}
 			<div class="text-center py-8 text-text-muted">
 				<p>No templates yet. Create your first one!</p>
 			</div>
 		{:else}
-		{#each workoutState.templates as template, index (template.id)}
+		{#each workout.allTemplates as template, index (template.id)}
 			<div
 				class="card p-0 overflow-hidden flex items-center gap-2"
 				in:slide={{ duration: 150 }}
@@ -96,7 +94,7 @@
 						type="button"
 						class="flex items-center justify-center rounded bg-bg-tertiary p-1 text-text-secondary hover:bg-bg-elevated hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 						onclick={(e) => handleMoveTemplateDown(template, e)}
-						disabled={index === workoutState.templates.length - 1}
+						disabled={index === workout.allTemplates.length - 1}
 						aria-label="Move {template.name} down"
 					>
 						<i class="icon-[ph--caret-down] size-5"></i>

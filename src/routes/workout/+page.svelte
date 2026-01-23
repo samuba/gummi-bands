@@ -6,12 +6,10 @@
 	import WorkoutTimer from '$lib/components/WorkoutTimer.svelte';
 	import AddExerciseDialog from '$lib/components/AddExerciseDialog.svelte';
 	import LogExerciseDialog from '$lib/components/LogExerciseDialog.svelte';
-	import * as workout from '$lib/stores/workout.svelte';
+	import { workout } from '$lib/stores/workout.svelte';
 	import type { Exercise } from '$lib/db/schema';
 	import { resolve } from '$app/paths';
 	import { confirmDialog } from '$lib/components/ConfirmDialog.svelte';
-
-	let workoutState = workout.getState();
 
 	let sessionNotes = $state('');
 	let isEditingSession = $state(false);
@@ -33,7 +31,7 @@
 				// Session not found, go home
 				goto(resolve('/'));
 			}
-		} else if (!workoutState.currentSession) {
+		} else if (!workout.currentSession) {
 			// Start new session
 			await workout.startSession(templateId || undefined);
 		}
@@ -53,7 +51,7 @@
 	}
 
 	async function handleDeleteSession() {
-		if (!workoutState.currentSession) return;
+		if (!workout.currentSession) return;
 		
 		const confirmed = await confirmDialog.confirm({
 			title: 'Delete Workout?',
@@ -64,7 +62,7 @@
 		});
 
 		if (confirmed) {
-			await workout.deleteSession(workoutState.currentSession.id);
+			await workout.deleteSession(workout.currentSession.id);
 			goto(resolve('/history'));
 		}
 	}
@@ -77,7 +75,7 @@
 		notes?: string
 	) {
 		// Check if there's already a log for this exercise in current session
-		const existingLog = workoutState.sessionLogs.find((log) => log.exerciseId === exerciseId);
+		const existingLog = workout.sessionLogs.find((log) => log.exerciseId === exerciseId);
 		if (existingLog) {
 			// Remove existing log first
 			await workout.removeLoggedExercise(existingLog.id);
@@ -88,7 +86,7 @@
 
 	// Get current log for an exercise
 	function getExerciseLog(exerciseId: string) {
-		const log = workoutState.sessionLogs.find((l) => l.exerciseId === exerciseId);
+		const log = workout.sessionLogs.find((l) => l.exerciseId === exerciseId);
 		if (!log) return undefined;
 		return {
 			fullReps: log.fullReps,
@@ -119,11 +117,11 @@
 	<!-- Date & Timer -->
 	<div class="flex items-start justify-between">
 		<div class="flex gap-8">
-			{#if workoutState.currentSession}
+			{#if workout.currentSession}
 				<div class="flex flex-col gap-1">
 					<span class="text-xs tracking-widest text-text-muted uppercase">Date</span>
 					<span class="font-display text-2xl text-text-primary"
-						>{formatDate(workoutState.currentSession.startedAt)}</span
+						>{formatDate(workout.currentSession.startedAt)}</span
 					>
 				</div>
 			{/if}
@@ -139,10 +137,10 @@
 	<div class="flex flex-col gap-2">
 		<span class="text-xs tracking-widest text-text-muted uppercase">Exercises</span>
 		<div class="card overflow-hidden p-0">
-			{#each workoutState.suggestedExercises as exercise (exercise.id)}
+			{#each workout.suggestedExercises as exercise (exercise.id)}
 				<LogExerciseDialog
 					{exercise}
-					bands={workoutState.bands}
+					bands={workout.allBands}
 					currentLog={getExerciseLog(exercise.id)}
 					onlog={(bandIds, fullReps, partialReps, notes) =>
 						handleLogExercise(exercise.id, bandIds, fullReps, partialReps, notes)}
@@ -152,8 +150,8 @@
 			<!-- Add Exercise Button -->
 			<div class="p-2">
 				<AddExerciseDialog
-					exercises={workoutState.exercises}
-					excludeIds={workoutState.suggestedExercises.map((e) => e.id)}
+					exercises={workout.allExercises}
+					excludeIds={workout.suggestedExercises.map((e) => e.id)}
 					onselect={(exercise: Exercise) => workout.addSuggestedExercise(exercise)}
 				/>
 			</div>

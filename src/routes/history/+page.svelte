@@ -3,7 +3,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import Header from '$lib/components/Header.svelte';
-	import * as workout from '$lib/stores/workout.svelte';
+	import { workout } from '$lib/stores/workout.svelte';
 	import type { DetailedSession } from '$lib/stores/workout.svelte';
 	import { confirmDialog } from '$lib/components/ConfirmDialog.svelte';
 	import SessionCard from '$lib/components/SessionCard.svelte';
