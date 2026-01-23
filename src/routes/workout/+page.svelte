@@ -107,7 +107,7 @@
 	}
 </script>
 
-<div class="flex flex-col gap-6 animate-fade-in">
+<div class="flex flex-col gap-6 animate-in fade-in">
 	<Header
 		title={isEditingSession ? 'Edit Workout' : 'Workout'}
 		showBack

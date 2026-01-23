@@ -60,7 +60,7 @@
 	}).format(new Date(Number.parseInt(version)));
 </script>
 
-<div class="flex flex-col gap-6 animate-fade-in">
+<div class="flex flex-col gap-6 animate-in fade-in">
 	<Header title="Settings" showBack />
 
 	<div class="flex flex-col gap-4">

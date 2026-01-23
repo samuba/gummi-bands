@@ -46,7 +46,7 @@
 	}
 </script>
 
-<div class="flex flex-col gap-6 animate-fade-in">
+<div class="flex flex-col gap-6 animate-in fade-in">
 	<Header title="Templates" showBack />
 
 	<div class="card flex flex-col gap-4 p-6">

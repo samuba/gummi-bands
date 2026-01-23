@@ -28,21 +28,13 @@
 	--color-text-muted: #9CA3AF; /* Gray 400 */
 	
 	/* Status colors */
-	--color-success: #00E676;
-	--color-warning: #FFD600;
 	--color-error: #FF5252;
 	
 	/* Shadows */
-	--shadow-glow: 0 0 20px rgba(255, 61, 0, 0.3);
 	--shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
 	
-	/* Spacing overrides if needed, but Tailwind defaults are usually fine */
-	
 	/* Border radius */
-	--radius-sm: 0.375rem;
 	--radius-md: 0.75rem;
-	--radius-lg: 1rem;
-	--radius-xl: 1.5rem;
 	
 	/* Typography */
 	--font-display: 'Bebas Neue', sans-serif;
@@ -52,12 +44,10 @@
 		from { opacity: 0; }
 		to { opacity: 1; }
 	}
-	--animate-fade-in: fade-in 0.2s ease-out;
 }
 :root {
 	/* Gradients - needed for var() usage in CSS and inline styles */
 	--gradient-fire: linear-gradient(135deg, #FF3D00 0%, #FF6E40 50%, #FFD600 100%);
-	--gradient-energy: linear-gradient(135deg, #00E676 0%, #00BFA5 100%);
 	--gradient-dark: linear-gradient(180deg, #1E1E1E 0%, #121212 100%);
 }
 
@@ -113,17 +103,6 @@ body::before {
 	@apply translate-y-0;
 }
 
-/* Secondary button */
-.btn-secondary {
-	@apply inline-flex items-center justify-center gap-2 px-8 py-4 text-base tracking-widest uppercase cursor-pointer transition-all duration-200 border-2 bg-bg-elevated border-bg-tertiary text-text-primary;
-	font-family: var(--font-display);
-	border-radius: var(--radius-md);
-}
-
-.btn-secondary:hover {
-	@apply border-primary bg-bg-tertiary;
-}
-
 /* Ghost button */
 .btn-ghost {
 	@apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm transition-all duration-200 bg-transparent text-text-secondary rounded-sm cursor-pointer;
@@ -142,10 +121,6 @@ body::before {
 	@apply hover:border-primary hover:bg-bg-tertiary cursor-pointer;
 }
 
-.card-elevated {
-	@apply bg-bg-elevated;
-}
-
 /* Input styles */
 input[type="text"],
 input[type="number"],
@@ -157,20 +132,6 @@ textarea {
 input[type="text"]::placeholder,
 textarea::placeholder {
 	@apply text-text-muted;
-}
-
-/* Chip / Tag styles */
-.chip {
-	@apply inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-bg-tertiary text-text-secondary;
-}
-
-.chip-primary {
-	@apply bg-primary text-white;
-}
-
-/* Badge for resistance */
-.badge {
-	@apply inline-flex items-center justify-center min-w-8 h-6 px-2 text-xs font-semibold rounded-sm bg-bg-tertiary;
 }
 
 /* Scrollbar styling */
@@ -185,37 +146,3 @@ textarea::placeholder {
 ::-webkit-scrollbar-thumb {
 	@apply rounded-full bg-bg-elevated hover:bg-text-muted;
 }
-
-/* Animations */
-@keyframes pulse-glow {
-	0%, 100% {
-		box-shadow: 0 0 20px rgba(255, 61, 0, 0.3);
-	}
-	50% {
-		box-shadow: 0 0 40px rgba(255, 61, 0, 0.6);
-	}
-}
-
-.animate-pulse-glow {
-	animation: pulse-glow 2s ease-in-out infinite;
-}
-
-@keyframes slide-up {
-	from {
-		opacity: 0;
-		transform: translateY(20px);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
-.animate-slide-up {
-	animation: slide-up 0.3s ease-out;
-}
-
-.animate-fade-in {
-	animation: fade-in 0.2s ease-out;
-}
-

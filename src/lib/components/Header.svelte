@@ -32,7 +32,7 @@
 
 		{#if pwaState.deferredPrompt}
 			<button 
-				class="ml-auto flex items-center justify-center gap-2 px-4 py-2 transition-all duration-200 border-none cursor-pointer bg-bg-tertiary rounded-md text-text-primary hover:bg-bg-elevated animate-fade-in font-display tracking-wider uppercase text-sm"
+				class="ml-auto flex items-center justify-center gap-2 px-4 py-2 transition-all duration-200 border-none cursor-pointer bg-bg-tertiary rounded-md text-text-primary hover:bg-bg-elevated animate-in fade-in font-display tracking-wider uppercase text-sm"
 				onclick={pwa.installPwa}
 			>
 				<i class="icon-[ph--download-simple] size-5"></i>
