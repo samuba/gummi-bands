@@ -26,7 +26,6 @@ const CACHE = `assets-${version}`;
 // JS files are handled specially in fetch handler for update robustness
 const ASSETS = [...build, ...files];
 
-
 sw.addEventListener('install', (event) => {
 	// IMPORTANT: never let a single missing/404 asset prevent the new service worker
 	// from installing/activating. `cache.addAll()` fails the whole install if any

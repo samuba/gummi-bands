@@ -64,7 +64,7 @@
 	<Header title="Settings" showBack />
 
 	<div class="flex flex-col gap-4">
-		<div class="card flex flex-col gap-4">
+		<div class="card flex flex-col gap-4 px-6 py-5">
 			<div class="flex flex-col gap-1">
 				<h3 class="text-lg font-medium text-text-primary">Weight Units</h3>
 				<p class="text-sm text-text-muted">Choose your preferred weight unit for all displays.</p>
@@ -90,7 +90,7 @@
 			</div>
 		</div>
 
-		<div class="card flex flex-col gap-4">
+		<div class="card flex flex-col gap-4 px-6 py-5">
 			<div class="flex items-center justify-between">
 				<div class="flex flex-col gap-1">
 					<h3 class="text-lg font-medium text-text-primary">Keep Screen Awake</h3>
@@ -120,7 +120,7 @@
 			</div>
 		</div>
 
-		<div class="card flex flex-col gap-4">
+		<div class="card flex flex-col gap-4 px-6 py-5">
 			<div class="flex flex-col gap-1">
 				<h3 class="text-lg font-medium text-text-primary">Data Management</h3>
 				<p class="text-sm text-text-muted">Export your data for backup or analysis.</p>
@@ -136,7 +136,7 @@
 		</div>
 
 		<button
-			class="card flex flex-col gap-4 text-left cursor-pointer hover:bg-bg-elevated transition-colors"
+			class="card flex flex-col gap-4 text-left cursor-pointer hover:bg-bg-elevated transition-colors px-6 py-5"
 			onclick={() => dbRepl.registerClick()}
 		>
 			<div class="flex flex-col gap-1">
