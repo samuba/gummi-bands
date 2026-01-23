@@ -103,7 +103,7 @@
 							<span class="font-display text-lg text-primary">{log.fullReps}</span>
 							{#if log.partialReps > 0}
 								<span class="font-display text-sm text-text-muted">+</span>
-								<span class="font-display text-lg text-secondary">{log.partialReps}</span>
+								<span class="font-display text-lg text-primary-light">{log.partialReps}</span>
 							{/if}
 							<span class="text-[0.65rem] tracking-wider text-text-muted uppercase">
 								reps
