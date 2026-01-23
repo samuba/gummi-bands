@@ -44,3 +44,6 @@ Always use resolve() for internal links and navigations.
 ## Typescript
 Always use early returns when possible.
 Always use string interpolation when possible.
+
+## git
+Never commit on your own.
