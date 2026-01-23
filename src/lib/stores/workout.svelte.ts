@@ -497,6 +497,71 @@ class WorkoutStore {
 		return this.sessionLogs.find((log) => log.exerciseId === exerciseId);
 	}
 
+	// Sort logged exercises by template order when available, otherwise by loggedAt
+	sortLoggedExercisesByTemplateOrder(session: {
+		template?: {
+			workoutTemplateExercises?: Array<{
+				exerciseId: string;
+				sortOrder: number;
+			}>;
+		} | null;
+		loggedExercises: Array<{
+			exerciseId: string;
+			loggedAt: Date;
+			id: string;
+			fullReps: number;
+			partialReps: number;
+			notes: string | null;
+			loggedExerciseBands: Array<{
+				band: Band;
+			}>;
+			exercise: Exercise;
+		}>;
+	}): Array<{
+		exerciseId: string;
+		loggedAt: Date;
+		id: string;
+		fullReps: number;
+		partialReps: number;
+		notes: string | null;
+		loggedExerciseBands: Array<{
+			band: Band;
+		}>;
+		exercise: Exercise;
+	}> {
+		let sortedLoggedExercises = session.loggedExercises;
+
+		if (session.template?.workoutTemplateExercises) {
+			// Create a map of exerciseId to sortOrder from template
+			const templateOrder = new Map(
+				session.template.workoutTemplateExercises.map((wte) => [
+					wte.exerciseId,
+					wte.sortOrder
+				])
+			);
+
+			// Sort logged exercises by template sortOrder, then by loggedAt as tiebreaker
+			sortedLoggedExercises = [...session.loggedExercises].sort((a, b) => {
+				const aOrder = templateOrder.get(a.exerciseId) ?? 9999;
+				const bOrder = templateOrder.get(b.exerciseId) ?? 9999;
+
+				if (aOrder !== bOrder) {
+					return aOrder - bOrder;
+				}
+
+				// Tiebreaker: sort by loggedAt time
+				return new Date(a.loggedAt).getTime() - new Date(b.loggedAt).getTime();
+			});
+		} else {
+			// No template: sort by loggedAt time (current behavior)
+			sortedLoggedExercises = [...session.loggedExercises].sort(
+				(a, b) => new Date(a.loggedAt).getTime() - new Date(b.loggedAt).getTime()
+			);
+		}
+
+		return sortedLoggedExercises;
+	}
+
 	// Get all sessions with full details for history view
 	async getDetailedSessionHistory(): Promise<DetailedSession[]> {
 		if (!browser || !db) return [];
@@ -560,36 +625,7 @@ class WorkoutStore {
 					(session.plannedExercises && session.plannedExercises.length > 0)
 			)
 			.map((session) => {
-				// Sort logged exercises by template order when available, otherwise by loggedAt
-				let sortedLoggedExercises = session.loggedExercises;
-
-				if (session.template?.workoutTemplateExercises) {
-					// Create a map of exerciseId to sortOrder from template
-					const templateOrder = new Map(
-						session.template.workoutTemplateExercises.map((wte) => [
-							wte.exerciseId,
-							wte.sortOrder
-						])
-					);
-
-					// Sort logged exercises by template sortOrder, then by loggedAt as tiebreaker
-					sortedLoggedExercises = [...session.loggedExercises].sort((a, b) => {
-						const aOrder = templateOrder.get(a.exerciseId) ?? 9999;
-						const bOrder = templateOrder.get(b.exerciseId) ?? 9999;
-
-						if (aOrder !== bOrder) {
-							return aOrder - bOrder;
-						}
-
-						// Tiebreaker: sort by loggedAt time
-						return new Date(a.loggedAt).getTime() - new Date(b.loggedAt).getTime();
-					});
-				} else {
-					// No template: sort by loggedAt time (current behavior)
-					sortedLoggedExercises = [...session.loggedExercises].sort(
-						(a, b) => new Date(a.loggedAt).getTime() - new Date(b.loggedAt).getTime()
-					);
-				}
+				const sortedLoggedExercises = this.sortLoggedExercisesByTemplateOrder(session);
 
 				return {
 					id: session.id,
@@ -676,36 +712,7 @@ class WorkoutStore {
 					(session.plannedExercises && session.plannedExercises.length > 0)
 			)
 			.map((session) => {
-				// Sort logged exercises by template order when available, otherwise by loggedAt
-				let sortedLoggedExercises = session.loggedExercises;
-
-				if (session.template?.workoutTemplateExercises) {
-					// Create a map of exerciseId to sortOrder from template
-					const templateOrder = new Map(
-						session.template.workoutTemplateExercises.map((wte) => [
-							wte.exerciseId,
-							wte.sortOrder
-						])
-					);
-
-					// Sort logged exercises by template sortOrder, then by loggedAt as tiebreaker
-					sortedLoggedExercises = [...session.loggedExercises].sort((a, b) => {
-						const aOrder = templateOrder.get(a.exerciseId) ?? 9999;
-						const bOrder = templateOrder.get(b.exerciseId) ?? 9999;
-
-						if (aOrder !== bOrder) {
-							return aOrder - bOrder;
-						}
-
-						// Tiebreaker: sort by loggedAt time
-						return new Date(a.loggedAt).getTime() - new Date(b.loggedAt).getTime();
-					});
-				} else {
-					// No template: sort by loggedAt time (current behavior)
-					sortedLoggedExercises = [...session.loggedExercises].sort(
-						(a, b) => new Date(a.loggedAt).getTime() - new Date(b.loggedAt).getTime()
-					);
-				}
+				const sortedLoggedExercises = this.sortLoggedExercisesByTemplateOrder(session);
 
 				return {
 					id: session.id,
