@@ -39,11 +39,6 @@
 	/* Typography */
 	--font-display: 'Bebas Neue', sans-serif;
 	--font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-
-	@keyframes fade-in {
-		from { opacity: 0; }
-		to { opacity: 1; }
-	}
 }
 :root {
 	/* Gradients - needed for var() usage in CSS and inline styles */
