@@ -88,6 +88,7 @@ sw.addEventListener('fetch', (event) => {
 	// Never cache or serve version.json from cache - always fetch fresh for update checks
 	if (url.pathname === '/_app/version.json') return;
 	if (url.pathname.startsWith('/api/')) return;
+	if (url.pathname.startsWith('/_app/remote/')) return;
 
 	// JavaScript modules: network-first, but FALL BACK TO CACHE on 404/error.
 	// This is critical for Safari robustness during updates:

@@ -1,8 +1,10 @@
 // uses drizzle auto snake_case conversion for column names 
 import { pgTable, text, integer, uuid, timestamp, real, boolean } from 'drizzle-orm/pg-core';
-import { relations,sql } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
+import { uuidv7 } from '$lib/db/dbHelper';
 
-const uuidv7 = () => uuid().default(sql`uuid_generate_v7()`);
+// Sync tracking column - null means unsynced, timestamp means last successful sync
+const syncedAt = () => timestamp('synced_at', { withTimezone: true });
 
 export const bands = pgTable('bands', {
 	id: uuidv7().primaryKey(),
@@ -11,14 +13,16 @@ export const bands = pgTable('bands', {
 	color: text(), // optional color for visual identification
 	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
-	deletedAt: timestamp({ withTimezone: true })
+	deletedAt: timestamp({ withTimezone: true }),
+	syncedAt: syncedAt()
 });
 
 export const settings = pgTable('settings', {
 	id: text().primaryKey(), // We'll use a fixed ID like 'global'
 	weightUnit: text({ enum: ['lbs', 'kg'] }).notNull().default('lbs'),
 	keepScreenAwake: boolean().notNull().default(true),
-	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`)
+	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
+	syncedAt: syncedAt()
 });
 
 export const exercises = pgTable('exercises', {
@@ -26,7 +30,8 @@ export const exercises = pgTable('exercises', {
 	name: text().notNull(),
 	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
-	deletedAt: timestamp({ withTimezone: true })
+	deletedAt: timestamp({ withTimezone: true }),
+	syncedAt: syncedAt()
 });
 
 export const workoutTemplates = pgTable('workout_templates', {
@@ -35,7 +40,8 @@ export const workoutTemplates = pgTable('workout_templates', {
 	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
 	icon: text(),
-	sortOrder: integer().notNull().default(0)
+	sortOrder: integer().notNull().default(0),
+	syncedAt: syncedAt()
 });
 
 // Junction table for exercises in templates
@@ -43,7 +49,8 @@ export const workoutTemplateExercises = pgTable('workout_template_exercises', {
 	id: uuidv7().primaryKey(),
 	templateId: uuid().notNull().references(() => workoutTemplates.id, { onDelete: 'cascade' }),
 	exerciseId: uuid().notNull().references(() => exercises.id, { onDelete: 'cascade' }),
-	sortOrder: integer().notNull().default(0)
+	sortOrder: integer().notNull().default(0),
+	syncedAt: syncedAt()
 });
 
 export const workoutSessions = pgTable('workout_sessions', {
@@ -53,7 +60,8 @@ export const workoutSessions = pgTable('workout_sessions', {
 	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
 	endedAt: timestamp({ withTimezone: true }),
 	notes: text(),
-	plannedExercises: text().array().default(sql`'{}'::text[]`)
+	plannedExercises: text().array().default(sql`'{}'::text[]`),
+	syncedAt: syncedAt()
 });
 
 // Logged exercises within a workout session
@@ -64,14 +72,16 @@ export const loggedExercises = pgTable('logged_exercises', {
 	fullReps: integer().notNull().default(0),
 	partialReps: integer().notNull().default(0),
 	notes: text(),
-	loggedAt: timestamp({ withTimezone: true }).defaultNow().notNull()
+	loggedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+	syncedAt: syncedAt()
 });
 
 // Junction table for bands used in logged exercises
 export const loggedExerciseBands = pgTable('logged_exercise_bands', {
 	id: uuidv7().primaryKey(),
 	loggedExerciseId: uuid().notNull().references(() => loggedExercises.id, { onDelete: 'cascade' }),
-	bandId: uuid().notNull().references(() => bands.id)
+	bandId: uuid().notNull().references(() => bands.id),
+	syncedAt: syncedAt()
 });
 
 // Relations

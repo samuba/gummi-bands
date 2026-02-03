@@ -18,5 +18,10 @@ export const auth = betterAuth({
 			clientSecret: GOOGLE_CLIENT_SECRET,
 		},
 	},
+	advanced: {
+		database: {
+			generateId: false, // we use uuidv7 in the schema
+		}
+	},
 	plugins: [sveltekitCookies(getRequestEvent)],
 });
