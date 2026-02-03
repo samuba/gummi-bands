@@ -5,7 +5,7 @@
 	import { flip } from 'svelte/animate';
 	import { pushState } from '$app/navigation';
 	import { page } from '$app/state';
-	import type { Band, Exercise } from '$lib/db/schema';
+	import type { Band, Exercise } from '$lib/db/app/schema';
 	import { workout } from '$lib/stores/workout.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Exercise } from '$lib/db/schema';
+	import type { Exercise } from '$lib/db/app/schema';
 
 	interface Props {
 		exercises: Exercise[];

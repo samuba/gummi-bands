@@ -1,14 +1,14 @@
 import { browser } from '$app/environment';
 import { SvelteDate } from 'svelte/reactivity';
-import { initDatabase, db, isForeignKeyViolation, liveQuery } from '$lib/db/client';
-import * as s from '$lib/db/schema';
+import { initDatabase, db, isForeignKeyViolation, liveQuery } from '$lib/db/app/client';
+import * as s from '$lib/db/app/schema';
 import type {
 	Band,
 	Exercise,
 	WorkoutSession,
 	LoggedExercise,
 	WorkoutTemplate
-} from '$lib/db/schema';
+} from '$lib/db/app/schema';
 import { eq, desc, and, ne, asc, isNull, isNotNull, max, sql, inArray } from 'drizzle-orm';
 import { loader } from './initialLoader.svelte';
 import { settings } from './settings.svelte';

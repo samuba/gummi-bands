@@ -4,7 +4,7 @@
 	import { editBandDialog } from '$lib/components/EditBandDialog.svelte';
 	import { workout } from '$lib/stores/workout.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
-	import type { Band } from '$lib/db/schema';
+	import type { Band } from '$lib/db/app/schema';
 	import { flip } from 'svelte/animate';
 
 	// Form state for adding bands

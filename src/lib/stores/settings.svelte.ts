@@ -1,6 +1,6 @@
 import { browser } from '$app/environment';
-import { db } from '$lib/db/client';
-import * as s from '$lib/db/schema';
+import { db } from '$lib/db/app/client';
+import * as s from '$lib/db/app/schema';
 import { eq } from 'drizzle-orm';
 import { wakeLock } from './wakeLock.svelte';
 

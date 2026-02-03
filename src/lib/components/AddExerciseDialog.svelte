@@ -2,7 +2,7 @@
 	import { Dialog }from './dialog';
 	import { pushState } from '$app/navigation';
 	import { page } from '$app/state';
-	import type { Exercise } from '$lib/db/schema';
+	import type { Exercise } from '$lib/db/app/schema';
 
 	interface Props {
 		exercises: Exercise[];

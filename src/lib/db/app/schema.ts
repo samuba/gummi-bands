@@ -151,4 +151,3 @@ export type NewWorkoutTemplate = typeof workoutTemplates.$inferInsert;
 
 export type WorkoutTemplateExercise = typeof workoutTemplateExercises.$inferSelect;
 export type NewWorkoutTemplateExercise = typeof workoutTemplateExercises.$inferInsert;
-

@@ -47,3 +47,10 @@ Always use string interpolation when possible.
 
 ## git
 Never commit on your own.
+
+## better-auth
+Is used for auth
+Only use better-auth tools/cli to change schemas related to better-auth
+
+## bun
+Use bun instead of npm

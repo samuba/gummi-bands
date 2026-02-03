@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Band } from '$lib/db/schema';
+	import type { Band } from '$lib/db/app/schema';
 	import { fade } from 'svelte/transition';
 	import { settings } from '$lib/stores/settings.svelte';
 

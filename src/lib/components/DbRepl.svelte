@@ -60,7 +60,7 @@
 
 	async function init() {
 		await import('https://cdn.jsdelivr.net/npm/@electric-sql/pglite-repl/dist-webcomponent/Repl.js' as any);
-		const db = await import('$lib/db/client');
+		const db = await import('$lib/db/app/client');
 		await db.initDatabase();
 		(document.getElementById('pglite-repl') as any).pg = db.pglite;
 	}	

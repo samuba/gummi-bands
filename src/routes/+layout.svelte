@@ -10,6 +10,7 @@
 	import EditBandDialog from '$lib/components/EditBandDialog.svelte';
 	import EditTemplateDialog from '$lib/components/EditTemplateDialog.svelte';
 	import ErrorDialog from '$lib/components/ErrorDialog.svelte';
+	import AuthDialog from '$lib/components/AuthDialog.svelte';
 	import { markDialogReady } from '../hooks.client';
 	import { preloadCode } from '$app/navigation';
 	import DbRepl from '$lib/components/DbRepl.svelte';
@@ -140,5 +141,6 @@
 <EditBandDialog />
 <EditTemplateDialog />
 <ErrorDialog />
+<AuthDialog />
 
 <DbRepl />

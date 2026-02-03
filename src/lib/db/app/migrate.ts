@@ -1,7 +1,6 @@
 import type { PgliteDatabase } from "drizzle-orm/pglite";
 import type * as schema from "./schema";
 import type { PgDialect, PgSession } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
 
 // cache the migration status for the current session
 let migrated = false;
@@ -74,4 +73,4 @@ async function hash(message: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-} 
+}

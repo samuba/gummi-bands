@@ -7,7 +7,7 @@
 	import AddExerciseDialog from '$lib/components/AddExerciseDialog.svelte';
 	import LogExerciseDialog from '$lib/components/LogExerciseDialog.svelte';
 	import { workout } from '$lib/stores/workout.svelte';
-	import type { Exercise } from '$lib/db/schema';
+	import type { Exercise } from '$lib/db/app/schema';
 	import { resolve } from '$app/paths';
 	import { confirmDialog } from '$lib/components/ConfirmDialog.svelte';
 

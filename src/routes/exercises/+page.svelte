@@ -3,7 +3,7 @@
 	import Header from '$lib/components/Header.svelte';
 	import { confirmDialog } from '$lib/components/ConfirmDialog.svelte';
 	import { workout } from '$lib/stores/workout.svelte';
-	import type { Exercise } from '$lib/db/schema';
+	import type { Exercise } from '$lib/db/app/schema';
 
 	// Form state for adding exercises
 	let newExerciseName = $state('');

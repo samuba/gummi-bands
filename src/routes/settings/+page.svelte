@@ -1,10 +1,15 @@
 <script lang="ts">
 	import Header from '$lib/components/Header.svelte';
-	import { db } from '$lib/db/client';
+	import { db } from '$lib/db/app/client';
 	import { browser, version } from '$app/environment';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { wakeLock } from '$lib/stores/wakeLock.svelte';
 	import { dbRepl } from '$lib/components/DbRepl.svelte';
+	import { authClient, sessionStore } from '$lib/auth-client.svelte';
+
+	async function handleSignOut() {
+		await authClient.signOut();
+	}
 
 	async function setWeightUnit(unit: 'lbs' | 'kg') {
 		await settings.updateWeightUnit(unit);
@@ -147,5 +152,37 @@
 				Keep pushing your limits.
 			</div>
 		</button>
+
+		{#if $sessionStore.data}
+			<div class="card flex flex-col gap-4 px-6 py-5">
+				<div class="flex items-center gap-4">
+					{#if $sessionStore.data.user.image}
+						<img
+							src={$sessionStore.data.user.image}
+							alt={$sessionStore.data.user.name}
+							class="w-12 h-12 rounded-full border-2 border-primary"
+						/>
+					{:else}
+						<div
+							class="flex items-center justify-center w-12 h-12 rounded-full bg-primary text-white font-display text-lg"
+						>
+							{$sessionStore.data.user.name?.charAt(0).toUpperCase() || 'U'}
+						</div>
+					{/if}
+					<div class="flex flex-col gap-1">
+						<h3 class="text-lg font-medium text-text-primary">{$sessionStore.data.user.name}</h3>
+						<p class="text-sm text-text-muted">{$sessionStore.data.user.email}</p>
+					</div>
+				</div>
+
+				<button
+					class="flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-bg-tertiary text-text-primary font-medium hover:bg-error/20 hover:text-error transition-colors"
+					onclick={handleSignOut}
+				>
+					<i class="icon-[ph--sign-out] size-5"></i>
+					Sign Out
+				</button>
+			</div>
+		{/if}
 	</div>
 </div>

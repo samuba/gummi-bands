@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { Exercise } from '$lib/db/schema';
+	import type { Exercise } from '$lib/db/app/schema';
 
 	export type EditTemplateOptions = {
 		id: string;
