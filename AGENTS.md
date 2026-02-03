@@ -25,14 +25,19 @@ After completing the code, ask the user if they want a playground link. Only cal
 Always use phosphor icon set with unplugin-icons and iconify-tailwind4 in this style:
 <i class="icon-[ph--calendar-plus] size-6"></i>
 
-## DB
+## DB general
 Always use drizzle relational queries when reading and db.insert/db.update/db.delete for writing. 
-Never use drizzle relational queries inside liveQuery() function.
 Never use raw sql strings if there is a drizzle native way instead.
 Always use timestamp({ withTimezone: true }) in schemas for timestamp columns.
 Always use uuidv7 when using uuid's in schema.
 Never generate migration files on your own, instead always use `npm run db:generate` for that.
 Always use implicit column names when defining them in the schema.
+
+### DB local (browser / pglite)
+Never use drizzle relational queries inside liveQuery() function.
+
+### DB server (postgres)
+Neon is used as db provider
 
 ## localization
 Always use browsers locale when doing localization or date formating using Intl.*

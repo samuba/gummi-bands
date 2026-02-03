@@ -5,7 +5,7 @@
 	import { settings } from '$lib/stores/settings.svelte';
 	import { wakeLock } from '$lib/stores/wakeLock.svelte';
 	import { dbRepl } from '$lib/components/DbRepl.svelte';
-	import { authClient, sessionStore } from '$lib/auth-client.svelte';
+	import { authClient, sessionStore } from '$lib/auth-client';
 
 	async function handleSignOut() {
 		await authClient.signOut();

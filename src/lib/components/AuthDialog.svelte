@@ -12,7 +12,7 @@
 	import { Dialog } from './dialog';
 	import { pushState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { authClient, sessionStore } from '$lib/auth-client.svelte';
+	import { authClient, sessionStore } from '$lib/auth-client';
 
 	const open = $derived(page.state.authOpen === true);
 	let mode = $state<AuthMode>('signIn');

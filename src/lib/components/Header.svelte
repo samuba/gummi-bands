@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as pwa from '$lib/stores/pwa.svelte';
 	import { resolve } from '$app/paths';
-	import { sessionStore } from '$lib/auth-client.svelte';
+	import { sessionStore } from '$lib/auth-client';
 	import { authDialog } from './AuthDialog.svelte';
 
 	interface Props {
