@@ -46,6 +46,9 @@ Always use browsers locale when doing localization or date formating using Intl.
 Always use class based svelte stores using $state, instead of getter based or stores from "svelte/store".
 Always use resolve() for internal links and navigations.
 
+## sveltekit
+Always use remote functions when talking to the server.
+
 ## Typescript
 Always use early returns when possible.
 Always use string interpolation when possible.

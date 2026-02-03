@@ -9,6 +9,15 @@ const config = {
 		adapter: adapter(),
 		version: {
 			pollInterval: 30000
+		},
+		experimental: {
+			remoteFunctions: true
+			
+		}
+	},
+	compilerOptions: {
+		experimental: {
+			async: true
 		}
 	}
 };
