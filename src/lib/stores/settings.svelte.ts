@@ -3,6 +3,7 @@ import { db } from '$lib/db/app/client';
 import * as s from '$lib/db/app/schema';
 import { eq } from 'drizzle-orm';
 import { wakeLock } from './wakeLock.svelte';
+import { syncService } from '$lib/services/sync.svelte';
 
 class SettingsStore {
 	#weightUnit = $state<'lbs' | 'kg'>('lbs');
@@ -46,12 +47,14 @@ class SettingsStore {
 	async updateWeightUnit(unit: 'lbs' | 'kg') {
 		await db.update(s.settings).set({ weightUnit: unit }).where(eq(s.settings.id, 'global'));
 		this.#weightUnit = unit;
+		syncService.triggerSync();
 	}
 
 	async updateKeepScreenAwake(enabled: boolean) {
 		await db.update(s.settings).set({ keepScreenAwake: enabled }).where(eq(s.settings.id, 'global'));
 		this.#keepScreenAwake = enabled;
 		wakeLock.enabled = enabled;
+		syncService.triggerSync();
 	}
 
 	formatWeight(lbs: number): string {

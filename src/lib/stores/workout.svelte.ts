@@ -12,6 +12,7 @@ import type {
 import { eq, desc, and, ne, asc, isNull, isNotNull, max, sql, inArray } from 'drizzle-orm';
 import { loader } from './initialLoader.svelte';
 import { settings } from './settings.svelte';
+import { syncService } from '$lib/services/sync.svelte';
 
 class WorkoutStore {
 	// Reactive state
@@ -36,7 +37,7 @@ class WorkoutStore {
 	async initialize() {
 		if (!browser) return;
 		if (this.isInitialized) return;
-
+		
 		await initDatabase();
 
 		loader.setLoading('Loading data...', 85);
@@ -103,6 +104,9 @@ class WorkoutStore {
 
 		loader.setLoading('Ready!', 100);
 		this.isInitialized = true;
+
+		// Initialize sync service after database is ready
+		syncService.initialize();
 	}
 
 	async refreshStats() {
@@ -194,6 +198,7 @@ class WorkoutStore {
 	async addBand(name: string, resistance: number, color?: string) {
 		await db.insert(s.bands).values({ name: `${name} doubled`, resistance: resistance * 2, color });
 		await db.insert(s.bands).values({ name, resistance, color });
+		syncService.triggerSync();
 	}
 
 	async deleteBand(id: string) {
@@ -207,14 +212,17 @@ class WorkoutStore {
 				throw error;
 			}
 		}
+		syncService.triggerSync();
 	}
 
 	async updateBand(id: string, name: string, resistance: number, color?: string) {
 		await db.update(s.bands).set({ name, resistance, ...(color !== undefined && { color }) }).where(eq(s.bands.id, id));
+		syncService.triggerSync();
 	}
 
 	async addExercise(name: string) {
 		await db.insert(s.exercises).values({ name });
+		syncService.triggerSync();
 	}
 
 	async deleteExercise(id: string) {
@@ -228,6 +236,7 @@ class WorkoutStore {
 				throw error;
 			}
 		}
+		syncService.triggerSync();
 	}
 
 	async addTemplate(name: string) {
@@ -237,11 +246,13 @@ class WorkoutStore {
 
 		await db.insert(s.workoutTemplates).values({ name, sortOrder: nextSortOrder });
 		await this.refreshTemplates();
+		syncService.triggerSync();
 	}
 
 	async deleteTemplate(id: string) {
 		await db.delete(s.workoutTemplates).where(eq(s.workoutTemplates.id, id));
 		await this.refreshTemplates();
+		syncService.triggerSync();
 	}
 
 	async updateTemplate(id: string, name: string, exerciseIds: string[]) {
@@ -263,6 +274,7 @@ class WorkoutStore {
 		}
 
 		await this.refreshTemplates();
+		syncService.triggerSync();
 	}
 
 	async moveTemplateUp(id: string) {
@@ -284,6 +296,7 @@ class WorkoutStore {
 			.where(eq(s.workoutTemplates.id, previousTemplate.id));
 
 		await this.refreshTemplates();
+		syncService.triggerSync();
 	}
 
 	async moveTemplateDown(id: string) {
@@ -305,6 +318,7 @@ class WorkoutStore {
 			.where(eq(s.workoutTemplates.id, nextTemplate.id));
 
 		await this.refreshTemplates();
+		syncService.triggerSync();
 	}
 
 	// Start a new workout session
@@ -339,6 +353,7 @@ class WorkoutStore {
 			this.suggestedExercises = [];
 		}
 
+		syncService.triggerSync();
 		return session;
 	}
 
@@ -354,6 +369,7 @@ class WorkoutStore {
 		this.currentSession = null;
 		this.sessionLogs = [];
 		this.suggestedExercises = [];
+		syncService.triggerSync();
 	}
 
 	// Log an exercise in the current session
@@ -389,12 +405,14 @@ class WorkoutStore {
 		}
 
 		await this.refreshSessionLogs();
+		syncService.triggerSync();
 	}
 
 	// Remove a logged exercise
 	async removeLoggedExercise(logId: string) {
 		await db.delete(s.loggedExercises).where(eq(s.loggedExercises.id, logId));
 		await this.refreshSessionLogs();
+		syncService.triggerSync();
 	}
 
 	// Refresh the current session's logs
@@ -454,6 +472,7 @@ class WorkoutStore {
 					.update(s.workoutSessions)
 					.set({ plannedExercises })
 					.where(eq(s.workoutSessions.id, this.currentSession.id));
+				syncService.triggerSync();
 			}
 		}
 	}
@@ -791,10 +810,12 @@ class WorkoutStore {
 			this.sessionLogs = [];
 		}
 		await this.refreshStats();
+		syncService.triggerSync();
 	}
 
 	async updateSessionNotes(sessionId: string, notes: string | null) {
 		await db.update(s.workoutSessions).set({ notes }).where(eq(s.workoutSessions.id, sessionId));
+		syncService.triggerSync();
 	}
 
 	// Save and close editing session (without setting endedAt if already set)
@@ -812,6 +833,7 @@ class WorkoutStore {
 		this.currentSession = null;
 		this.sessionLogs = [];
 		this.suggestedExercises = [];
+		syncService.triggerSync();
 	}
 
 	async getTemplateLastUsedDates(): Promise<Array<[string, Date | null]>> {

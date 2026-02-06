@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { workout } from '$lib/stores/workout.svelte';
+	import { syncService } from '$lib/services/sync.svelte';
 	import * as pwa from '$lib/stores/pwa.svelte';
 	import { updater } from '$lib/stores/updater.svelte';
 	import { loader } from '$lib/stores/initialLoader.svelte';
@@ -28,6 +29,7 @@
 		try {
 			pwa.setupPwa();
 			await workout.initialize();
+			syncService.initialize();
 			await preloadAllRoutes();
 			loader.complete();
 		} catch (error) {

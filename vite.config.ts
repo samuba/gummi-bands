@@ -11,6 +11,11 @@ export default defineConfig({
 		exclude: ['@electric-sql/pglite']
 	},
 
+
+	server: {
+		allowedHosts: ['samuels-macbook.taildcf18f.ts.net'],
+	},
+
 	test: {
 		expect: { requireAssertions: true },
 

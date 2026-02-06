@@ -10,10 +10,6 @@ const config = {
 		version: {
 			pollInterval: 30000
 		},
-		experimental: {
-			remoteFunctions: true
-			
-		}
 	},
 	compilerOptions: {
 		experimental: {
