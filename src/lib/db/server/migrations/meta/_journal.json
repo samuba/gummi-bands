@@ -8,6 +8,13 @@
       "when": 1770108378642,
       "tag": "0000_spicy_korath",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771913783138,
+      "tag": "0001_soft_eddie_brock",
+      "breakpoints": true
     }
   ]
 }

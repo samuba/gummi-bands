@@ -1,3 +1,8 @@
+have sync run in service worker to not freeze ui?
+
+error dialogs while logging stuff
+
+
 startup takes too long
 home screen jumps when going back cuz loading recent activity is not instant
 seed data multiplied with another device (seed only server db and sync down?)

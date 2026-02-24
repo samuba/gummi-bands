@@ -87,10 +87,12 @@ class WorkoutStore {
 				this.allTemplates = rows.map((template) => ({
 					id: template.id,
 					name: template.name,
+					seedSlug: template.seedSlug,
 					createdAt: template.createdAt,
 					updatedAt: template.updatedAt,
 					icon: template.icon,
 					sortOrder: template.sortOrder,
+					syncedAt: template.syncedAt,
 					exercises: template.workoutTemplateExercises
 						.sort((a, b) => a.sortOrder - b.sortOrder)
 						.map((wte) => wte.exercise)
@@ -184,10 +186,12 @@ class WorkoutStore {
 		this.allTemplates = rows.map((template) => ({
 			id: template.id,
 			name: template.name,
+			seedSlug: template.seedSlug,
 			createdAt: template.createdAt,
 			updatedAt: template.updatedAt,
 			icon: template.icon,
 			sortOrder: template.sortOrder,
+			syncedAt: template.syncedAt,
 			exercises: template.workoutTemplateExercises
 				.sort((a, b) => a.sortOrder - b.sortOrder)
 				.map((wte) => wte.exercise)
@@ -202,6 +206,18 @@ class WorkoutStore {
 	}
 
 	async deleteBand(id: string) {
+		const band = await db.query.bands.findFirst({
+			where: eq(s.bands.id, id),
+			columns: { seedSlug: true }
+		});
+
+		// Seeded rows are user-catalog defaults, so hide instead of hard-delete.
+		if (band?.seedSlug) {
+			await db.update(s.bands).set({ deletedAt: sql`NOW()` }).where(eq(s.bands.id, id));
+			syncService.triggerSync();
+			return;
+		}
+
 		try {
 			await db.delete(s.bands).where(eq(s.bands.id, id));
 		} catch (error) {
@@ -226,6 +242,18 @@ class WorkoutStore {
 	}
 
 	async deleteExercise(id: string) {
+		const exercise = await db.query.exercises.findFirst({
+			where: eq(s.exercises.id, id),
+			columns: { seedSlug: true }
+		});
+
+		// Seeded rows are user-catalog defaults, so hide instead of hard-delete.
+		if (exercise?.seedSlug) {
+			await db.update(s.exercises).set({ deletedAt: sql`NOW()` }).where(eq(s.exercises.id, id));
+			syncService.triggerSync();
+			return;
+		}
+
 		try {
 			await db.delete(s.exercises).where(eq(s.exercises.id, id));
 		} catch (error) {
@@ -445,6 +473,7 @@ class WorkoutStore {
 			partialReps: log.partialReps,
 			notes: log.notes,
 			loggedAt: log.loggedAt,
+			syncedAt: log.syncedAt,
 			exercise: log.exercise,
 			bands: log.loggedExerciseBands.map((leb) => leb.band)
 		}));

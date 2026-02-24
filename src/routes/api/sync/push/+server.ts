@@ -56,6 +56,17 @@ const SyncPayloadSchema = v.object({
 	loggedExerciseBands: v.optional(v.array(LoggedExerciseBandSchema))
 });
 
+function omitId<T extends { id: string }>(row: T): Omit<T, 'id'> {
+	const { id, ...rest } = row;
+	void id;
+	return rest;
+}
+
+function ensureWriteApplied(result: Array<{ id: string }>, entity: string, id: string) {
+	if (result.length > 0) return;
+	error(409, `${entity} id conflict for id ${id}`);
+}
+
 export const POST: RequestHandler = async ({ locals, request }) => {
 	if (!locals.user) {
 		error(401, 'Unauthorized');
@@ -74,97 +85,155 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
 	if (payload.bands?.length) {
 		for (const band of payload.bands) {
-			await db.insert(s.bands)
+			if (band.seedSlug) {
+				const setValues = omitId(band);
+				await db.insert(s.bands)
+					.values({ ...band, userId })
+					.onConflictDoUpdate({
+						target: [s.bands.userId, s.bands.seedSlug],
+						set: { ...setValues, userId }
+					});
+				continue;
+			}
+
+			const result = await db.insert(s.bands)
 				.values({ ...band, userId })
 				.onConflictDoUpdate({
 					target: s.bands.id,
 					set: { ...band, userId },
 					setWhere: eq(s.bands.userId, userId)
-				});
+				})
+				.returning({ id: s.bands.id });
+			ensureWriteApplied(result, 'band', band.id);
 		}
 	}
 
 	if (payload.settings?.length) {
 		for (const setting of payload.settings) {
+			const settingValues = omitId(setting);
 			await db.insert(s.settings)
-				.values({ ...setting, userId })
+				.values({ ...settingValues, userId })
 				.onConflictDoUpdate({
-					target: s.settings.id,
-					set: { ...setting, userId },
-					setWhere: eq(s.settings.userId, userId)
+					target: s.settings.userId,
+					set: { ...settingValues, userId }
 				});
 		}
 	}
 
 	if (payload.exercises?.length) {
 		for (const exercise of payload.exercises) {
-			await db.insert(s.exercises)
+			if (exercise.seedSlug) {
+				const setValues = omitId(exercise);
+				await db.insert(s.exercises)
+					.values({ ...exercise, userId })
+					.onConflictDoUpdate({
+						target: [s.exercises.userId, s.exercises.seedSlug],
+						set: { ...setValues, userId }
+					});
+				continue;
+			}
+
+			const result = await db.insert(s.exercises)
 				.values({ ...exercise, userId })
 				.onConflictDoUpdate({
 					target: s.exercises.id,
 					set: { ...exercise, userId },
 					setWhere: eq(s.exercises.userId, userId)
-				});
+				})
+				.returning({ id: s.exercises.id });
+			ensureWriteApplied(result, 'exercise', exercise.id);
 		}
 	}
 
 	if (payload.workoutTemplates?.length) {
 		for (const template of payload.workoutTemplates) {
-			await db.insert(s.workoutTemplates)
+			if (template.seedSlug) {
+				const setValues = omitId(template);
+				await db.insert(s.workoutTemplates)
+					.values({ ...template, userId })
+					.onConflictDoUpdate({
+						target: [s.workoutTemplates.userId, s.workoutTemplates.seedSlug],
+						set: { ...setValues, userId }
+					});
+				continue;
+			}
+
+			const result = await db.insert(s.workoutTemplates)
 				.values({ ...template, userId })
 				.onConflictDoUpdate({
 					target: s.workoutTemplates.id,
 					set: { ...template, userId },
 					setWhere: eq(s.workoutTemplates.userId, userId)
-				});
+				})
+				.returning({ id: s.workoutTemplates.id });
+			ensureWriteApplied(result, 'workout template', template.id);
 		}
 	}
 
 	if (payload.workoutTemplateExercises?.length) {
 		for (const wte of payload.workoutTemplateExercises) {
-			await db.insert(s.workoutTemplateExercises)
+			if (wte.seedSlug) {
+				const setValues = omitId(wte);
+				await db.insert(s.workoutTemplateExercises)
+					.values({ ...wte, userId })
+					.onConflictDoUpdate({
+						target: [s.workoutTemplateExercises.userId, s.workoutTemplateExercises.seedSlug],
+						set: { ...setValues, userId }
+					});
+				continue;
+			}
+
+			const result = await db.insert(s.workoutTemplateExercises)
 				.values({ ...wte, userId })
 				.onConflictDoUpdate({
 					target: s.workoutTemplateExercises.id,
 					set: { ...wte, userId },
 					setWhere: eq(s.workoutTemplateExercises.userId, userId)
-				});
+				})
+				.returning({ id: s.workoutTemplateExercises.id });
+			ensureWriteApplied(result, 'workout template exercise', wte.id);
 		}
 	}
 
 	if (payload.workoutSessions?.length) {
 		for (const session of payload.workoutSessions) {
-			await db.insert(s.workoutSessions)
+			const result = await db.insert(s.workoutSessions)
 				.values({ ...session, userId })
 				.onConflictDoUpdate({
 					target: s.workoutSessions.id,
 					set: { ...session, userId },
 					setWhere: eq(s.workoutSessions.userId, userId)
-				});
+				})
+				.returning({ id: s.workoutSessions.id });
+			ensureWriteApplied(result, 'workout session', session.id);
 		}
 	}
 
 	if (payload.loggedExercises?.length) {
 		for (const loggedExercise of payload.loggedExercises) {
-			await db.insert(s.loggedExercises)
+			const result = await db.insert(s.loggedExercises)
 				.values({ ...loggedExercise, userId })
 				.onConflictDoUpdate({
 					target: s.loggedExercises.id,
 					set: { ...loggedExercise, userId },
 					setWhere: eq(s.loggedExercises.userId, userId)
-				});
+				})
+				.returning({ id: s.loggedExercises.id });
+			ensureWriteApplied(result, 'logged exercise', loggedExercise.id);
 		}
 	}
 
 	if (payload.loggedExerciseBands?.length) {
 		for (const loggedExerciseBand of payload.loggedExerciseBands) {
-			await db.insert(s.loggedExerciseBands)
+			const result = await db.insert(s.loggedExerciseBands)
 				.values({ ...loggedExerciseBand, userId })
 				.onConflictDoUpdate({
 					target: s.loggedExerciseBands.id,
 					set: { ...loggedExerciseBand, userId },
 					setWhere: eq(s.loggedExerciseBands.userId, userId)
-				});
+				})
+				.returning({ id: s.loggedExerciseBands.id });
+			ensureWriteApplied(result, 'logged exercise band', loggedExerciseBand.id);
 		}
 	}
 

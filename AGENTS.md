@@ -52,6 +52,7 @@ Always use remote functions when talking to the server.
 ## Typescript
 Always use early returns when possible.
 Always use string interpolation when possible.
+Always place type definitions at the bottom of the file.
 
 ## git
 Never commit on your own.

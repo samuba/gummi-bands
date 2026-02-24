@@ -1,5 +1,5 @@
 // Server-side app schema - mirrors local schema with required userId for multi-tenancy
-import { pgTable, text, integer, timestamp, real, boolean, index,uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, timestamp, real, boolean, index, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { user } from './schema.auth';
 import { uuidv7 } from '../dbHelper';
@@ -13,16 +13,17 @@ export const bands = pgTable('app_bands', {
 	name: text().notNull(),
 	resistance: real().notNull(),
 	color: text(),
+	seedSlug: text(),
 	createdAt: timestamp({ withTimezone: true }).notNull(),
 	updatedAt: timestamp({ withTimezone: true }).notNull(),
 	deletedAt: timestamp({ withTimezone: true })
 }, (table) => [
-	index('app_bands_user_id_idx').on(table.userId)
+	index('app_bands_user_id_idx').on(table.userId),
+	uniqueIndex('app_bands_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug).where(sql`${table.seedSlug} is not null`)
 ]);
 
 export const settings = pgTable('app_settings', {
-	id: text().primaryKey(),
-	userId: userIdColumn(),
+	userId: userIdColumn().primaryKey(),
 	weightUnit: text({ enum: ['lbs', 'kg'] }).notNull().default('lbs'),
 	keepScreenAwake: boolean().notNull().default(true),
 	updatedAt: timestamp({ withTimezone: true }).notNull()
@@ -34,23 +35,27 @@ export const exercises = pgTable('app_exercises', {
 	id: uuidv7().primaryKey(),
 	userId: userIdColumn(),
 	name: text().notNull(),
+	seedSlug: text(),
 	createdAt: timestamp({ withTimezone: true }).notNull(),
 	updatedAt: timestamp({ withTimezone: true }).notNull(),
 	deletedAt: timestamp({ withTimezone: true })
 }, (table) => [
-	index('app_exercises_user_id_idx').on(table.userId)
+	index('app_exercises_user_id_idx').on(table.userId),
+	uniqueIndex('app_exercises_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug).where(sql`${table.seedSlug} is not null`)
 ]);
 
 export const workoutTemplates = pgTable('app_workout_templates', {
 	id: uuidv7().primaryKey(),
 	userId: userIdColumn(),
 	name: text().notNull(),
+	seedSlug: text(),
 	createdAt: timestamp({ withTimezone: true }).notNull(),
 	updatedAt: timestamp({ withTimezone: true }).notNull(),
 	icon: text(),
 	sortOrder: integer().notNull().default(0)
 }, (table) => [
-	index('app_workout_templates_user_id_idx').on(table.userId)
+	index('app_workout_templates_user_id_idx').on(table.userId),
+	uniqueIndex('app_workout_templates_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug).where(sql`${table.seedSlug} is not null`)
 ]);
 
 export const workoutTemplateExercises = pgTable('app_workout_template_exercises', {
@@ -58,9 +63,11 @@ export const workoutTemplateExercises = pgTable('app_workout_template_exercises'
 	userId: userIdColumn(),
 	templateId: uuidv7().notNull(),
 	exerciseId: uuidv7().notNull(),
+	seedSlug: text(),
 	sortOrder: integer().notNull().default(0)
 }, (table) => [
-	index('app_workout_template_exercises_user_id_idx').on(table.userId)
+	index('app_workout_template_exercises_user_id_idx').on(table.userId),
+	uniqueIndex('app_workout_template_exercises_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug).where(sql`${table.seedSlug} is not null`)
 ]);
 
 export const workoutSessions = pgTable('app_workout_sessions', {

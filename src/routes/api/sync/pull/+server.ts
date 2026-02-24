@@ -35,7 +35,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 
 	return json({
 		bands: bands.map(b => ({ ...b, userId: undefined })),
-		settings: settings.map(s => ({ ...s, userId: undefined })),
+		settings: settings.map(s => ({ id: 'global', ...s, userId: undefined })),
 		exercises: exercises.map(e => ({ ...e, userId: undefined })),
 		workoutTemplates: workoutTemplates.map(t => ({ ...t, userId: undefined })),
 		workoutTemplateExercises: workoutTemplateExercises.map(wte => ({ ...wte, userId: undefined })),
