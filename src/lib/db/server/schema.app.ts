@@ -61,8 +61,8 @@ export const workoutTemplates = pgTable('app_workout_templates', {
 export const workoutTemplateExercises = pgTable('app_workout_template_exercises', {
 	id: uuidv7().primaryKey(),
 	userId: userIdColumn(),
-	templateId: uuidv7().notNull(),
-	exerciseId: uuidv7().notNull(),
+	templateId: uuid().notNull().references(() => workoutTemplates.id, { onDelete: 'cascade' }),
+	exerciseId: uuid().notNull().references(() => exercises.id, { onDelete: 'cascade' }),
 	seedSlug: text(),
 	sortOrder: integer().notNull().default(0)
 }, (table) => [
@@ -73,7 +73,7 @@ export const workoutTemplateExercises = pgTable('app_workout_template_exercises'
 export const workoutSessions = pgTable('app_workout_sessions', {
 	id: uuidv7().primaryKey(),
 	userId: userIdColumn(),
-	templateId: uuidv7(),
+	templateId: uuid().references(() => workoutTemplates.id),
 	startedAt: timestamp({ withTimezone: true }).notNull(),
 	updatedAt: timestamp({ withTimezone: true }).notNull(),
 	endedAt: timestamp({ withTimezone: true }),
@@ -86,8 +86,8 @@ export const workoutSessions = pgTable('app_workout_sessions', {
 export const loggedExercises = pgTable('app_logged_exercises', {
 	id: uuidv7().primaryKey(),
 	userId: userIdColumn(),
-	sessionId: uuidv7().notNull(),
-	exerciseId: uuidv7().notNull(),
+	sessionId: uuid().notNull().references(() => workoutSessions.id, { onDelete: 'cascade' }),
+	exerciseId: uuid().notNull().references(() => exercises.id),
 	fullReps: integer().notNull().default(0),
 	partialReps: integer().notNull().default(0),
 	notes: text(),
@@ -99,8 +99,8 @@ export const loggedExercises = pgTable('app_logged_exercises', {
 export const loggedExerciseBands = pgTable('app_logged_exercise_bands', {
 	id: uuidv7().primaryKey(),
 	userId: userIdColumn(),
-	loggedExerciseId: uuidv7().notNull(),
-	bandId: uuidv7().notNull()
+	loggedExerciseId: uuid().notNull().references(() => loggedExercises.id, { onDelete: 'cascade' }),
+	bandId: uuid().notNull().references(() => bands.id)
 }, (table) => [
 	index('app_logged_exercise_bands_user_id_idx').on(table.userId)
 ]);

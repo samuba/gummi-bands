@@ -528,25 +528,7 @@ class SyncService {
 		}
 
 		// Workout Template Exercises (junction table - simpler upsert)
-		const availableTemplateIds = new Set(
-			(await db.select({ id: s.workoutTemplates.id }).from(s.workoutTemplates)).map((row) => row.id)
-		);
-		const availableExerciseIds = new Set(
-			(await db.select({ id: s.exercises.id }).from(s.exercises)).map((row) => row.id)
-		);
-
 		for (const wte of data.workoutTemplateExercises) {
-			// Server data can temporarily contain orphaned rows during seed slug migrations.
-			// Skip these rows instead of failing the entire sync pass.
-			if (!availableTemplateIds.has(wte.templateId) || !availableExerciseIds.has(wte.exerciseId)) {
-				console.warn('Skipping orphan workoutTemplateExercise during sync', {
-					id: wte.id,
-					templateId: wte.templateId,
-					exerciseId: wte.exerciseId
-				});
-				continue;
-			}
-
 			let conflictingLocalId: string | null = null;
 			if (wte.seedSlug) {
 				const localBySlug = await db.query.workoutTemplateExercises.findFirst({
