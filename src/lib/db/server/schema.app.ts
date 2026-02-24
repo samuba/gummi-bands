@@ -19,7 +19,7 @@ export const bands = pgTable('app_bands', {
 	deletedAt: timestamp({ withTimezone: true })
 }, (table) => [
 	index('app_bands_user_id_idx').on(table.userId),
-	uniqueIndex('app_bands_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug).where(sql`${table.seedSlug} is not null`)
+	uniqueIndex('app_bands_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug)
 ]);
 
 export const settings = pgTable('app_settings', {
@@ -41,7 +41,7 @@ export const exercises = pgTable('app_exercises', {
 	deletedAt: timestamp({ withTimezone: true })
 }, (table) => [
 	index('app_exercises_user_id_idx').on(table.userId),
-	uniqueIndex('app_exercises_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug).where(sql`${table.seedSlug} is not null`)
+	uniqueIndex('app_exercises_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug)
 ]);
 
 export const workoutTemplates = pgTable('app_workout_templates', {
@@ -55,7 +55,7 @@ export const workoutTemplates = pgTable('app_workout_templates', {
 	sortOrder: integer().notNull().default(0)
 }, (table) => [
 	index('app_workout_templates_user_id_idx').on(table.userId),
-	uniqueIndex('app_workout_templates_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug).where(sql`${table.seedSlug} is not null`)
+	uniqueIndex('app_workout_templates_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug)
 ]);
 
 export const workoutTemplateExercises = pgTable('app_workout_template_exercises', {
@@ -67,7 +67,7 @@ export const workoutTemplateExercises = pgTable('app_workout_template_exercises'
 	sortOrder: integer().notNull().default(0)
 }, (table) => [
 	index('app_workout_template_exercises_user_id_idx').on(table.userId),
-	uniqueIndex('app_workout_template_exercises_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug).where(sql`${table.seedSlug} is not null`)
+	uniqueIndex('app_workout_template_exercises_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug)
 ]);
 
 export const workoutSessions = pgTable('app_workout_sessions', {
