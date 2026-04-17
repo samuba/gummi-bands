@@ -4,7 +4,8 @@ import * as v from 'valibot';
 import { db } from '$lib/db/server';
 import * as s from '$lib/db/server/schema.app';
 import * as localSchema from '$lib/db/app/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
+import type { PgTable, PgColumn } from 'drizzle-orm/pg-core';
 import { createSelectSchema } from 'drizzle-valibot';
 
 // Date schemas that coerce ISO strings to Date objects
@@ -67,33 +68,63 @@ function ensureWriteApplied(result: Array<{ id: string }>, entity: string, id: s
 	error(409, `${entity} id conflict for id ${id}`);
 }
 
-export const POST: RequestHandler = async ({ locals, request }) => {
+/**
+ * Server rows have two uniqueness constraints: the primary key `id` and the
+ * composite `(user_id, seed_slug)` unique index. A single ON CONFLICT clause can
+ * only target one of them, so if a client pushes a row whose id exists on the
+ * server but with a different (or null) seed_slug, Postgres raises a pkey
+ * conflict that the `(user_id, seed_slug)` target cannot catch. To avoid this,
+ * we null out the seed_slug on any other row that holds the incoming slug
+ * before upserting by id. The affected row's next pull will then reconcile.
+ */
+async function clearConflictingSeedSlug(
+	table: PgTable & { id: PgColumn; userId: PgColumn; seedSlug: PgColumn },
+	userId: string,
+	rowId: string,
+	seedSlug: string
+) {
+	await db
+		.update(table)
+		.set({ seedSlug: null })
+		.where(
+			and(eq(table.userId, userId), eq(table.seedSlug, seedSlug), ne(table.id, rowId))
+		);
+}
+
+export const POST: RequestHandler = async (event) => {
+	try {
+		return await handlePush(event);
+	} catch (err) {
+		if (err instanceof Error) {
+			const cause = (err as Error & { cause?: unknown }).cause;
+			if (cause instanceof Error) {
+				console.error('[sync/push] underlying cause:', cause.message, cause.stack);
+			}
+		}
+		throw err;
+	}
+};
+
+async function handlePush({ locals, request }: Parameters<RequestHandler>[0]) {
 	if (!locals.user) {
 		error(401, 'Unauthorized');
 	}
 
 	const userId = locals.user.id;
 	const body = await request.json();
-	
+
 	const result = v.safeParse(SyncPayloadSchema, body);
 	if (!result.success) {
 		error(400, 'Invalid payload');
 	}
-	
+
 	const payload = result.output;
 	const syncedAt = new Date().toISOString();
 
 	if (payload.bands?.length) {
 		for (const band of payload.bands) {
 			if (band.seedSlug) {
-				const setValues = omitId(band);
-				await db.insert(s.bands)
-					.values({ ...band, userId })
-					.onConflictDoUpdate({
-						target: [s.bands.userId, s.bands.seedSlug],
-						set: { ...setValues, userId }
-					});
-				continue;
+				await clearConflictingSeedSlug(s.bands, userId, band.id, band.seedSlug);
 			}
 
 			const result = await db.insert(s.bands)
@@ -123,14 +154,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 	if (payload.exercises?.length) {
 		for (const exercise of payload.exercises) {
 			if (exercise.seedSlug) {
-				const setValues = omitId(exercise);
-				await db.insert(s.exercises)
-					.values({ ...exercise, userId })
-					.onConflictDoUpdate({
-						target: [s.exercises.userId, s.exercises.seedSlug],
-						set: { ...setValues, userId }
-					});
-				continue;
+				await clearConflictingSeedSlug(s.exercises, userId, exercise.id, exercise.seedSlug);
 			}
 
 			const result = await db.insert(s.exercises)
@@ -148,14 +172,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 	if (payload.workoutTemplates?.length) {
 		for (const template of payload.workoutTemplates) {
 			if (template.seedSlug) {
-				const setValues = omitId(template);
-				await db.insert(s.workoutTemplates)
-					.values({ ...template, userId })
-					.onConflictDoUpdate({
-						target: [s.workoutTemplates.userId, s.workoutTemplates.seedSlug],
-						set: { ...setValues, userId }
-					});
-				continue;
+				await clearConflictingSeedSlug(s.workoutTemplates, userId, template.id, template.seedSlug);
 			}
 
 			const result = await db.insert(s.workoutTemplates)
@@ -173,14 +190,12 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 	if (payload.workoutTemplateExercises?.length) {
 		for (const wte of payload.workoutTemplateExercises) {
 			if (wte.seedSlug) {
-				const setValues = omitId(wte);
-				await db.insert(s.workoutTemplateExercises)
-					.values({ ...wte, userId })
-					.onConflictDoUpdate({
-						target: [s.workoutTemplateExercises.userId, s.workoutTemplateExercises.seedSlug],
-						set: { ...setValues, userId }
-					});
-				continue;
+				await clearConflictingSeedSlug(
+					s.workoutTemplateExercises,
+					userId,
+					wte.id,
+					wte.seedSlug
+				);
 			}
 
 			const result = await db.insert(s.workoutTemplateExercises)
@@ -238,4 +253,4 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 	}
 
 	return json({ syncedAt });
-};
+}
