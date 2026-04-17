@@ -6,9 +6,14 @@
 	import { wakeLock } from '$lib/stores/wakeLock.svelte';
 	import { dbRepl } from '$lib/components/DbRepl.svelte';
 	import { authClient, sessionStore } from '$lib/auth-client';
+	import { syncService } from '$lib/services/sync.svelte';
 
 	async function handleSignOut() {
 		await authClient.signOut();
+	}
+
+	async function triggerSync() {
+		await syncService.manualSync();
 	}
 
 	async function setWeightUnit(unit: 'lbs' | 'kg') {
@@ -153,9 +158,41 @@
 			</div>
 		</button>
 
-		{#if $sessionStore.data}
-			<div class="card flex flex-col gap-4 px-6 py-5">
-				<div class="flex items-center gap-4">
+	{#if $sessionStore.data}
+		<div class="card flex flex-col gap-4 px-6 py-5">
+			<div class="flex flex-col gap-1">
+				<h3 class="text-lg font-medium text-text-primary">Sync</h3>
+				<p class="text-sm text-text-muted">
+					{#if syncService.syncError}
+						<span class="text-error">{syncService.syncError}</span>
+					{:else if syncService.lastSyncAt}
+						Last synced {new Intl.DateTimeFormat(navigator.language, {
+							dateStyle: 'medium',
+							timeStyle: 'short'
+						}).format(new Date(syncService.lastSyncAt))}
+					{:else}
+						Not synced yet.
+					{/if}
+				</p>
+			</div>
+
+			<button
+				class="flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-bg-tertiary text-text-primary font-medium hover:bg-bg-elevated transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+				onclick={triggerSync}
+				disabled={syncService.isSyncing || !syncService.isOnline}
+			>
+				{#if syncService.isSyncing}
+					<i class="icon-[ph--circle-notch] size-5 animate-spin"></i>
+					Syncing...
+				{:else}
+					<i class="icon-[ph--arrows-clockwise] size-5"></i>
+					{syncService.isOnline ? 'Sync Now' : 'Offline'}
+				{/if}
+			</button>
+		</div>
+
+		<div class="card flex flex-col gap-4 px-6 py-5">
+			<div class="flex items-center gap-4">
 					{#if $sessionStore.data.user.image}
 						<img
 							src={$sessionStore.data.user.image}
