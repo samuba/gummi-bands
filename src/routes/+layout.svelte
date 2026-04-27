@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './layout.css';
 	import { onMount } from 'svelte';
-	import { fade } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 	import { workout } from '$lib/stores/workout.svelte';
 	import { syncService } from '$lib/services/sync.svelte';
 	import * as pwa from '$lib/stores/pwa.svelte';
@@ -146,3 +146,20 @@
 <AuthDialog />
 
 <DbRepl />
+
+{#if syncService.isSyncing}
+	<div
+		class="pointer-events-none fixed inset-x-0 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0))] z-50 flex justify-center px-4"
+		in:fly={{ y: 12, duration: 150 }}
+		out:fade={{ duration: 100 }}
+	>
+		<div
+			class="flex items-center gap-2 rounded-full border border-bg-elevated bg-bg-secondary/95 px-3 py-2 text-xs font-medium text-text-secondary shadow-card backdrop-blur"
+			role="status"
+			aria-live="polite"
+		>
+			<i class="icon-[ph--circle-notch] size-4 animate-spin text-primary"></i>
+			<span>Syncing...</span>
+		</div>
+	</div>
+{/if}

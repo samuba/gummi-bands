@@ -826,10 +826,9 @@ class WorkoutStore {
 
 	// Resume/edit an existing session
 	async editSession(sessionId: string) {
-		const [session] = await db
-			.select()
-			.from(s.workoutSessions)
-			.where(eq(s.workoutSessions.id, sessionId));
+		const session = await db.query.workoutSessions.findFirst({
+			where: eq(s.workoutSessions.id, sessionId)
+		});
 		if (session) {
 			this.currentSession = session;
 			await this.refreshSessionLogs();
@@ -837,31 +836,43 @@ class WorkoutStore {
 			// Build suggested exercises
 			// Priority:
 			// 1. session.plannedExercises (if valid array and not empty)
-			// 2. sessionLogs (fallback for legacy sessions)
+			// 2. sessionLogs (always include exercises that were actually logged)
 			// 3. template (if no logs and no planned exercises - unlikely but possible for empty legacy session)
+
+			const suggestedExercises: Exercise[] = [];
+			const addSuggestedExercise = (exercise: Exercise | undefined) => {
+				if (!exercise || suggestedExercises.some((suggested) => suggested.id === exercise.id))
+					return;
+				suggestedExercises.push(exercise);
+			};
 
 			if (session.plannedExercises && session.plannedExercises.length > 0) {
 				const plannedIds = session.plannedExercises as string[];
 				// Preserve order from plannedExercises
-				this.suggestedExercises = plannedIds
-					.map((id) => this.allExercises.find((e) => e.id === id))
-					.filter((e): e is Exercise => e !== undefined);
-			} else {
-				// Fallback to legacy behavior: logged exercises
-				const exerciseIds = this.sessionLogs.map((log) => log.exerciseId);
-				if (exerciseIds.length > 0) {
-					this.suggestedExercises = this.allExercises.filter((e) => exerciseIds.includes(e.id));
-				} else if (session.templateId) {
-					// Fallback to template if no logs (e.g. empty legacy session created from template)
-					const template = this.allTemplates.find((t) => t.id === session.templateId);
-					if (template) {
-						this.suggestedExercises = template.exercises;
-					} else {
-						this.suggestedExercises = [];
-					}
+				for (const id of plannedIds) {
+					addSuggestedExercise(
+						this.allExercises.find((exercise) => exercise.id === id) ??
+							this.sessionLogs.find((log) => log.exerciseId === id)?.exercise
+					);
+				}
+			}
+
+			for (const log of this.sessionLogs) {
+				addSuggestedExercise(log.exercise);
+			}
+
+			if (suggestedExercises.length > 0) {
+				this.suggestedExercises = suggestedExercises;
+			} else if (session.templateId) {
+				// Fallback to template if no logs (e.g. empty legacy session created from template)
+				const template = this.allTemplates.find((t) => t.id === session.templateId);
+				if (template) {
+					this.suggestedExercises = template.exercises;
 				} else {
 					this.suggestedExercises = [];
 				}
+			} else {
+				this.suggestedExercises = [];
 			}
 		}
 
