@@ -9,6 +9,7 @@ import type { Db } from './client';
 
 const seededBands: SeededBand[] = [
 	// X3
+	{ seedSlug: 'x3-white', name: 'White', resistance: 50, color: '#FFFFFF' },
 	{ seedSlug: 'x3-white-2x', name: 'White 2x', resistance: 100, color: '#FFFFFF' },
 	// { seedSlug: 'x3-light-grey', name: 'Light Grey', resistance: 80, color: '#D3D3D3' },
 	// { seedSlug: 'x3-light-grey-2x', name: 'Light Grey 2x', resistance: 160, color: '#D3D3D3' },
