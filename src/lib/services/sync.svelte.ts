@@ -2,7 +2,14 @@ import { browser } from '$app/environment';
 import { db } from '$lib/db/app/client';
 import * as s from '$lib/db/app/schema';
 import { sessionStore } from '$lib/auth-client';
-import { type Column, eq, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
+import { type Column, eq, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
+import { getCatalogNameKey } from '$lib/db/catalog';
+import {
+	dedupeTemplateExercisePairs,
+	remapLocalBandId,
+	remapLocalExerciseId,
+	remapLocalTemplateId
+} from '$lib/db/app/catalogMerge';
 
 const isUnsyncedWhere = (table: { syncedAt: Column; updatedAt: Column }) =>
 	or(isNull(table.syncedAt), lt(table.syncedAt, table.updatedAt));
@@ -65,7 +72,7 @@ class SyncService {
 			$effect(() => {
 				const session = sessionStore.value;
 				const currentUserId = session?.data?.user?.id ?? null;
-				
+
 				// Skip if session is still loading
 				if (session?.isPending) return;
 
@@ -75,7 +82,7 @@ class SyncService {
 					}
 
 					// Sync on: initial page load with logged-in user, or user just logged in
-					if (isInitialLoad || (previousUserId !== currentUserId)) {
+					if (isInitialLoad || previousUserId !== currentUserId) {
 						this.fullSync();
 					}
 				}
@@ -137,16 +144,32 @@ class SyncService {
 				unsyncedSessions,
 				unsyncedLoggedExercises,
 				unsyncedLoggedExerciseBands
-		] = await Promise.all([
-			db.select().from(s.bands).where(isUnsyncedWhere(s.bands)),
-			db.select().from(s.settings).where(isUnsyncedWhere(s.settings)),
-			db.select().from(s.exercises).where(isUnsyncedWhere(s.exercises)),
-			db.select().from(s.workoutTemplates).where(isUnsyncedWhere(s.workoutTemplates)),
-			db.select().from(s.workoutTemplateExercises).where(isNull(s.workoutTemplateExercises.syncedAt)),
-			db.select().from(s.workoutSessions).where(isUnsyncedWhere(s.workoutSessions)),
-			db.select().from(s.loggedExercises).where(isNull(s.loggedExercises.syncedAt)),
-			db.select().from(s.loggedExerciseBands).where(isNull(s.loggedExerciseBands.syncedAt))
-		]);
+			] = await Promise.all([
+				db.select().from(s.bands).where(isUnsyncedWhere(s.bands)),
+				db.select().from(s.settings).where(isUnsyncedWhere(s.settings)),
+				db.select().from(s.exercises).where(isUnsyncedWhere(s.exercises)),
+				db.select().from(s.workoutTemplates).where(isUnsyncedWhere(s.workoutTemplates)),
+				db
+					.select()
+					.from(s.workoutTemplateExercises)
+					.where(isNull(s.workoutTemplateExercises.syncedAt)),
+				db.select().from(s.workoutSessions).where(isUnsyncedWhere(s.workoutSessions)),
+				db.select().from(s.loggedExercises).where(isNull(s.loggedExercises.syncedAt)),
+				db.select().from(s.loggedExerciseBands).where(isNull(s.loggedExerciseBands.syncedAt))
+			]);
+			const replacementTemplateIds = unsyncedTemplates.map((template) => template.id);
+			const replacementTemplateExercises =
+				replacementTemplateIds.length > 0
+					? await db
+							.select()
+							.from(s.workoutTemplateExercises)
+							.where(inArray(s.workoutTemplateExercises.templateId, replacementTemplateIds))
+					: [];
+			const replacementTemplateIdSet = new Set(replacementTemplateIds);
+			const workoutTemplateExercisesToPush = [
+				...replacementTemplateExercises,
+				...unsyncedTemplateExercises.filter((wte) => !replacementTemplateIdSet.has(wte.templateId))
+			];
 
 			// 2. Push local changes to server
 			const hasChangesToPush =
@@ -154,92 +177,126 @@ class SyncService {
 				unsyncedSettings.length > 0 ||
 				unsyncedExercises.length > 0 ||
 				unsyncedTemplates.length > 0 ||
-				unsyncedTemplateExercises.length > 0 ||
+				workoutTemplateExercisesToPush.length > 0 ||
 				unsyncedSessions.length > 0 ||
 				unsyncedLoggedExercises.length > 0 ||
 				unsyncedLoggedExerciseBands.length > 0;
 
-		if (hasChangesToPush) {
-			const pushResponse = await fetch('/api/sync/push', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					bands: unsyncedBands.map(b => ({
-						...b,
-						createdAt: b.createdAt.toISOString(),
-						updatedAt: b.updatedAt.toISOString(),
-						deletedAt: b.deletedAt?.toISOString() ?? null
-					})),
-					settings: unsyncedSettings.map(s => ({
-						...s,
-						updatedAt: s.updatedAt.toISOString()
-					})),
-					exercises: unsyncedExercises.map(e => ({
-						...e,
-						createdAt: e.createdAt.toISOString(),
-						updatedAt: e.updatedAt.toISOString(),
-						deletedAt: e.deletedAt?.toISOString() ?? null
-					})),
-					workoutTemplates: unsyncedTemplates.map(t => ({
-						...t,
-						createdAt: t.createdAt.toISOString(),
-						updatedAt: t.updatedAt.toISOString()
-					})),
-					workoutTemplateExercises: unsyncedTemplateExercises,
-					workoutSessions: unsyncedSessions.map(s => ({
-						...s,
-						startedAt: s.startedAt.toISOString(),
-						updatedAt: s.updatedAt.toISOString(),
-						endedAt: s.endedAt?.toISOString() ?? null
-					})),
-					loggedExercises: unsyncedLoggedExercises.map(le => ({
-						...le,
-						loggedAt: le.loggedAt.toISOString()
-					})),
-					loggedExerciseBands: unsyncedLoggedExerciseBands
-				})
-			});
+			if (hasChangesToPush) {
+				const pushResponse = await fetch('/api/sync/push', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						bands: unsyncedBands.map((b) => ({
+							...b,
+							createdAt: b.createdAt.toISOString(),
+							updatedAt: b.updatedAt.toISOString(),
+							deletedAt: b.deletedAt?.toISOString() ?? null
+						})),
+						settings: unsyncedSettings.map((s) => ({
+							...s,
+							updatedAt: s.updatedAt.toISOString()
+						})),
+						exercises: unsyncedExercises.map((e) => ({
+							...e,
+							createdAt: e.createdAt.toISOString(),
+							updatedAt: e.updatedAt.toISOString(),
+							deletedAt: e.deletedAt?.toISOString() ?? null
+						})),
+						workoutTemplates: unsyncedTemplates.map((t) => ({
+							...t,
+							createdAt: t.createdAt.toISOString(),
+							updatedAt: t.updatedAt.toISOString(),
+							deletedAt: t.deletedAt?.toISOString() ?? null
+						})),
+						replaceWorkoutTemplateExercisesForTemplateIds: replacementTemplateIds,
+						workoutTemplateExercises: workoutTemplateExercisesToPush,
+						workoutSessions: unsyncedSessions.map((s) => ({
+							...s,
+							startedAt: s.startedAt.toISOString(),
+							updatedAt: s.updatedAt.toISOString(),
+							endedAt: s.endedAt?.toISOString() ?? null
+						})),
+						loggedExercises: unsyncedLoggedExercises.map((le) => ({
+							...le,
+							loggedAt: le.loggedAt.toISOString()
+						})),
+						loggedExerciseBands: unsyncedLoggedExerciseBands
+					})
+				});
 
-			if (!pushResponse.ok) {
-				throw new Error(`Push failed: ${pushResponse.status}`);
+				if (!pushResponse.ok) {
+					throw new Error(`Push failed: ${pushResponse.status}`);
+				}
+
+				const pushResult: PushResponse = await pushResponse.json();
+				await this.applyPushRemaps(pushResult.idRemaps);
+
+				// 3. Mark pushed records as synced
+				await Promise.all([
+					unsyncedBands.length > 0 &&
+						db
+							.update(s.bands)
+							.set({ syncedAt: sql`now()` })
+							.where(isUnsyncedWhere(s.bands)),
+					unsyncedSettings.length > 0 &&
+						db
+							.update(s.settings)
+							.set({ syncedAt: sql`now()` })
+							.where(isUnsyncedWhere(s.settings)),
+					unsyncedExercises.length > 0 &&
+						db
+							.update(s.exercises)
+							.set({ syncedAt: sql`now()` })
+							.where(isUnsyncedWhere(s.exercises)),
+					unsyncedTemplates.length > 0 &&
+						db
+							.update(s.workoutTemplates)
+							.set({ syncedAt: sql`now()` })
+							.where(isUnsyncedWhere(s.workoutTemplates)),
+					workoutTemplateExercisesToPush.length > 0 &&
+						db
+							.update(s.workoutTemplateExercises)
+							.set({ syncedAt: sql`now()` })
+							.where(isNull(s.workoutTemplateExercises.syncedAt)),
+					unsyncedSessions.length > 0 &&
+						db
+							.update(s.workoutSessions)
+							.set({ syncedAt: sql`now()` })
+							.where(isUnsyncedWhere(s.workoutSessions)),
+					unsyncedLoggedExercises.length > 0 &&
+						db
+							.update(s.loggedExercises)
+							.set({ syncedAt: sql`now()` })
+							.where(isNull(s.loggedExercises.syncedAt)),
+					unsyncedLoggedExerciseBands.length > 0 &&
+						db
+							.update(s.loggedExerciseBands)
+							.set({ syncedAt: sql`now()` })
+							.where(isNull(s.loggedExerciseBands.syncedAt))
+				]);
 			}
 
-			await pushResponse.json();
+			// 4. Pull server changes
+			const pullUrl = new URL('/api/sync/pull', window.location.origin);
+			if (this.lastSyncAt) {
+				pullUrl.searchParams.set('lastSyncAt', this.lastSyncAt);
+			}
+			const pullResponse = await fetch(pullUrl);
 
-			// 3. Mark pushed records as synced
-			await Promise.all([
-				unsyncedBands.length > 0 && db.update(s.bands).set({ syncedAt: sql`now()` }).where(isUnsyncedWhere(s.bands)),
-				unsyncedSettings.length > 0 && db.update(s.settings).set({ syncedAt: sql`now()` }).where(isUnsyncedWhere(s.settings)),
-				unsyncedExercises.length > 0 && db.update(s.exercises).set({ syncedAt: sql`now()` }).where(isUnsyncedWhere(s.exercises)),
-				unsyncedTemplates.length > 0 && db.update(s.workoutTemplates).set({ syncedAt: sql`now()` }).where(isUnsyncedWhere(s.workoutTemplates)),
-				unsyncedTemplateExercises.length > 0 && db.update(s.workoutTemplateExercises).set({ syncedAt: sql`now()` }).where(isNull(s.workoutTemplateExercises.syncedAt)),
-				unsyncedSessions.length > 0 && db.update(s.workoutSessions).set({ syncedAt: sql`now()` }).where(isUnsyncedWhere(s.workoutSessions)),
-				unsyncedLoggedExercises.length > 0 && db.update(s.loggedExercises).set({ syncedAt: sql`now()` }).where(isNull(s.loggedExercises.syncedAt)),
-				unsyncedLoggedExerciseBands.length > 0 && db.update(s.loggedExerciseBands).set({ syncedAt: sql`now()` }).where(isNull(s.loggedExerciseBands.syncedAt))
-			]);
-		}
+			if (!pullResponse.ok) {
+				throw new Error(`Pull failed: ${pullResponse.status}`);
+			}
 
-		// 4. Pull server changes
-		const pullUrl = new URL('/api/sync/pull', window.location.origin);
-		if (this.lastSyncAt) {
-			pullUrl.searchParams.set('lastSyncAt', this.lastSyncAt);
-		}
-		const pullResponse = await fetch(pullUrl);
+			const pullResult: PullResponse = await pullResponse.json();
 
-		if (!pullResponse.ok) {
-			throw new Error(`Pull failed: ${pullResponse.status}`);
-		}
+			// 5. Apply server changes locally (last-write-wins based on updatedAt)
+			await this.applyServerChanges(pullResult);
 
-		const pullResult: PullResponse = await pullResponse.json();
-
-		// 5. Apply server changes locally (last-write-wins based on updatedAt)
-		await this.applyServerChanges(pullResult);
-
-		// 6. Update lastSyncAt
-		this.lastSyncAt = pullResult.syncedAt;
-		localStorage.setItem(this.getLastSyncKey(userId), pullResult.syncedAt);
-
-	} catch (err) {
+			// 6. Update lastSyncAt
+			this.lastSyncAt = pullResult.syncedAt;
+			localStorage.setItem(this.getLastSyncKey(userId), pullResult.syncedAt);
+		} catch (err) {
 			console.error('Sync failed:', err);
 			this.syncError = err instanceof Error ? err.message : 'Sync failed';
 		} finally {
@@ -260,7 +317,9 @@ class SyncService {
 		localStorage.setItem(markerKey, '1');
 	}
 
-	private sortSeededRowsByCanonicalPriority<T extends { updatedAt: Date; deletedAt?: Date | null }>(rows: T[]) {
+	private sortSeededRowsByCanonicalPriority<T extends { updatedAt: Date; deletedAt?: Date | null }>(
+		rows: T[]
+	) {
 		return [...rows].sort((a, b) => {
 			const aDeletedAt = a.deletedAt ?? null;
 			const bDeletedAt = b.deletedAt ?? null;
@@ -292,7 +351,10 @@ class SyncService {
 		}
 
 		// Exercises: remap template + log references before removing duplicates.
-		const seededExercises = await db.select().from(s.exercises).where(isNotNull(s.exercises.seedSlug));
+		const seededExercises = await db
+			.select()
+			.from(s.exercises)
+			.where(isNotNull(s.exercises.seedSlug));
 		const exercisesBySlug: Record<string, typeof seededExercises> = {};
 		for (const exercise of seededExercises) {
 			const slug = exercise.seedSlug;
@@ -311,7 +373,10 @@ class SyncService {
 		}
 
 		// Templates: remap junction + sessions before removing duplicates.
-		const seededTemplates = await db.select().from(s.workoutTemplates).where(isNotNull(s.workoutTemplates.seedSlug));
+		const seededTemplates = await db
+			.select()
+			.from(s.workoutTemplates)
+			.where(isNotNull(s.workoutTemplates.seedSlug));
 		const templatesBySlug: Record<string, typeof seededTemplates> = {};
 		for (const template of seededTemplates) {
 			const slug = template.seedSlug;
@@ -330,7 +395,10 @@ class SyncService {
 		}
 
 		// Template exercise links: keep one row per seeded slug.
-		const seededTemplateExercises = await db.select().from(s.workoutTemplateExercises).where(isNotNull(s.workoutTemplateExercises.seedSlug));
+		const seededTemplateExercises = await db
+			.select()
+			.from(s.workoutTemplateExercises)
+			.where(isNotNull(s.workoutTemplateExercises.seedSlug));
 		const templateExercisesBySlug: Record<string, typeof seededTemplateExercises> = {};
 		for (const templateExercise of seededTemplateExercises) {
 			const slug = templateExercise.seedSlug;
@@ -344,23 +412,58 @@ class SyncService {
 			const [canonical, ...duplicates] = rows.sort((a, b) => a.sortOrder - b.sortOrder);
 			for (const duplicate of duplicates) {
 				if (duplicate.id === canonical.id) continue;
-				await db.delete(s.workoutTemplateExercises).where(eq(s.workoutTemplateExercises.id, duplicate.id));
+				await db
+					.delete(s.workoutTemplateExercises)
+					.where(eq(s.workoutTemplateExercises.id, duplicate.id));
 			}
 		}
 	}
 
 	private async remapBandId(oldId: string, newId: string) {
-		await db.update(s.loggedExerciseBands).set({ bandId: newId }).where(eq(s.loggedExerciseBands.bandId, oldId));
+		await remapLocalBandId(db, oldId, newId);
 	}
 
 	private async remapExerciseId(oldId: string, newId: string) {
-		await db.update(s.workoutTemplateExercises).set({ exerciseId: newId }).where(eq(s.workoutTemplateExercises.exerciseId, oldId));
-		await db.update(s.loggedExercises).set({ exerciseId: newId }).where(eq(s.loggedExercises.exerciseId, oldId));
+		await remapLocalExerciseId(db, oldId, newId);
 	}
 
 	private async remapTemplateId(oldId: string, newId: string) {
-		await db.update(s.workoutTemplateExercises).set({ templateId: newId }).where(eq(s.workoutTemplateExercises.templateId, oldId));
-		await db.update(s.workoutSessions).set({ templateId: newId }).where(eq(s.workoutSessions.templateId, oldId));
+		await remapLocalTemplateId(db, oldId, newId);
+	}
+
+	private async applyPushRemaps(idRemaps?: SyncIdRemaps) {
+		if (!idRemaps) return;
+
+		for (const [oldId, newId] of Object.entries(idRemaps.bands)) {
+			await this.applyCatalogRemap(oldId, newId, s.bands, (from, to) => this.remapBandId(from, to));
+		}
+
+		for (const [oldId, newId] of Object.entries(idRemaps.exercises)) {
+			await this.applyCatalogRemap(oldId, newId, s.exercises, (from, to) =>
+				this.remapExerciseId(from, to)
+			);
+		}
+
+		for (const [oldId, newId] of Object.entries(idRemaps.workoutTemplates)) {
+			await this.applyCatalogRemap(oldId, newId, s.workoutTemplates, (from, to) =>
+				this.remapTemplateId(from, to)
+			);
+		}
+	}
+
+	private async applyCatalogRemap(
+		oldId: string,
+		newId: string,
+		table: typeof s.bands | typeof s.exercises | typeof s.workoutTemplates,
+		remapReferences: (oldId: string, newId: string) => Promise<void>
+	) {
+		if (oldId === newId) return;
+
+		const canonical = await db.select({ id: table.id }).from(table).where(eq(table.id, newId));
+		if (canonical.length === 0) return;
+
+		await remapReferences(oldId, newId);
+		await db.delete(table).where(eq(table.id, oldId));
 	}
 
 	// Apply changes from server to local database
@@ -368,6 +471,7 @@ class SyncService {
 		// Bands
 		for (const band of data.bands) {
 			let conflictingLocalId: string | null = null;
+			const nameKey = band.nameKey ?? getCatalogNameKey(band.name);
 			if (band.seedSlug) {
 				const localBySlug = await db.query.bands.findFirst({
 					where: eq(s.bands.seedSlug, band.seedSlug),
@@ -378,13 +482,26 @@ class SyncService {
 					await db.update(s.bands).set({ seedSlug: null }).where(eq(s.bands.id, localBySlug.id));
 				}
 			}
+			const localByName = await db.query.bands.findFirst({
+				where: eq(s.bands.nameKey, nameKey),
+				columns: { id: true }
+			});
+			if (localByName && localByName.id !== band.id) {
+				conflictingLocalId = localByName.id;
+				await db.update(s.bands).set({ nameKey: null }).where(eq(s.bands.id, localByName.id));
+			}
 
-			const existing = await db.select().from(s.bands).where(sql`${s.bands.id} = ${band.id}`);
+			const existing = await db
+				.select()
+				.from(s.bands)
+				.where(sql`${s.bands.id} = ${band.id}`);
 			if (existing.length === 0 || new Date(band.updatedAt) > existing[0].updatedAt) {
-				await db.insert(s.bands)
+				await db
+					.insert(s.bands)
 					.values({
 						id: band.id,
 						name: band.name,
+						nameKey,
 						resistance: band.resistance,
 						color: band.color,
 						seedSlug: band.seedSlug,
@@ -397,6 +514,7 @@ class SyncService {
 						target: s.bands.id,
 						set: {
 							name: band.name,
+							nameKey,
 							resistance: band.resistance,
 							color: band.color,
 							seedSlug: band.seedSlug,
@@ -415,9 +533,13 @@ class SyncService {
 
 		// Settings
 		for (const setting of data.settings) {
-			const existing = await db.select().from(s.settings).where(sql`${s.settings.id} = ${setting.id}`);
+			const existing = await db
+				.select()
+				.from(s.settings)
+				.where(sql`${s.settings.id} = ${setting.id}`);
 			if (existing.length === 0 || new Date(setting.updatedAt) > existing[0].updatedAt) {
-				await db.insert(s.settings)
+				await db
+					.insert(s.settings)
 					.values({
 						id: setting.id,
 						weightUnit: setting.weightUnit,
@@ -440,6 +562,7 @@ class SyncService {
 		// Exercises
 		for (const exercise of data.exercises) {
 			let conflictingLocalId: string | null = null;
+			const nameKey = exercise.nameKey ?? getCatalogNameKey(exercise.name);
 			if (exercise.seedSlug) {
 				const localBySlug = await db.query.exercises.findFirst({
 					where: eq(s.exercises.seedSlug, exercise.seedSlug),
@@ -447,16 +570,35 @@ class SyncService {
 				});
 				if (localBySlug && localBySlug.id !== exercise.id) {
 					conflictingLocalId = localBySlug.id;
-					await db.update(s.exercises).set({ seedSlug: null }).where(eq(s.exercises.id, localBySlug.id));
+					await db
+						.update(s.exercises)
+						.set({ seedSlug: null })
+						.where(eq(s.exercises.id, localBySlug.id));
 				}
 			}
+			const localByName = await db.query.exercises.findFirst({
+				where: eq(s.exercises.nameKey, nameKey),
+				columns: { id: true }
+			});
+			if (localByName && localByName.id !== exercise.id) {
+				conflictingLocalId = localByName.id;
+				await db
+					.update(s.exercises)
+					.set({ nameKey: null })
+					.where(eq(s.exercises.id, localByName.id));
+			}
 
-			const existing = await db.select().from(s.exercises).where(sql`${s.exercises.id} = ${exercise.id}`);
+			const existing = await db
+				.select()
+				.from(s.exercises)
+				.where(sql`${s.exercises.id} = ${exercise.id}`);
 			if (existing.length === 0 || new Date(exercise.updatedAt) > existing[0].updatedAt) {
-				await db.insert(s.exercises)
+				await db
+					.insert(s.exercises)
 					.values({
 						id: exercise.id,
 						name: exercise.name,
+						nameKey,
 						seedSlug: exercise.seedSlug,
 						createdAt: new Date(exercise.createdAt),
 						updatedAt: new Date(exercise.updatedAt),
@@ -467,6 +609,7 @@ class SyncService {
 						target: s.exercises.id,
 						set: {
 							name: exercise.name,
+							nameKey,
 							seedSlug: exercise.seedSlug,
 							updatedAt: new Date(exercise.updatedAt),
 							deletedAt: exercise.deletedAt ? new Date(exercise.deletedAt) : null,
@@ -484,6 +627,7 @@ class SyncService {
 		// Workout Templates
 		for (const template of data.workoutTemplates) {
 			let conflictingLocalId: string | null = null;
+			const nameKey = template.nameKey ?? getCatalogNameKey(template.name);
 			if (template.seedSlug) {
 				const localBySlug = await db.query.workoutTemplates.findFirst({
 					where: eq(s.workoutTemplates.seedSlug, template.seedSlug),
@@ -491,19 +635,39 @@ class SyncService {
 				});
 				if (localBySlug && localBySlug.id !== template.id) {
 					conflictingLocalId = localBySlug.id;
-					await db.update(s.workoutTemplates).set({ seedSlug: null }).where(eq(s.workoutTemplates.id, localBySlug.id));
+					await db
+						.update(s.workoutTemplates)
+						.set({ seedSlug: null })
+						.where(eq(s.workoutTemplates.id, localBySlug.id));
 				}
 			}
+			const localByName = await db.query.workoutTemplates.findFirst({
+				where: eq(s.workoutTemplates.nameKey, nameKey),
+				columns: { id: true }
+			});
+			if (localByName && localByName.id !== template.id) {
+				conflictingLocalId = localByName.id;
+				await db
+					.update(s.workoutTemplates)
+					.set({ nameKey: null })
+					.where(eq(s.workoutTemplates.id, localByName.id));
+			}
 
-			const existing = await db.select().from(s.workoutTemplates).where(sql`${s.workoutTemplates.id} = ${template.id}`);
+			const existing = await db
+				.select()
+				.from(s.workoutTemplates)
+				.where(sql`${s.workoutTemplates.id} = ${template.id}`);
 			if (existing.length === 0 || new Date(template.updatedAt) > existing[0].updatedAt) {
-				await db.insert(s.workoutTemplates)
+				await db
+					.insert(s.workoutTemplates)
 					.values({
 						id: template.id,
 						name: template.name,
+						nameKey,
 						seedSlug: template.seedSlug,
 						createdAt: new Date(template.createdAt),
 						updatedAt: new Date(template.updatedAt),
+						deletedAt: template.deletedAt ? new Date(template.deletedAt) : null,
 						icon: template.icon,
 						sortOrder: template.sortOrder,
 						syncedAt: new Date()
@@ -512,8 +676,10 @@ class SyncService {
 						target: s.workoutTemplates.id,
 						set: {
 							name: template.name,
+							nameKey,
 							seedSlug: template.seedSlug,
 							updatedAt: new Date(template.updatedAt),
+							deletedAt: template.deletedAt ? new Date(template.deletedAt) : null,
 							icon: template.icon,
 							sortOrder: template.sortOrder,
 							syncedAt: new Date()
@@ -537,11 +703,15 @@ class SyncService {
 				});
 				if (localBySlug && localBySlug.id !== wte.id) {
 					conflictingLocalId = localBySlug.id;
-					await db.update(s.workoutTemplateExercises).set({ seedSlug: null }).where(eq(s.workoutTemplateExercises.id, localBySlug.id));
+					await db
+						.update(s.workoutTemplateExercises)
+						.set({ seedSlug: null })
+						.where(eq(s.workoutTemplateExercises.id, localBySlug.id));
 				}
 			}
 
-			await db.insert(s.workoutTemplateExercises)
+			await db
+				.insert(s.workoutTemplateExercises)
 				.values({
 					id: wte.id,
 					templateId: wte.templateId,
@@ -562,15 +732,21 @@ class SyncService {
 				});
 
 			if (conflictingLocalId) {
-				await db.delete(s.workoutTemplateExercises).where(eq(s.workoutTemplateExercises.id, conflictingLocalId));
+				await db
+					.delete(s.workoutTemplateExercises)
+					.where(eq(s.workoutTemplateExercises.id, conflictingLocalId));
 			}
 		}
 
 		// Workout Sessions
 		for (const session of data.workoutSessions) {
-			const existing = await db.select().from(s.workoutSessions).where(sql`${s.workoutSessions.id} = ${session.id}`);
+			const existing = await db
+				.select()
+				.from(s.workoutSessions)
+				.where(sql`${s.workoutSessions.id} = ${session.id}`);
 			if (existing.length === 0 || new Date(session.updatedAt) > existing[0].updatedAt) {
-				await db.insert(s.workoutSessions)
+				await db
+					.insert(s.workoutSessions)
 					.values({
 						id: session.id,
 						templateId: session.templateId,
@@ -597,7 +773,8 @@ class SyncService {
 
 		// Logged Exercises
 		for (const log of data.loggedExercises) {
-			await db.insert(s.loggedExercises)
+			await db
+				.insert(s.loggedExercises)
 				.values({
 					id: log.id,
 					sessionId: log.sessionId,
@@ -624,7 +801,8 @@ class SyncService {
 
 		// Logged Exercise Bands
 		for (const leb of data.loggedExerciseBands) {
-			await db.insert(s.loggedExerciseBands)
+			await db
+				.insert(s.loggedExerciseBands)
 				.values({
 					id: leb.id,
 					loggedExerciseId: leb.loggedExerciseId,
@@ -640,6 +818,8 @@ class SyncService {
 					}
 				});
 		}
+
+		await dedupeTemplateExercisePairs(db);
 	}
 
 	// Force a manual sync
@@ -655,13 +835,13 @@ class SyncService {
 // Create and export singleton instance
 export const syncService = new SyncService();
 
-
 interface PullResponse {
 	bands: Array<{
 		id: string;
 		name: string;
+		nameKey: string | null;
 		resistance: number;
-		color: string;
+		color: string | null;
 		seedSlug: string | null;
 		createdAt: string;
 		updatedAt: string;
@@ -676,6 +856,7 @@ interface PullResponse {
 	exercises: Array<{
 		id: string;
 		name: string;
+		nameKey: string | null;
 		seedSlug: string | null;
 		createdAt: string;
 		updatedAt: string;
@@ -684,11 +865,13 @@ interface PullResponse {
 	workoutTemplates: Array<{
 		id: string;
 		name: string;
+		nameKey: string | null;
 		seedSlug: string | null;
 		icon: string | null;
 		sortOrder: number;
 		createdAt: string;
 		updatedAt: string;
+		deletedAt: string | null;
 	}>;
 	workoutTemplateExercises: Array<{
 		id: string;
@@ -721,4 +904,15 @@ interface PullResponse {
 		bandId: string;
 	}>;
 	syncedAt: string;
+}
+
+interface PushResponse {
+	syncedAt: string;
+	idRemaps?: SyncIdRemaps;
+}
+
+interface SyncIdRemaps {
+	bands: Record<string, string>;
+	exercises: Record<string, string>;
+	workoutTemplates: Record<string, string>;
 }

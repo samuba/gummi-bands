@@ -1,6 +1,6 @@
 import { browser } from '$app/environment';
 import { SvelteDate } from 'svelte/reactivity';
-import { initDatabase, db, isForeignKeyViolation, liveQuery } from '$lib/db/app/client';
+import { initDatabase, db, liveQuery } from '$lib/db/app/client';
 import * as s from '$lib/db/app/schema';
 import type {
 	Band,
@@ -13,6 +13,12 @@ import { eq, desc, and, ne, asc, isNull, isNotNull, max, sql, inArray } from 'dr
 import { loader } from './initialLoader.svelte';
 import { settings } from './settings.svelte';
 import { syncService } from '$lib/services/sync.svelte';
+import { getCatalogNameKey } from '$lib/db/catalog';
+import {
+	mergeBandIntoExistingName,
+	mergeTemplateIntoExistingName,
+	replaceTemplateExercises
+} from '$lib/db/app/catalogMerge';
 
 class WorkoutStore {
 	// Reactive state
@@ -37,7 +43,7 @@ class WorkoutStore {
 	async initialize() {
 		if (!browser) return;
 		if (this.isInitialized) return;
-		
+
 		await initDatabase();
 
 		loader.setLoading('Loading data...', 85);
@@ -46,19 +52,25 @@ class WorkoutStore {
 
 		// set allBands
 		await liveQuery(
-			db.query.bands.findMany({ orderBy: desc(s.bands.createdAt), where: isNull(s.bands.deletedAt) }),
+			db.query.bands.findMany({
+				orderBy: desc(s.bands.createdAt),
+				where: isNull(s.bands.deletedAt)
+			}),
 			(rows) => {
 				this.allBands = rows;
-				this.refreshStats()
+				this.refreshStats();
 			}
 		);
 
 		// set allExercises
 		await liveQuery(
-			db.query.exercises.findMany({ orderBy: desc(s.exercises.createdAt), where: isNull(s.exercises.deletedAt) }),
+			db.query.exercises.findMany({
+				orderBy: desc(s.exercises.createdAt),
+				where: isNull(s.exercises.deletedAt)
+			}),
 			(rows) => {
 				this.allExercises = rows;
-				this.refreshStats()
+				this.refreshStats();
 			}
 		);
 
@@ -67,13 +79,14 @@ class WorkoutStore {
 			db.query.workoutSessions.findMany({ orderBy: desc(s.workoutSessions.startedAt), limit: 10 }),
 			(rows) => {
 				this.recentSessions = rows;
-				this.refreshStats()
+				this.refreshStats();
 			}
 		);
 
 		await liveQuery(
 			db.query.workoutTemplates.findMany({
 				orderBy: asc(s.workoutTemplates.sortOrder),
+				where: isNull(s.workoutTemplates.deletedAt),
 				with: {
 					workoutTemplateExercises: {
 						with: {
@@ -88,8 +101,10 @@ class WorkoutStore {
 					id: template.id,
 					name: template.name,
 					seedSlug: template.seedSlug,
+					nameKey: template.nameKey,
 					createdAt: template.createdAt,
 					updatedAt: template.updatedAt,
+					deletedAt: template.deletedAt,
 					icon: template.icon,
 					sortOrder: template.sortOrder,
 					syncedAt: template.syncedAt,
@@ -164,7 +179,10 @@ class WorkoutStore {
 				volume: sql<number>`COALESCE(SUM(${s.bands.resistance} * (${s.loggedExercises.fullReps} + ${s.loggedExercises.partialReps})), 0)`
 			})
 			.from(s.loggedExercises)
-			.innerJoin(s.loggedExerciseBands, eq(s.loggedExercises.id, s.loggedExerciseBands.loggedExerciseId))
+			.innerJoin(
+				s.loggedExerciseBands,
+				eq(s.loggedExercises.id, s.loggedExerciseBands.loggedExerciseId)
+			)
 			.innerJoin(s.bands, eq(s.loggedExerciseBands.bandId, s.bands.id));
 
 		this.workoutStats.totalVolume = volumeResult[0]?.volume || 0;
@@ -174,6 +192,7 @@ class WorkoutStore {
 		// can not use liveQuery() because it does not support `with`
 		const rows = await db.query.workoutTemplates.findMany({
 			orderBy: asc(s.workoutTemplates.sortOrder),
+			where: isNull(s.workoutTemplates.deletedAt),
 			with: {
 				workoutTemplateExercises: {
 					with: {
@@ -187,8 +206,10 @@ class WorkoutStore {
 			id: template.id,
 			name: template.name,
 			seedSlug: template.seedSlug,
+			nameKey: template.nameKey,
 			createdAt: template.createdAt,
 			updatedAt: template.updatedAt,
+			deletedAt: template.deletedAt,
 			icon: template.icon,
 			sortOrder: template.sortOrder,
 			syncedAt: template.syncedAt,
@@ -200,106 +221,129 @@ class WorkoutStore {
 	}
 
 	async addBand(name: string, resistance: number, color?: string) {
-		await db.insert(s.bands).values({ name: `${name} doubled`, resistance: resistance * 2, color });
-		await db.insert(s.bands).values({ name, resistance, color });
+		const nameKey = getCatalogNameKey(name);
+		const existing = await db.query.bands.findFirst({
+			where: eq(s.bands.nameKey, nameKey)
+		});
+
+		if (existing) {
+			await db
+				.update(s.bands)
+				.set({ name, nameKey, resistance, ...(color !== undefined && { color }), deletedAt: null })
+				.where(eq(s.bands.id, existing.id));
+			syncService.triggerSync();
+			return;
+		}
+
+		await db.insert(s.bands).values({ name, nameKey, resistance, color });
 		syncService.triggerSync();
 	}
 
 	async deleteBand(id: string) {
-		const band = await db.query.bands.findFirst({
-			where: eq(s.bands.id, id),
-			columns: { seedSlug: true }
-		});
-
-		// Seeded rows are user-catalog defaults, so hide instead of hard-delete.
-		if (band?.seedSlug) {
-			await db.update(s.bands).set({ deletedAt: sql`NOW()` }).where(eq(s.bands.id, id));
-			syncService.triggerSync();
-			return;
-		}
-
-		try {
-			await db.delete(s.bands).where(eq(s.bands.id, id));
-		} catch (error) {
-			if (isForeignKeyViolation(error)) {
-				await db.update(s.bands).set({ deletedAt: sql`NOW()` }).where(eq(s.bands.id, id));
-			} else {
-				console.error('Failed to delete band:', error);
-				throw error;
-			}
-		}
+		await db
+			.update(s.bands)
+			.set({ deletedAt: sql`NOW()` })
+			.where(eq(s.bands.id, id));
 		syncService.triggerSync();
 	}
 
 	async updateBand(id: string, name: string, resistance: number, color?: string) {
-		await db.update(s.bands).set({ name, resistance, ...(color !== undefined && { color }) }).where(eq(s.bands.id, id));
-		syncService.triggerSync();
-	}
-
-	async addExercise(name: string) {
-		await db.insert(s.exercises).values({ name });
-		syncService.triggerSync();
-	}
-
-	async deleteExercise(id: string) {
-		const exercise = await db.query.exercises.findFirst({
-			where: eq(s.exercises.id, id),
-			columns: { seedSlug: true }
-		});
-
-		// Seeded rows are user-catalog defaults, so hide instead of hard-delete.
-		if (exercise?.seedSlug) {
-			await db.update(s.exercises).set({ deletedAt: sql`NOW()` }).where(eq(s.exercises.id, id));
+		const mergedId = await mergeBandIntoExistingName(db, id, name, resistance, color);
+		if (mergedId) {
 			syncService.triggerSync();
 			return;
 		}
 
-		try {
-			await db.delete(s.exercises).where(eq(s.exercises.id, id));
-		} catch (error) {
-			if (isForeignKeyViolation(error)) {
-				await db.update(s.exercises).set({ deletedAt: sql`NOW()` }).where(eq(s.exercises.id, id));
-			} else {
-				console.error('Failed to delete exercise:', error);
-				throw error;
-			}
+		await db
+			.update(s.bands)
+			.set({
+				name,
+				nameKey: getCatalogNameKey(name),
+				resistance,
+				...(color !== undefined && { color })
+			})
+			.where(eq(s.bands.id, id));
+		syncService.triggerSync();
+	}
+
+	async addExercise(name: string) {
+		const nameKey = getCatalogNameKey(name);
+		const existing = await db.query.exercises.findFirst({
+			where: eq(s.exercises.nameKey, nameKey)
+		});
+
+		if (existing) {
+			await db
+				.update(s.exercises)
+				.set({ name, nameKey, deletedAt: null })
+				.where(eq(s.exercises.id, existing.id));
+			syncService.triggerSync();
+			return;
 		}
+
+		await db.insert(s.exercises).values({ name, nameKey });
+		syncService.triggerSync();
+	}
+
+	async deleteExercise(id: string) {
+		await db
+			.update(s.exercises)
+			.set({ deletedAt: sql`NOW()` })
+			.where(eq(s.exercises.id, id));
 		syncService.triggerSync();
 	}
 
 	async addTemplate(name: string) {
 		// Get the highest sortOrder and add 1
-		const templates = await db.select().from(s.workoutTemplates).orderBy(desc(s.workoutTemplates.sortOrder)).limit(1);
+		const templates = await db
+			.select()
+			.from(s.workoutTemplates)
+			.orderBy(desc(s.workoutTemplates.sortOrder))
+			.limit(1);
 		const nextSortOrder = templates.length > 0 ? (templates[0].sortOrder ?? 0) + 1 : 0;
+		const nameKey = getCatalogNameKey(name);
+		const existing = await db.query.workoutTemplates.findFirst({
+			where: eq(s.workoutTemplates.nameKey, nameKey)
+		});
 
-		await db.insert(s.workoutTemplates).values({ name, sortOrder: nextSortOrder });
+		if (existing) {
+			await db
+				.update(s.workoutTemplates)
+				.set({ name, nameKey, sortOrder: nextSortOrder, deletedAt: null })
+				.where(eq(s.workoutTemplates.id, existing.id));
+			await this.refreshTemplates();
+			syncService.triggerSync();
+			return;
+		}
+
+		await db.insert(s.workoutTemplates).values({ name, nameKey, sortOrder: nextSortOrder });
 		await this.refreshTemplates();
 		syncService.triggerSync();
 	}
 
 	async deleteTemplate(id: string) {
-		await db.delete(s.workoutTemplates).where(eq(s.workoutTemplates.id, id));
+		await db
+			.update(s.workoutTemplates)
+			.set({ deletedAt: sql`NOW()` })
+			.where(eq(s.workoutTemplates.id, id));
 		await this.refreshTemplates();
 		syncService.triggerSync();
 	}
 
 	async updateTemplate(id: string, name: string, exerciseIds: string[]) {
-		// Update template name
-		await db.update(s.workoutTemplates).set({ name }).where(eq(s.workoutTemplates.id, id));
-
-		// Delete existing exercise associations
-		await db.delete(s.workoutTemplateExercises).where(eq(s.workoutTemplateExercises.templateId, id));
-
-		// Insert new exercise associations with sort order
-		if (exerciseIds.length > 0) {
-			await db.insert(s.workoutTemplateExercises).values(
-				exerciseIds.map((exerciseId, index) => ({
-					templateId: id,
-					exerciseId,
-					sortOrder: index
-				}))
-			);
+		const mergedId = await mergeTemplateIntoExistingName(db, id, name, exerciseIds);
+		if (mergedId) {
+			await this.refreshTemplates();
+			syncService.triggerSync();
+			return;
 		}
+
+		// Update template name
+		await db
+			.update(s.workoutTemplates)
+			.set({ name, nameKey: getCatalogNameKey(name), deletedAt: null })
+			.where(eq(s.workoutTemplates.id, id));
+		await replaceTemplateExercises(db, id, exerciseIds);
 
 		await this.refreshTemplates();
 		syncService.triggerSync();
@@ -538,7 +582,7 @@ class WorkoutStore {
 			fullReps: log.fullReps,
 			partialReps: log.partialReps
 		};
-	}
+	};
 
 	// Get current session log for an exercise
 	getSessionLogForExercise(exerciseId: string) {
@@ -582,10 +626,7 @@ class WorkoutStore {
 		if (session.template?.workoutTemplateExercises) {
 			// Create a map of exerciseId to sortOrder from template
 			const templateOrder = new Map(
-				session.template.workoutTemplateExercises.map((wte) => [
-					wte.exerciseId,
-					wte.sortOrder
-				])
+				session.template.workoutTemplateExercises.map((wte) => [wte.exerciseId, wte.sortOrder])
 			);
 
 			// Sort logged exercises by template sortOrder, then by loggedAt as tiebreaker
@@ -799,10 +840,7 @@ class WorkoutStore {
 			// 2. sessionLogs (fallback for legacy sessions)
 			// 3. template (if no logs and no planned exercises - unlikely but possible for empty legacy session)
 
-			if (
-				session.plannedExercises &&
-				session.plannedExercises.length > 0
-			) {
+			if (session.plannedExercises && session.plannedExercises.length > 0) {
 				const plannedIds = session.plannedExercises as string[];
 				// Preserve order from plannedExercises
 				this.suggestedExercises = plannedIds
@@ -874,19 +912,14 @@ class WorkoutStore {
 				lastUsed: max(s.workoutSessions.startedAt)
 			})
 			.from(s.workoutSessions)
-			.where(
-				and(
-					isNotNull(s.workoutSessions.templateId),
-					isNotNull(s.workoutSessions.endedAt)
-				)
-			)
+			.where(and(isNotNull(s.workoutSessions.templateId), isNotNull(s.workoutSessions.endedAt)))
 			.groupBy(s.workoutSessions.templateId);
 
 		const tuples: Array<[string, Date | null]> = [];
 
 		// Add all templates (with null for those never used)
 		for (const template of this.allTemplates) {
-			const sessionData = result.find(r => r.templateId === template.id);
+			const sessionData = result.find((r) => r.templateId === template.id);
 			tuples.push([template.id, sessionData?.lastUsed ?? null]);
 		}
 

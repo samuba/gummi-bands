@@ -1,6 +1,7 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq } from 'drizzle-orm';
+import { getCatalogNameKey } from '$lib/db/catalog';
 import * as s from './schema';
-import type { Db } from "./client";
+import type { Db } from './client';
 
 /** IMPORTANT
  * Always use single inserts instead of bulk inserts to avoid having them all have same createdAt timestamp
@@ -27,8 +28,18 @@ const seededBands: SeededBand[] = [
 	{ seedSlug: 'dec-black-2x', name: 'Black 2x', resistance: 264, color: '#000000' },
 
 	// Strength Shop
-	{ seedSlug: 'dec-orange-heavy-strength-shop', name: 'Orange Heavy', resistance: 174, color: '#CC6600' },
-	{ seedSlug: 'dec-orange-heavy-2x-strength-shop', name: 'Orange Heavy 2x', resistance: 348, color: '#CC6600' }
+	{
+		seedSlug: 'dec-orange-heavy-strength-shop',
+		name: 'Orange Heavy',
+		resistance: 174,
+		color: '#CC6600'
+	},
+	{
+		seedSlug: 'dec-orange-heavy-2x-strength-shop',
+		name: 'Orange Heavy 2x',
+		resistance: 348,
+		color: '#CC6600'
+	}
 ];
 
 const seededExercises: SeededExercise[] = [
@@ -58,16 +69,12 @@ const seededTemplates: SeededTemplate[] = [
 	{
 		seedSlug: 'template-pull-day',
 		name: 'Pull Day',
-		exerciseSlugs: [
-			'deadlift',
-			'bicep-curl',
-			'row-bent',
-			'calf-raise'
-		]
+		exerciseSlugs: ['deadlift', 'bicep-curl', 'row-bent', 'calf-raise']
 	}
 ];
 
-const seededTemplateExerciseSlug = (templateSlug: string, exerciseSlug: string) => `${templateSlug}-${exerciseSlug}`;
+const seededTemplateExerciseSlug = (templateSlug: string, exerciseSlug: string) =>
+	`${templateSlug}-${exerciseSlug}`;
 
 export async function seedData(db: Db) {
 	if (!db) return;
@@ -92,7 +99,7 @@ export async function seedData(db: Db) {
 		if (existingByAttributes) {
 			await db
 				.update(s.bands)
-				.set({ seedSlug: seededBand.seedSlug })
+				.set({ seedSlug: seededBand.seedSlug, nameKey: getCatalogNameKey(seededBand.name) })
 				.where(eq(s.bands.id, existingByAttributes.id));
 			continue;
 		}
@@ -100,6 +107,7 @@ export async function seedData(db: Db) {
 		await db.insert(s.bands).values({
 			seedSlug: seededBand.seedSlug,
 			name: seededBand.name,
+			nameKey: getCatalogNameKey(seededBand.name),
 			resistance: seededBand.resistance,
 			color: seededBand.color
 		});
@@ -120,14 +128,15 @@ export async function seedData(db: Db) {
 		if (existingByName) {
 			await db
 				.update(s.exercises)
-				.set({ seedSlug: seededExercise.seedSlug })
+				.set({ seedSlug: seededExercise.seedSlug, nameKey: getCatalogNameKey(seededExercise.name) })
 				.where(eq(s.exercises.id, existingByName.id));
 			continue;
 		}
 
 		await db.insert(s.exercises).values({
 			seedSlug: seededExercise.seedSlug,
-			name: seededExercise.name
+			name: seededExercise.name,
+			nameKey: getCatalogNameKey(seededExercise.name)
 		});
 	}
 
@@ -140,9 +149,9 @@ export async function seedData(db: Db) {
 		const existingTemplateByName = existingTemplateBySlug
 			? null
 			: await db.query.workoutTemplates.findFirst({
-				where: eq(s.workoutTemplates.name, seededTemplate.name),
-				columns: { id: true }
-			});
+					where: eq(s.workoutTemplates.name, seededTemplate.name),
+					columns: { id: true }
+				});
 
 		let templateId = existingTemplateBySlug?.id ?? existingTemplateByName?.id;
 		if (!templateId) {
@@ -150,7 +159,8 @@ export async function seedData(db: Db) {
 				.insert(s.workoutTemplates)
 				.values({
 					seedSlug: seededTemplate.seedSlug,
-					name: seededTemplate.name
+					name: seededTemplate.name,
+					nameKey: getCatalogNameKey(seededTemplate.name)
 				})
 				.returning({ id: s.workoutTemplates.id });
 			templateId = insertedTemplate.id;
@@ -158,13 +168,15 @@ export async function seedData(db: Db) {
 		if (existingTemplateByName) {
 			await db
 				.update(s.workoutTemplates)
-				.set({ seedSlug: seededTemplate.seedSlug })
+				.set({ seedSlug: seededTemplate.seedSlug, nameKey: getCatalogNameKey(seededTemplate.name) })
 				.where(eq(s.workoutTemplates.id, existingTemplateByName.id));
 		}
 
 		for (let i = 0; i < seededTemplate.exerciseSlugs.length; i++) {
 			const seededExerciseSlug = seededTemplate.exerciseSlugs[i];
-			const seededExercise = seededExercises.find((exercise) => exercise.seedSlug === seededExerciseSlug);
+			const seededExercise = seededExercises.find(
+				(exercise) => exercise.seedSlug === seededExerciseSlug
+			);
 			if (!seededExercise) continue;
 
 			const exerciseBySlug = await db.query.exercises.findFirst({
@@ -174,16 +186,17 @@ export async function seedData(db: Db) {
 			const exerciseByName = exerciseBySlug
 				? null
 				: await db.query.exercises.findFirst({
-					where: eq(s.exercises.name, seededExercise.name),
-					columns: { id: true }
-				});
+						where: eq(s.exercises.name, seededExercise.name),
+						columns: { id: true }
+					});
 			let exerciseId = exerciseBySlug?.id ?? exerciseByName?.id;
 			if (!exerciseId) {
 				const [insertedExercise] = await db
 					.insert(s.exercises)
 					.values({
 						seedSlug: seededExercise.seedSlug,
-						name: seededExercise.name
+						name: seededExercise.name,
+						nameKey: getCatalogNameKey(seededExercise.name)
 					})
 					.returning({ id: s.exercises.id });
 				exerciseId = insertedExercise.id;
@@ -192,7 +205,10 @@ export async function seedData(db: Db) {
 			if (exerciseByName && !exerciseBySlug) {
 				await db
 					.update(s.exercises)
-					.set({ seedSlug: seededExercise.seedSlug })
+					.set({
+						seedSlug: seededExercise.seedSlug,
+						nameKey: getCatalogNameKey(seededExercise.name)
+					})
 					.where(eq(s.exercises.id, exerciseByName.id));
 			}
 

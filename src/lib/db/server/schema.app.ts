@@ -1,109 +1,181 @@
 // Server-side app schema - mirrors local schema with required userId for multi-tenancy
-import { pgTable, text, integer, timestamp, real, boolean, index, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+	pgTable,
+	text,
+	integer,
+	timestamp,
+	real,
+	boolean,
+	index,
+	uniqueIndex,
+	uuid
+} from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { user } from './schema.auth';
 import { uuidv7 } from '../dbHelper';
 
 // User reference column - required for all server tables
-const userIdColumn = () => uuid('user_id').notNull().references(() => user.id, { onDelete: 'cascade' });
+const userIdColumn = () =>
+	uuid('user_id')
+		.notNull()
+		.references(() => user.id, { onDelete: 'cascade' });
 
-export const bands = pgTable('app_bands', {
-	id: uuidv7().primaryKey(),
-	userId: userIdColumn(),
-	name: text().notNull(),
-	resistance: real().notNull(),
-	color: text(),
-	seedSlug: text(),
-	createdAt: timestamp({ withTimezone: true }).notNull(),
-	updatedAt: timestamp({ withTimezone: true }).notNull(),
-	deletedAt: timestamp({ withTimezone: true })
-}, (table) => [
-	index('app_bands_user_id_idx').on(table.userId),
-	uniqueIndex('app_bands_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug)
-]);
+export const bands = pgTable(
+	'app_bands',
+	{
+		id: uuidv7().primaryKey(),
+		userId: userIdColumn(),
+		name: text().notNull(),
+		nameKey: text(),
+		resistance: real().notNull(),
+		color: text(),
+		seedSlug: text(),
+		createdAt: timestamp({ withTimezone: true }).notNull(),
+		updatedAt: timestamp({ withTimezone: true }).notNull(),
+		deletedAt: timestamp({ withTimezone: true })
+	},
+	(table) => [
+		index('app_bands_user_id_idx').on(table.userId),
+		uniqueIndex('app_bands_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug),
+		uniqueIndex('app_bands_user_id_name_key_unique_idx')
+			.on(table.userId, table.nameKey)
+			.where(sql`${table.nameKey} is not null`)
+	]
+);
 
-export const settings = pgTable('app_settings', {
-	userId: userIdColumn().primaryKey(),
-	weightUnit: text({ enum: ['lbs', 'kg'] }).notNull().default('lbs'),
-	keepScreenAwake: boolean().notNull().default(true),
-	updatedAt: timestamp({ withTimezone: true }).notNull()
-}, (table) => [
-	index('app_settings_user_id_idx').on(table.userId)
-]);
+export const settings = pgTable(
+	'app_settings',
+	{
+		userId: userIdColumn().primaryKey(),
+		weightUnit: text({ enum: ['lbs', 'kg'] })
+			.notNull()
+			.default('lbs'),
+		keepScreenAwake: boolean().notNull().default(true),
+		updatedAt: timestamp({ withTimezone: true }).notNull()
+	},
+	(table) => [index('app_settings_user_id_idx').on(table.userId)]
+);
 
-export const exercises = pgTable('app_exercises', {
-	id: uuidv7().primaryKey(),
-	userId: userIdColumn(),
-	name: text().notNull(),
-	seedSlug: text(),
-	createdAt: timestamp({ withTimezone: true }).notNull(),
-	updatedAt: timestamp({ withTimezone: true }).notNull(),
-	deletedAt: timestamp({ withTimezone: true })
-}, (table) => [
-	index('app_exercises_user_id_idx').on(table.userId),
-	uniqueIndex('app_exercises_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug)
-]);
+export const exercises = pgTable(
+	'app_exercises',
+	{
+		id: uuidv7().primaryKey(),
+		userId: userIdColumn(),
+		name: text().notNull(),
+		nameKey: text(),
+		seedSlug: text(),
+		createdAt: timestamp({ withTimezone: true }).notNull(),
+		updatedAt: timestamp({ withTimezone: true }).notNull(),
+		deletedAt: timestamp({ withTimezone: true })
+	},
+	(table) => [
+		index('app_exercises_user_id_idx').on(table.userId),
+		uniqueIndex('app_exercises_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug),
+		uniqueIndex('app_exercises_user_id_name_key_unique_idx')
+			.on(table.userId, table.nameKey)
+			.where(sql`${table.nameKey} is not null`)
+	]
+);
 
-export const workoutTemplates = pgTable('app_workout_templates', {
-	id: uuidv7().primaryKey(),
-	userId: userIdColumn(),
-	name: text().notNull(),
-	seedSlug: text(),
-	createdAt: timestamp({ withTimezone: true }).notNull(),
-	updatedAt: timestamp({ withTimezone: true }).notNull(),
-	icon: text(),
-	sortOrder: integer().notNull().default(0)
-}, (table) => [
-	index('app_workout_templates_user_id_idx').on(table.userId),
-	uniqueIndex('app_workout_templates_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug)
-]);
+export const workoutTemplates = pgTable(
+	'app_workout_templates',
+	{
+		id: uuidv7().primaryKey(),
+		userId: userIdColumn(),
+		name: text().notNull(),
+		nameKey: text(),
+		seedSlug: text(),
+		createdAt: timestamp({ withTimezone: true }).notNull(),
+		updatedAt: timestamp({ withTimezone: true }).notNull(),
+		deletedAt: timestamp({ withTimezone: true }),
+		icon: text(),
+		sortOrder: integer().notNull().default(0)
+	},
+	(table) => [
+		index('app_workout_templates_user_id_idx').on(table.userId),
+		uniqueIndex('app_workout_templates_user_id_seed_slug_unique_idx').on(
+			table.userId,
+			table.seedSlug
+		),
+		uniqueIndex('app_workout_templates_user_id_name_key_unique_idx')
+			.on(table.userId, table.nameKey)
+			.where(sql`${table.nameKey} is not null`)
+	]
+);
 
-export const workoutTemplateExercises = pgTable('app_workout_template_exercises', {
-	id: uuidv7().primaryKey(),
-	userId: userIdColumn(),
-	templateId: uuid().notNull().references(() => workoutTemplates.id, { onDelete: 'cascade' }),
-	exerciseId: uuid().notNull().references(() => exercises.id, { onDelete: 'cascade' }),
-	seedSlug: text(),
-	sortOrder: integer().notNull().default(0)
-}, (table) => [
-	index('app_workout_template_exercises_user_id_idx').on(table.userId),
-	uniqueIndex('app_workout_template_exercises_user_id_seed_slug_unique_idx').on(table.userId, table.seedSlug)
-]);
+export const workoutTemplateExercises = pgTable(
+	'app_workout_template_exercises',
+	{
+		id: uuidv7().primaryKey(),
+		userId: userIdColumn(),
+		templateId: uuid()
+			.notNull()
+			.references(() => workoutTemplates.id, { onDelete: 'cascade' }),
+		exerciseId: uuid()
+			.notNull()
+			.references(() => exercises.id, { onDelete: 'cascade' }),
+		seedSlug: text(),
+		sortOrder: integer().notNull().default(0)
+	},
+	(table) => [
+		index('app_workout_template_exercises_user_id_idx').on(table.userId),
+		uniqueIndex('app_workout_template_exercises_user_id_seed_slug_unique_idx').on(
+			table.userId,
+			table.seedSlug
+		)
+	]
+);
 
-export const workoutSessions = pgTable('app_workout_sessions', {
-	id: uuidv7().primaryKey(),
-	userId: userIdColumn(),
-	templateId: uuid().references(() => workoutTemplates.id),
-	startedAt: timestamp({ withTimezone: true }).notNull(),
-	updatedAt: timestamp({ withTimezone: true }).notNull(),
-	endedAt: timestamp({ withTimezone: true }),
-	notes: text(),
-	plannedExercises: text().array().default(sql`'{}'::text[]`)
-}, (table) => [
-	index('app_workout_sessions_user_id_idx').on(table.userId)
-]);
+export const workoutSessions = pgTable(
+	'app_workout_sessions',
+	{
+		id: uuidv7().primaryKey(),
+		userId: userIdColumn(),
+		templateId: uuid().references(() => workoutTemplates.id),
+		startedAt: timestamp({ withTimezone: true }).notNull(),
+		updatedAt: timestamp({ withTimezone: true }).notNull(),
+		endedAt: timestamp({ withTimezone: true }),
+		notes: text(),
+		plannedExercises: text()
+			.array()
+			.default(sql`'{}'::text[]`)
+	},
+	(table) => [index('app_workout_sessions_user_id_idx').on(table.userId)]
+);
 
-export const loggedExercises = pgTable('app_logged_exercises', {
-	id: uuidv7().primaryKey(),
-	userId: userIdColumn(),
-	sessionId: uuid().notNull().references(() => workoutSessions.id, { onDelete: 'cascade' }),
-	exerciseId: uuid().notNull().references(() => exercises.id),
-	fullReps: integer().notNull().default(0),
-	partialReps: integer().notNull().default(0),
-	notes: text(),
-	loggedAt: timestamp({ withTimezone: true }).notNull()
-}, (table) => [
-	index('app_logged_exercises_user_id_idx').on(table.userId)
-]);
+export const loggedExercises = pgTable(
+	'app_logged_exercises',
+	{
+		id: uuidv7().primaryKey(),
+		userId: userIdColumn(),
+		sessionId: uuid()
+			.notNull()
+			.references(() => workoutSessions.id, { onDelete: 'cascade' }),
+		exerciseId: uuid()
+			.notNull()
+			.references(() => exercises.id),
+		fullReps: integer().notNull().default(0),
+		partialReps: integer().notNull().default(0),
+		notes: text(),
+		loggedAt: timestamp({ withTimezone: true }).notNull()
+	},
+	(table) => [index('app_logged_exercises_user_id_idx').on(table.userId)]
+);
 
-export const loggedExerciseBands = pgTable('app_logged_exercise_bands', {
-	id: uuidv7().primaryKey(),
-	userId: userIdColumn(),
-	loggedExerciseId: uuid().notNull().references(() => loggedExercises.id, { onDelete: 'cascade' }),
-	bandId: uuid().notNull().references(() => bands.id)
-}, (table) => [
-	index('app_logged_exercise_bands_user_id_idx').on(table.userId)
-]);
+export const loggedExerciseBands = pgTable(
+	'app_logged_exercise_bands',
+	{
+		id: uuidv7().primaryKey(),
+		userId: userIdColumn(),
+		loggedExerciseId: uuid()
+			.notNull()
+			.references(() => loggedExercises.id, { onDelete: 'cascade' }),
+		bandId: uuid()
+			.notNull()
+			.references(() => bands.id)
+	},
+	(table) => [index('app_logged_exercise_bands_user_id_idx').on(table.userId)]
+);
 
 // Relations for server schema
 export const serverBandsRelations = relations(bands, ({ one }) => ({
@@ -118,9 +190,12 @@ export const serverWorkoutTemplatesRelations = relations(workoutTemplates, ({ on
 	user: one(user, { fields: [workoutTemplates.userId], references: [user.id] })
 }));
 
-export const serverWorkoutTemplateExercisesRelations = relations(workoutTemplateExercises, ({ one }) => ({
-	user: one(user, { fields: [workoutTemplateExercises.userId], references: [user.id] })
-}));
+export const serverWorkoutTemplateExercisesRelations = relations(
+	workoutTemplateExercises,
+	({ one }) => ({
+		user: one(user, { fields: [workoutTemplateExercises.userId], references: [user.id] })
+	})
+);
 
 export const serverWorkoutSessionsRelations = relations(workoutSessions, ({ one }) => ({
 	user: one(user, { fields: [workoutSessions.userId], references: [user.id] })

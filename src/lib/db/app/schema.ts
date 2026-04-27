@@ -1,86 +1,159 @@
-// uses drizzle auto snake_case conversion for column names 
-import { pgTable, text, integer, uuid, timestamp, real, boolean, uniqueIndex } from 'drizzle-orm/pg-core';
+// uses drizzle auto snake_case conversion for column names
+import {
+	pgTable,
+	text,
+	integer,
+	uuid,
+	timestamp,
+	real,
+	boolean,
+	uniqueIndex
+} from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { uuidv7 } from '../dbHelper';
 
 // Sync tracking column - null means unsynced, timestamp means last successful sync
 const syncedAt = () => timestamp('synced_at', { withTimezone: true });
 
-export const bands = pgTable('bands', {
-	id: uuidv7().primaryKey(),
-	name: text().notNull(),
-	resistance: real().notNull(), // in lbs
-	color: text(), // optional color for visual identification
-	seedSlug: text(),
-	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
-	deletedAt: timestamp({ withTimezone: true }),
-	syncedAt: syncedAt()
-}, (table) => [
-	uniqueIndex('bands_seed_slug_unique_idx').on(table.seedSlug).where(sql`${table.seedSlug} is not null`)
-]);
+export const bands = pgTable(
+	'bands',
+	{
+		id: uuidv7().primaryKey(),
+		name: text().notNull(),
+		nameKey: text(),
+		resistance: real().notNull(), // in lbs
+		color: text(), // optional color for visual identification
+		seedSlug: text(),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp({ withTimezone: true })
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => sql`now()`),
+		deletedAt: timestamp({ withTimezone: true }),
+		syncedAt: syncedAt()
+	},
+	(table) => [
+		uniqueIndex('bands_seed_slug_unique_idx')
+			.on(table.seedSlug)
+			.where(sql`${table.seedSlug} is not null`),
+		uniqueIndex('bands_name_key_unique_idx')
+			.on(table.nameKey)
+			.where(sql`${table.nameKey} is not null`)
+	]
+);
 
 export const settings = pgTable('settings', {
 	id: text().primaryKey(), // We'll use a fixed ID like 'global'
-	weightUnit: text({ enum: ['lbs', 'kg'] }).notNull().default('lbs'),
+	weightUnit: text({ enum: ['lbs', 'kg'] })
+		.notNull()
+		.default('lbs'),
 	keepScreenAwake: boolean().notNull().default(true),
-	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
+	updatedAt: timestamp({ withTimezone: true })
+		.defaultNow()
+		.notNull()
+		.$onUpdate(() => sql`now()`),
 	syncedAt: syncedAt()
 });
 
-export const exercises = pgTable('exercises', {
-	id: uuidv7().primaryKey(),
-	name: text().notNull(),
-	seedSlug: text(),
-	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
-	deletedAt: timestamp({ withTimezone: true }),
-	syncedAt: syncedAt()
-}, (table) => [
-	uniqueIndex('exercises_seed_slug_unique_idx').on(table.seedSlug).where(sql`${table.seedSlug} is not null`)
-]);
+export const exercises = pgTable(
+	'exercises',
+	{
+		id: uuidv7().primaryKey(),
+		name: text().notNull(),
+		nameKey: text(),
+		seedSlug: text(),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp({ withTimezone: true })
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => sql`now()`),
+		deletedAt: timestamp({ withTimezone: true }),
+		syncedAt: syncedAt()
+	},
+	(table) => [
+		uniqueIndex('exercises_seed_slug_unique_idx')
+			.on(table.seedSlug)
+			.where(sql`${table.seedSlug} is not null`),
+		uniqueIndex('exercises_name_key_unique_idx')
+			.on(table.nameKey)
+			.where(sql`${table.nameKey} is not null`)
+	]
+);
 
-export const workoutTemplates = pgTable('workout_templates', {
-	id: uuidv7().primaryKey(),
-	name: text().notNull(),
-	seedSlug: text(),
-	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
-	icon: text(),
-	sortOrder: integer().notNull().default(0),
-	syncedAt: syncedAt()
-}, (table) => [
-	uniqueIndex('workout_templates_seed_slug_unique_idx').on(table.seedSlug).where(sql`${table.seedSlug} is not null`)
-]);
+export const workoutTemplates = pgTable(
+	'workout_templates',
+	{
+		id: uuidv7().primaryKey(),
+		name: text().notNull(),
+		nameKey: text(),
+		seedSlug: text(),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp({ withTimezone: true })
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => sql`now()`),
+		deletedAt: timestamp({ withTimezone: true }),
+		icon: text(),
+		sortOrder: integer().notNull().default(0),
+		syncedAt: syncedAt()
+	},
+	(table) => [
+		uniqueIndex('workout_templates_seed_slug_unique_idx')
+			.on(table.seedSlug)
+			.where(sql`${table.seedSlug} is not null`),
+		uniqueIndex('workout_templates_name_key_unique_idx')
+			.on(table.nameKey)
+			.where(sql`${table.nameKey} is not null`)
+	]
+);
 
 // Junction table for exercises in templates
-export const workoutTemplateExercises = pgTable('workout_template_exercises', {
-	id: uuidv7().primaryKey(),
-	templateId: uuid().notNull().references(() => workoutTemplates.id, { onDelete: 'cascade' }),
-	exerciseId: uuid().notNull().references(() => exercises.id, { onDelete: 'cascade' }),
-	seedSlug: text(),
-	sortOrder: integer().notNull().default(0),
-	syncedAt: syncedAt()
-}, (table) => [
-	uniqueIndex('workout_template_exercises_seed_slug_unique_idx').on(table.seedSlug).where(sql`${table.seedSlug} is not null`)
-]);
+export const workoutTemplateExercises = pgTable(
+	'workout_template_exercises',
+	{
+		id: uuidv7().primaryKey(),
+		templateId: uuid()
+			.notNull()
+			.references(() => workoutTemplates.id, { onDelete: 'cascade' }),
+		exerciseId: uuid()
+			.notNull()
+			.references(() => exercises.id, { onDelete: 'cascade' }),
+		seedSlug: text(),
+		sortOrder: integer().notNull().default(0),
+		syncedAt: syncedAt()
+	},
+	(table) => [
+		uniqueIndex('workout_template_exercises_seed_slug_unique_idx')
+			.on(table.seedSlug)
+			.where(sql`${table.seedSlug} is not null`)
+	]
+);
 
 export const workoutSessions = pgTable('workout_sessions', {
 	id: uuidv7().primaryKey(),
 	templateId: uuid().references(() => workoutTemplates.id),
 	startedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull().$onUpdate(() => sql`now()`),
+	updatedAt: timestamp({ withTimezone: true })
+		.defaultNow()
+		.notNull()
+		.$onUpdate(() => sql`now()`),
 	endedAt: timestamp({ withTimezone: true }),
 	notes: text(),
-	plannedExercises: text().array().default(sql`'{}'::text[]`),
+	plannedExercises: text()
+		.array()
+		.default(sql`'{}'::text[]`),
 	syncedAt: syncedAt()
 });
 
 // Logged exercises within a workout session
 export const loggedExercises = pgTable('logged_exercises', {
 	id: uuidv7().primaryKey(),
-	sessionId: uuid().notNull().references(() => workoutSessions.id, { onDelete: 'cascade' }),
-	exerciseId: uuid().notNull().references(() => exercises.id),
+	sessionId: uuid()
+		.notNull()
+		.references(() => workoutSessions.id, { onDelete: 'cascade' }),
+	exerciseId: uuid()
+		.notNull()
+		.references(() => exercises.id),
 	fullReps: integer().notNull().default(0),
 	partialReps: integer().notNull().default(0),
 	notes: text(),
@@ -91,8 +164,12 @@ export const loggedExercises = pgTable('logged_exercises', {
 // Junction table for bands used in logged exercises
 export const loggedExerciseBands = pgTable('logged_exercise_bands', {
 	id: uuidv7().primaryKey(),
-	loggedExerciseId: uuid().notNull().references(() => loggedExercises.id, { onDelete: 'cascade' }),
-	bandId: uuid().notNull().references(() => bands.id),
+	loggedExerciseId: uuid()
+		.notNull()
+		.references(() => loggedExercises.id, { onDelete: 'cascade' }),
+	bandId: uuid()
+		.notNull()
+		.references(() => bands.id),
 	syncedAt: syncedAt()
 });
 

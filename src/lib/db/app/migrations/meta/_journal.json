@@ -1,118 +1,125 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1766992775276,
-      "tag": "0000_outstanding_morg",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1766993421334,
-      "tag": "0001_loving_shadowcat",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1767013026236,
-      "tag": "0002_shiny_martin_li",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1767771086842,
-      "tag": "0003_condemned_slayback",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1767771639675,
-      "tag": "0004_complete_gladiator",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1767772565740,
-      "tag": "0005_faithful_landau",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1767773102903,
-      "tag": "0006_dusty_jackpot",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1767841557544,
-      "tag": "0007_petite_kylun",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1768566112928,
-      "tag": "0008_famous_violations",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1768567169896,
-      "tag": "0009_funny_rage",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1768568369459,
-      "tag": "0010_peaceful_dreadnoughts",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1768568390284,
-      "tag": "0011_dry_orphan",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1768898592368,
-      "tag": "0012_wonderful_starbolt",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "7",
-      "when": 1768967509548,
-      "tag": "0013_melted_makkari",
-      "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "7",
-      "when": 1770106720511,
-      "tag": "0014_strong_squadron_sinister",
-      "breakpoints": true
-    },
-    {
-      "idx": 15,
-      "version": "7",
-      "when": 1771834412990,
-      "tag": "0015_cooing_grandmaster",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "postgresql",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "7",
+			"when": 1766992775276,
+			"tag": "0000_outstanding_morg",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1766993421334,
+			"tag": "0001_loving_shadowcat",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1767013026236,
+			"tag": "0002_shiny_martin_li",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1767771086842,
+			"tag": "0003_condemned_slayback",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "7",
+			"when": 1767771639675,
+			"tag": "0004_complete_gladiator",
+			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "7",
+			"when": 1767772565740,
+			"tag": "0005_faithful_landau",
+			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "7",
+			"when": 1767773102903,
+			"tag": "0006_dusty_jackpot",
+			"breakpoints": true
+		},
+		{
+			"idx": 7,
+			"version": "7",
+			"when": 1767841557544,
+			"tag": "0007_petite_kylun",
+			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "7",
+			"when": 1768566112928,
+			"tag": "0008_famous_violations",
+			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "7",
+			"when": 1768567169896,
+			"tag": "0009_funny_rage",
+			"breakpoints": true
+		},
+		{
+			"idx": 10,
+			"version": "7",
+			"when": 1768568369459,
+			"tag": "0010_peaceful_dreadnoughts",
+			"breakpoints": true
+		},
+		{
+			"idx": 11,
+			"version": "7",
+			"when": 1768568390284,
+			"tag": "0011_dry_orphan",
+			"breakpoints": true
+		},
+		{
+			"idx": 12,
+			"version": "7",
+			"when": 1768898592368,
+			"tag": "0012_wonderful_starbolt",
+			"breakpoints": true
+		},
+		{
+			"idx": 13,
+			"version": "7",
+			"when": 1768967509548,
+			"tag": "0013_melted_makkari",
+			"breakpoints": true
+		},
+		{
+			"idx": 14,
+			"version": "7",
+			"when": 1770106720511,
+			"tag": "0014_strong_squadron_sinister",
+			"breakpoints": true
+		},
+		{
+			"idx": 15,
+			"version": "7",
+			"when": 1771834412990,
+			"tag": "0015_cooing_grandmaster",
+			"breakpoints": true
+		},
+		{
+			"idx": 16,
+			"version": "7",
+			"when": 1777272257047,
+			"tag": "0016_white_naoko",
+			"breakpoints": true
+		}
+	]
 }
