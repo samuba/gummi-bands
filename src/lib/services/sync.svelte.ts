@@ -24,7 +24,7 @@ class SyncService {
 
 	// Debounce timer
 	private debounceTimer: ReturnType<typeof setTimeout> | null = null;
-	private readonly DEBOUNCE_MS = 500;
+	private readonly DEBOUNCE_MS = 3000;
 
 	// Track if we're initialized
 	private initialized = false;
@@ -112,6 +112,7 @@ class SyncService {
 		}
 
 		this.debounceTimer = setTimeout(() => {
+			this.debounceTimer = null;
 			this.fullSync();
 		}, this.DEBOUNCE_MS);
 	}
