@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { afterNavigate, goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import Header from '$lib/components/Header.svelte';
 	import WorkoutTimer from '$lib/components/WorkoutTimer.svelte';
 	import AddExerciseDialog from '$lib/components/AddExerciseDialog.svelte';
@@ -13,14 +12,24 @@
 
 	let sessionNotes = $state('');
 	let isEditingSession = $state(false);
+	let loadedSessionKey = $state('');
 
-	const returnUrl = $derived($page.url.searchParams.get('from') === 'home' ? '/' : (isEditingSession ? '/history' : '/'));
+	const editSessionId = $derived(page.url.searchParams.get('edit'));
+	const templateId = $derived(page.url.searchParams.get('template'));
+	const sessionKey = $derived(`${editSessionId ?? ''}:${templateId ?? ''}`);
+	const returnUrl = $derived(
+		page.url.searchParams.get('from') === 'home' ? '/' : isEditingSession ? '/history' : '/'
+	);
 
-	// Check for edit mode or start new session
-	onMount(async () => {
-		const editSessionId = $page.url.searchParams.get('edit');
-		const templateId = $page.url.searchParams.get('template');
-		
+	// Check for edit mode or start new session on initial load and client-side navigation.
+	afterNavigate(() => {
+		loadSession();
+	});
+
+	async function loadSession() {
+		if (loadedSessionKey === sessionKey) return;
+		loadedSessionKey = sessionKey;
+
 		if (editSessionId) {
 			// Edit existing session
 			const session = await workout.editSession(editSessionId);
@@ -35,7 +44,7 @@
 			// Start new session
 			await workout.startSession(templateId || undefined);
 		}
-	});
+	}
 
 	async function handleEndWorkout() {
 		const wasEditing = isEditingSession;
@@ -52,7 +61,7 @@
 
 	async function handleDeleteSession() {
 		if (!workout.currentSession) return;
-		
+
 		const confirmed = await confirmDialog.confirm({
 			title: 'Delete Workout?',
 			html: 'Are you sure you want to delete this workout session? This action cannot be undone.',
@@ -102,17 +111,12 @@
 			day: 'numeric',
 			month: 'numeric',
 			year: 'numeric'
-		})
-			.format(new Date(date))
+		}).format(new Date(date));
 	}
 </script>
 
-<div class="flex flex-col gap-6 animate-in fade-in">
-	<Header
-		title={isEditingSession ? 'Edit Workout' : 'Workout'}
-		showBack
-		backHref={returnUrl}
-	/>
+<div class="flex animate-in flex-col gap-6 fade-in">
+	<Header title={isEditingSession ? 'Edit Workout' : 'Workout'} showBack backHref={returnUrl} />
 
 	<!-- Date & Timer -->
 	<div class="flex items-start justify-between">
@@ -173,14 +177,14 @@
 	</div>
 
 	<!-- Action Buttons -->
-	<div class="flex flex-col gap-3 mt-4">
+	<div class="mt-4 flex flex-col gap-3">
 		<button class="btn-primary w-full py-4 text-lg font-semibold" onclick={handleEndWorkout}>
 			Save Workout
 		</button>
-		
+
 		{#if isEditingSession}
-			<button 
-				class="w-full py-3 text-sm font-medium cursor-pointer text-error border border-bg-tertiary rounded-lg bg-bg-secondary hover:bg-bg-tertiary hover:border-error transition-all duration-200 flex items-center justify-center gap-2"
+			<button
+				class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-bg-tertiary bg-bg-secondary py-3 text-sm font-medium text-error transition-all duration-200 hover:border-error hover:bg-bg-tertiary"
 				onclick={handleDeleteSession}
 			>
 				<i class="icon-[ph--trash] size-5"></i>
@@ -189,4 +193,3 @@
 		{/if}
 	</div>
 </div>
-
