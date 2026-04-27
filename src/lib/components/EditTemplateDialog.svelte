@@ -244,10 +244,15 @@
 								</Select.Trigger>
 								<Select.Portal>
 									<Select.Content
-										class="z-100 max-h-60 overflow-y-auto rounded-lg border border-bg-elevated bg-bg-secondary p-1 shadow-xl"
+										class="z-100 overflow-hidden rounded-lg border border-bg-elevated bg-bg-secondary shadow-xl"
 										sideOffset={4}
 									>
-										<Select.Viewport>
+										<Select.ScrollUpButton
+											class="flex w-full items-center justify-center py-1 text-text-muted"
+										>
+											<i class="icon-[ph--caret-up] size-4"></i>
+										</Select.ScrollUpButton>
+										<Select.Viewport class="max-h-60 p-1">
 											{#each availableExercises as exercise (exercise.id)}
 												<Select.Item
 													class="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-text-primary outline-none data-highlighted:bg-bg-tertiary"
@@ -258,6 +263,11 @@
 												</Select.Item>
 											{/each}
 										</Select.Viewport>
+										<Select.ScrollDownButton
+											class="flex w-full items-center justify-center py-1 text-text-muted"
+										>
+											<i class="icon-[ph--caret-down] size-4"></i>
+										</Select.ScrollDownButton>
 									</Select.Content>
 								</Select.Portal>
 							</Select.Root>

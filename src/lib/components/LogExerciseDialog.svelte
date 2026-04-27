@@ -38,6 +38,7 @@
 			.map((id, index) => ({ band: bands.find((b) => b.id === id), index }))
 			.filter((item): item is { band: Band; index: number } => item.band !== undefined)
 	);
+	const bandsByResistance = $derived([...bands].sort((a, b) => a.resistance - b.resistance));
 
 	// Load previous data when dialog opens
 	$effect(() => {
@@ -194,7 +195,7 @@
 							<Select.Root
 								type="single"
 								onValueChange={(v) => addBand(v)}
-								items={bands.map((b) => ({ value: b.id, label: b.name }))}
+								items={bandsByResistance.map((b) => ({ value: b.id, label: b.name }))}
 							>
 								<Select.Trigger
 									class="flex items-center gap-1.5 rounded-full border-2 border-dashed border-bg-elevated bg-bg-tertiary px-3 py-1.5 text-sm text-text-muted transition-colors hover:border-primary hover:text-text-secondary focus:border-primary focus:outline-none"
@@ -213,11 +214,16 @@
 								</Select.Trigger>
 								<Select.Portal>
 									<Select.Content
-										class="z-100 max-h-60 overflow-y-auto rounded-lg border border-bg-elevated bg-bg-secondary p-1 shadow-xl"
+										class="z-100 overflow-hidden rounded-lg border border-bg-elevated bg-bg-secondary shadow-xl"
 										sideOffset={4}
 									>
-										<Select.Viewport>
-											{#each bands as band (band.id)}
+										<Select.ScrollUpButton
+											class="flex w-full items-center justify-center py-1 text-text-muted"
+										>
+											<i class="icon-[ph--caret-up] size-4"></i>
+										</Select.ScrollUpButton>
+										<Select.Viewport class="max-h-60 p-1">
+											{#each bandsByResistance as band (band.id)}
 												<Select.Item
 													class="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-text-primary outline-none data-highlighted:bg-bg-tertiary"
 													value={band.id}
@@ -234,6 +240,11 @@
 												</Select.Item>
 											{/each}
 										</Select.Viewport>
+										<Select.ScrollDownButton
+											class="flex w-full items-center justify-center py-1 text-text-muted"
+										>
+											<i class="icon-[ph--caret-down] size-4"></i>
+										</Select.ScrollDownButton>
 									</Select.Content>
 								</Select.Portal>
 							</Select.Root>
