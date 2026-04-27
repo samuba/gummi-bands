@@ -4,6 +4,7 @@ import { page, updated } from '$app/state';
 const UPDATE_VERSION_KEY = 'app-update-version';
 const UPDATE_FLAG_KEY = 'app-updating';
 const UPDATE_ATTEMPTS_KEY = 'app-update-attempts';
+const UPDATE_CHECK_INTERVAL_MS = 30_000;
 
 class Updater {
 	isUpdating = $state(false);
@@ -18,34 +19,13 @@ class Updater {
 			sessionStorage.removeItem(UPDATE_FLAG_KEY);
 		}
 
-		// Start polling for updates
-		updated.check();
+		void this.checkForUpdate();
+		window.setInterval(() => void this.checkForUpdate(), UPDATE_CHECK_INTERVAL_MS);
 
 		// Check for updates when browser comes back online
 		window.addEventListener('online', () => {
 			console.log('Browser came online, checking for updates');
-			updated.check();
-		});
-
-		// Watch for updates and trigger reload when on home screen
-		$effect(() => {
-			console.log('update effect', { updated: updated.current, routeId: page.route.id, isUpdating: this.isUpdating, version });
-			if (updated.current && page.route.id === '/' && !this.isUpdating) {
-				// Prevent tight loops, but DO allow retries (Safari/non-atomic deploys can need it)
-				const lastUpdateVersion = sessionStorage.getItem(UPDATE_VERSION_KEY);
-				if (lastUpdateVersion === version) {
-					const attempts = Number(sessionStorage.getItem(UPDATE_ATTEMPTS_KEY) ?? '0');
-					if (attempts >= 3) {
-						console.warn('Update loop detected (max retries reached)');
-						return;
-					}
-
-					console.warn('Update loop detected, retrying', { attempts });
-					this.performUpdate();
-					return;
-				}
-				this.performUpdate();
-			}
+			void this.checkForUpdate();
 		});
 	}
 
@@ -61,6 +41,28 @@ class Updater {
 				sessionStorage.removeItem(UPDATE_ATTEMPTS_KEY);
 			}
 		}
+	}
+
+	private async checkForUpdate() {
+		const hasUpdate = await updated.check();
+		if (!hasUpdate || this.isUpdating) return;
+		if (page.route.id !== '/') return;
+
+		// Prevent tight loops, but DO allow retries (Safari/non-atomic deploys can need it).
+		const lastUpdateVersion = sessionStorage.getItem(UPDATE_VERSION_KEY);
+		if (lastUpdateVersion !== version) {
+			void this.performUpdate();
+			return;
+		}
+
+		const attempts = Number(sessionStorage.getItem(UPDATE_ATTEMPTS_KEY) ?? '0');
+		if (attempts >= 3) {
+			console.warn('Update loop detected (max retries reached)');
+			return;
+		}
+
+		console.warn('Update loop detected, retrying', { attempts });
+		void this.performUpdate();
 	}
 
 	private async performUpdate() {
@@ -152,7 +154,11 @@ class Updater {
 		}
 
 		// If controller already changed, we're done.
-		if (navigator.serviceWorker.controller && controllerBefore && navigator.serviceWorker.controller !== controllerBefore) {
+		if (
+			navigator.serviceWorker.controller &&
+			controllerBefore &&
+			navigator.serviceWorker.controller !== controllerBefore
+		) {
 			return;
 		}
 
