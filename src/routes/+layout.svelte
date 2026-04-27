@@ -147,19 +147,28 @@
 
 <DbRepl />
 
-{#if syncService.isSyncing}
+{#if syncService.isSyncing || syncService.syncError}
+	{@const hasSyncError = !!syncService.syncError}
 	<div
 		class="pointer-events-none fixed inset-x-0 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0))] z-50 flex justify-center px-4"
 		in:fly={{ y: 12, duration: 150 }}
 		out:fade={{ duration: 100 }}
 	>
 		<div
-			class="flex items-center gap-2 rounded-full border border-bg-elevated bg-bg-secondary/95 px-2 py-1.5 text-xs font-medium text-text-secondary shadow-card backdrop-blur"
-			role="status"
+			class={[
+				'flex items-center gap-2 rounded-full border bg-bg-secondary/95 px-2 py-1.5 text-xs font-medium shadow-card backdrop-blur',
+				hasSyncError ? 'border-error/30 text-error' : 'border-bg-elevated text-text-secondary'
+			]}
+			role={hasSyncError ? 'alert' : 'status'}
 			aria-live="polite"
 		>
-			<i class="icon-[ph--circle-notch] size-4 animate-spin text-primary"></i>
-			<span>Syncing...</span>
+			{#if hasSyncError}
+				<i class="icon-[ph--warning-circle] size-4"></i>
+				<span>Sync failed</span>
+			{:else}
+				<i class="icon-[ph--circle-notch] size-4 animate-spin text-primary"></i>
+				<span>Syncing...</span>
+			{/if}
 		</div>
 	</div>
 {/if}
