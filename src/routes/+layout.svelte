@@ -150,7 +150,7 @@
 {#if syncService.isSyncing || syncService.syncError}
 	{@const hasSyncError = !!syncService.syncError}
 	<div
-		class="pointer-events-none fixed inset-x-0 bottom-[calc(0.75rem+env(safe-area-inset-bottom,0))] z-50 flex justify-center px-4"
+		class="pointer-events-none fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom,0))] left-4 z-50 flex"
 		in:fly={{ y: 12, duration: 150 }}
 		out:fade={{ duration: 100 }}
 	>
@@ -167,7 +167,6 @@
 				<span>Sync failed</span>
 			{:else}
 				<i class="icon-[ph--circle-notch] size-4 animate-spin text-primary"></i>
-				<span>Syncing...</span>
 			{/if}
 		</div>
 	</div>
