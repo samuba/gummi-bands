@@ -125,3 +125,39 @@ export function syncRetryDelayMs(attempt: number, baseMs: number, maxMs: number)
 	const safeAttempt = Math.max(0, attempt);
 	return Math.min(baseMs * 2 ** safeAttempt, maxMs);
 }
+
+/** Split rows for batched inserts/upserts. */
+export function chunkArray<T>(items: readonly T[], size: number): T[][] {
+	if (size <= 0) return [items.slice()];
+	const chunks: T[][] = [];
+	for (let i = 0; i < items.length; i += size) {
+		chunks.push(items.slice(i, i + size));
+	}
+	return chunks;
+}
+
+/** Keep only incoming rows that are missing locally or have changed. */
+export function rowsNeedingWrite<T extends { id: string }, L extends { id: string }>(
+	incoming: readonly T[],
+	localById: Map<string, L>,
+	isUnchanged: (local: L, row: T) => boolean
+): T[] {
+	const out: T[] = [];
+	for (const row of incoming) {
+		const local = localById.get(row.id);
+		if (local && isUnchanged(local, row)) continue;
+		out.push(row);
+	}
+	return out;
+}
+
+/**
+ * Full LEB pull is required on first sync and whenever bands changed —
+ * catalog remaps can rewrite LEB.bandId without touching loggedAt.
+ */
+export function shouldPullAllLoggedExerciseBands(options: {
+	isFirstSync: boolean;
+	pulledBandCount: number;
+}): boolean {
+	return options.isFirstSync || options.pulledBandCount > 0;
+}

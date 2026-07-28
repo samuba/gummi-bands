@@ -9,7 +9,6 @@ import type { PgTable, PgColumn } from 'drizzle-orm/pg-core';
 import { createSelectSchema } from 'drizzle-valibot';
 import { getCatalogNameKey } from '$lib/db/catalog';
 import {
-	dedupeServerTemplateExercisePairs,
 	remapServerBandId,
 	remapServerExerciseId,
 	remapServerTemplateId,
@@ -146,6 +145,7 @@ async function handlePush({ locals, request }: Parameters<RequestHandler>[0]) {
 	const syncedAt = new Date().toISOString();
 	const idRemaps: SyncIdRemaps = { bands: {}, exercises: {}, workoutTemplates: {} };
 
+	// Catalog is tiny (seed ~10/9/2); repair stays cheap and keeps remaps consistent.
 	await repairServerCatalogDuplicates(userId);
 
 	if (payload.bands?.length) {
@@ -387,8 +387,6 @@ async function handlePush({ locals, request }: Parameters<RequestHandler>[0]) {
 			ensureWriteApplied(result, 'logged exercise band', loggedExerciseBand.id);
 		}
 	}
-
-	await dedupeServerTemplateExercisePairs(userId);
 
 	return json({ syncedAt, idRemaps });
 }

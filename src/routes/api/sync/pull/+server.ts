@@ -2,9 +2,12 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/db/server';
 import * as s from '$lib/db/server/schema.app';
-import { eq, and, gt } from 'drizzle-orm';
+import { eq, and, gt, inArray } from 'drizzle-orm';
 import { repairServerCatalogDuplicates } from '$lib/db/server/catalogMerge';
-import { shouldRepairCatalogOnPull } from '$lib/services/syncHelpers';
+import {
+	shouldPullAllLoggedExerciseBands,
+	shouldRepairCatalogOnPull
+} from '$lib/services/syncHelpers';
 
 export const GET: RequestHandler = async ({ locals, url }) => {
 	if (!locals.user) {
@@ -27,8 +30,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 		workoutTemplates,
 		workoutTemplateExercises,
 		workoutSessions,
-		loggedExercises,
-		loggedExerciseBands
+		loggedExercises
 	] = await Promise.all([
 		db
 			.select()
@@ -82,14 +84,36 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 				since
 					? and(eq(s.loggedExercises.userId, userId), gt(s.loggedExercises.loggedAt, since))
 					: eq(s.loggedExercises.userId, userId)
-			),
-		// Always full — LEBs have no updatedAt; catalog remaps can change bands
-		// without bumping parent loggedAt.
-		db
+			)
+	]);
+
+	let loggedExerciseBands: (typeof s.loggedExerciseBands.$inferSelect)[];
+	if (
+		shouldPullAllLoggedExerciseBands({
+			isFirstSync: !since,
+			pulledBandCount: bands.length
+		})
+	) {
+		loggedExerciseBands = await db
 			.select()
 			.from(s.loggedExerciseBands)
-			.where(eq(s.loggedExerciseBands.userId, userId))
-	]);
+			.where(eq(s.loggedExerciseBands.userId, userId));
+	} else if (loggedExercises.length === 0) {
+		loggedExerciseBands = [];
+	} else {
+		loggedExerciseBands = await db
+			.select()
+			.from(s.loggedExerciseBands)
+			.where(
+				and(
+					eq(s.loggedExerciseBands.userId, userId),
+					inArray(
+						s.loggedExerciseBands.loggedExerciseId,
+						loggedExercises.map((le) => le.id)
+					)
+				)
+			);
+	}
 
 	return json({
 		bands: bands.map((b) => ({ ...b, userId: undefined })),

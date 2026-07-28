@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	chunkArray,
 	getOrphanSyncedJunctionIds,
 	getSafeReplacementTemplateIds,
 	hasPushWork,
@@ -7,6 +8,8 @@ import {
 	resolveExercisesByPlannedIds,
 	resolveRemappedIds,
 	resolveSyncedMarkTargets,
+	rowsNeedingWrite,
+	shouldPullAllLoggedExerciseBands,
 	shouldRepairCatalogOnPull,
 	syncRetryDelayMs
 } from './syncHelpers';
@@ -173,5 +176,44 @@ describe('syncRetryDelayMs', () => {
 		expect(syncRetryDelayMs(1, 2000, 60_000)).toBe(4000);
 		expect(syncRetryDelayMs(2, 2000, 60_000)).toBe(8000);
 		expect(syncRetryDelayMs(10, 2000, 60_000)).toBe(60_000);
+	});
+});
+
+describe('chunkArray', () => {
+	it('splits into fixed-size chunks', () => {
+		expect.assertions(1);
+		expect(chunkArray([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
+	});
+});
+
+describe('rowsNeedingWrite', () => {
+	it('skips unchanged local rows', () => {
+		expect.assertions(1);
+		expect(
+			rowsNeedingWrite(
+				[
+					{ id: 'a', value: 1 },
+					{ id: 'b', value: 2 },
+					{ id: 'c', value: 3 }
+				],
+				new Map([
+					['a', { id: 'a', value: 1 }],
+					['b', { id: 'b', value: 9 }]
+				]),
+				(local, row) => local.value === row.value
+			)
+		).toEqual([
+			{ id: 'b', value: 2 },
+			{ id: 'c', value: 3 }
+		]);
+	});
+});
+
+describe('shouldPullAllLoggedExerciseBands', () => {
+	it('pulls all on first sync or when bands changed', () => {
+		expect.assertions(3);
+		expect(shouldPullAllLoggedExerciseBands({ isFirstSync: true, pulledBandCount: 0 })).toBe(true);
+		expect(shouldPullAllLoggedExerciseBands({ isFirstSync: false, pulledBandCount: 2 })).toBe(true);
+		expect(shouldPullAllLoggedExerciseBands({ isFirstSync: false, pulledBandCount: 0 })).toBe(false);
 	});
 });

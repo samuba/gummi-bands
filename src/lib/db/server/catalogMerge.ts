@@ -101,7 +101,12 @@ async function mergeDuplicateBands(userId: string) {
 
 		await db
 			.update(s.bands)
-			.set({ nameKey, seedSlug })
+			.set({
+				nameKey,
+				seedSlug,
+				// Bump so incremental pulls include this band and re-fetch LEBs.
+				updatedAt: sql`now()`
+			})
 			.where(and(eq(s.bands.userId, userId), eq(s.bands.id, canonical.id)));
 	}
 }
@@ -127,7 +132,7 @@ async function mergeDuplicateExercises(userId: string) {
 
 		await db
 			.update(s.exercises)
-			.set({ nameKey, seedSlug })
+			.set({ nameKey, seedSlug, updatedAt: sql`now()` })
 			.where(and(eq(s.exercises.userId, userId), eq(s.exercises.id, canonical.id)));
 	}
 }
@@ -164,7 +169,7 @@ async function mergeDuplicateTemplates(userId: string) {
 
 		await db
 			.update(s.workoutTemplates)
-			.set({ nameKey, seedSlug, icon, sortOrder })
+			.set({ nameKey, seedSlug, icon, sortOrder, updatedAt: sql`now()` })
 			.where(and(eq(s.workoutTemplates.userId, userId), eq(s.workoutTemplates.id, canonical.id)));
 	}
 }

@@ -11,13 +11,17 @@ import {
 	remapLocalTemplateId
 } from '$lib/db/app/catalogMerge';
 import {
+	chunkArray,
 	getOrphanSyncedJunctionIds,
 	getSafeReplacementTemplateIds,
 	hasPushWork,
 	idsOf,
 	resolveSyncedMarkTargets,
+	rowsNeedingWrite,
 	syncRetryDelayMs
 } from './syncHelpers';
+
+const UPSERT_CHUNK_SIZE = 100;
 
 const isUnsyncedWhere = (table: { syncedAt: Column; updatedAt: Column }) =>
 	or(isNull(table.syncedAt), lt(table.syncedAt, table.updatedAt));
@@ -228,33 +232,39 @@ class SyncService {
 				db.select().from(s.loggedExercises).where(isNull(s.loggedExercises.syncedAt)),
 				db.select().from(s.loggedExerciseBands).where(isNull(s.loggedExerciseBands.syncedAt))
 			]);
-			const allLocalTemplateExercises = await db.select().from(s.workoutTemplateExercises);
-			const localExerciseCountsByTemplateId = new Map<string, number>();
-			for (const wte of allLocalTemplateExercises) {
-				localExerciseCountsByTemplateId.set(
-					wte.templateId,
-					(localExerciseCountsByTemplateId.get(wte.templateId) ?? 0) + 1
-				);
-			}
 
-			const replacementTemplateIds = getSafeReplacementTemplateIds({
-				markedTemplateIds: this.templateExerciseReplacementIds,
-				localExerciseCountsByTemplateId,
-				// Marked IDs are intentional edits (including clear-all). Empty skip only
-				// mattered when metadata-dirty templates auto-replaced.
-				allowEmptyReplace: true
-			});
-			const replacementTemplateIdSet = new Set(replacementTemplateIds);
-			const replacementTemplateExercises =
-				replacementTemplateIds.length > 0
-					? allLocalTemplateExercises.filter((wte) =>
-							replacementTemplateIdSet.has(wte.templateId)
-						)
-					: [];
-			const workoutTemplateExercisesToPush = [
-				...replacementTemplateExercises,
-				...unsyncedTemplateExercises.filter((wte) => !replacementTemplateIdSet.has(wte.templateId))
-			];
+			let replacementTemplateIds: string[] = [];
+			let workoutTemplateExercisesToPush = unsyncedTemplateExercises;
+
+			if (this.templateExerciseReplacementIds.size > 0) {
+				const allLocalTemplateExercises = await db.select().from(s.workoutTemplateExercises);
+				const localExerciseCountsByTemplateId = new Map<string, number>();
+				for (const wte of allLocalTemplateExercises) {
+					localExerciseCountsByTemplateId.set(
+						wte.templateId,
+						(localExerciseCountsByTemplateId.get(wte.templateId) ?? 0) + 1
+					);
+				}
+
+				replacementTemplateIds = getSafeReplacementTemplateIds({
+					markedTemplateIds: this.templateExerciseReplacementIds,
+					localExerciseCountsByTemplateId,
+					// Marked IDs are intentional edits (including clear-all). Empty skip only
+					// mattered when metadata-dirty templates auto-replaced.
+					allowEmptyReplace: true
+				});
+				const replacementTemplateIdSet = new Set(replacementTemplateIds);
+				const replacementTemplateExercises =
+					replacementTemplateIds.length > 0
+						? allLocalTemplateExercises.filter((wte) =>
+								replacementTemplateIdSet.has(wte.templateId)
+							)
+						: [];
+				workoutTemplateExercisesToPush = [
+					...replacementTemplateExercises,
+					...unsyncedTemplateExercises.filter((wte) => !replacementTemplateIdSet.has(wte.templateId))
+				];
+			}
 
 			const hasChangesToPush = hasPushWork({
 				rowCounts: [
@@ -626,75 +636,106 @@ class SyncService {
 
 	// Apply changes from server to local database
 	private async applyServerChanges(data: PullResponse) {
-		// Bands
+		const syncedAt = new Date();
+		const needsCatalog =
+			data.bands.length > 0 || data.exercises.length > 0 || data.workoutTemplates.length > 0;
+		const needsWte = data.workoutTemplateExercises.length > 0;
+		const needsSessions = data.workoutSessions.length > 0;
+		const needsLogs = data.loggedExercises.length > 0;
+		const needsLebs = data.loggedExerciseBands.length > 0;
+
+		const [localBands, localExercises, localTemplates, localWtes, localSessions, localLogs, localLebs] =
+			await Promise.all([
+				needsCatalog ? db.select().from(s.bands) : Promise.resolve([]),
+				needsCatalog ? db.select().from(s.exercises) : Promise.resolve([]),
+				needsCatalog ? db.select().from(s.workoutTemplates) : Promise.resolve([]),
+				needsWte ? db.select().from(s.workoutTemplateExercises) : Promise.resolve([]),
+				needsSessions ? db.select().from(s.workoutSessions) : Promise.resolve([]),
+				needsLogs ? db.select().from(s.loggedExercises) : Promise.resolve([]),
+				needsLebs ? db.select().from(s.loggedExerciseBands) : Promise.resolve([])
+			]);
+
+		const bandsById = new Map(localBands.map((row) => [row.id, row]));
+		const bandsBySlug = new Map(
+			localBands.filter((row) => row.seedSlug).map((row) => [row.seedSlug!, row])
+		);
+		const bandsByNameKey = new Map(
+			localBands.filter((row) => row.nameKey).map((row) => [row.nameKey!, row])
+		);
+
 		for (const band of data.bands) {
 			let conflictingLocalId: string | null = null;
 			const nameKey = band.nameKey ?? getCatalogNameKey(band.name);
 			if (band.seedSlug) {
-				const localBySlug = await db.query.bands.findFirst({
-					where: eq(s.bands.seedSlug, band.seedSlug),
-					columns: { id: true }
-				});
+				const localBySlug = bandsBySlug.get(band.seedSlug);
 				if (localBySlug && localBySlug.id !== band.id) {
 					conflictingLocalId = localBySlug.id;
 					await db.update(s.bands).set({ seedSlug: null }).where(eq(s.bands.id, localBySlug.id));
+					bandsBySlug.delete(band.seedSlug);
 				}
 			}
-			const localByName = await db.query.bands.findFirst({
-				where: eq(s.bands.nameKey, nameKey),
-				columns: { id: true }
-			});
+			const localByName = bandsByNameKey.get(nameKey);
 			if (localByName && localByName.id !== band.id) {
 				conflictingLocalId = localByName.id;
 				await db.update(s.bands).set({ nameKey: null }).where(eq(s.bands.id, localByName.id));
+				bandsByNameKey.delete(nameKey);
 			}
 
-			const existing = await db
-				.select()
-				.from(s.bands)
-				.where(sql`${s.bands.id} = ${band.id}`);
-			if (existing.length === 0 || new Date(band.updatedAt) > existing[0].updatedAt) {
+			const existing = bandsById.get(band.id);
+			if (!existing || new Date(band.updatedAt) > existing.updatedAt) {
+				const row = {
+					id: band.id,
+					name: band.name,
+					nameKey,
+					resistance: band.resistance,
+					color: band.color,
+					seedSlug: band.seedSlug,
+					createdAt: new Date(band.createdAt),
+					updatedAt: new Date(band.updatedAt),
+					deletedAt: band.deletedAt ? new Date(band.deletedAt) : null,
+					syncedAt
+				};
 				await db
 					.insert(s.bands)
-					.values({
-						id: band.id,
-						name: band.name,
-						nameKey,
-						resistance: band.resistance,
-						color: band.color,
-						seedSlug: band.seedSlug,
-						createdAt: new Date(band.createdAt),
-						updatedAt: new Date(band.updatedAt),
-						deletedAt: band.deletedAt ? new Date(band.deletedAt) : null,
-						syncedAt: new Date()
-					})
+					.values(row)
 					.onConflictDoUpdate({
 						target: s.bands.id,
 						set: {
-							name: band.name,
-							nameKey,
-							resistance: band.resistance,
-							color: band.color,
-							seedSlug: band.seedSlug,
-							updatedAt: new Date(band.updatedAt),
-							deletedAt: band.deletedAt ? new Date(band.deletedAt) : null,
-							syncedAt: new Date()
+							name: row.name,
+							nameKey: row.nameKey,
+							resistance: row.resistance,
+							color: row.color,
+							seedSlug: row.seedSlug,
+							updatedAt: row.updatedAt,
+							deletedAt: row.deletedAt,
+							syncedAt
 						}
 					});
+				bandsById.set(band.id, {
+					id: row.id,
+					name: row.name,
+					nameKey: row.nameKey,
+					resistance: row.resistance,
+					color: row.color,
+					seedSlug: row.seedSlug,
+					createdAt: row.createdAt,
+					updatedAt: row.updatedAt,
+					deletedAt: row.deletedAt,
+					syncedAt: row.syncedAt
+				});
+				if (row.seedSlug) bandsBySlug.set(row.seedSlug, bandsById.get(band.id)!);
+				bandsByNameKey.set(nameKey, bandsById.get(band.id)!);
 			}
 
 			if (conflictingLocalId) {
 				await this.remapBandId(conflictingLocalId, band.id);
 				await db.delete(s.bands).where(eq(s.bands.id, conflictingLocalId));
+				bandsById.delete(conflictingLocalId);
 			}
 		}
 
-		// Settings
 		for (const setting of data.settings) {
-			const existing = await db
-				.select()
-				.from(s.settings)
-				.where(sql`${s.settings.id} = ${setting.id}`);
+			const existing = await db.select().from(s.settings).where(eq(s.settings.id, setting.id));
 			if (existing.length === 0 || new Date(setting.updatedAt) > existing[0].updatedAt) {
 				await db
 					.insert(s.settings)
@@ -703,7 +744,7 @@ class SyncService {
 						weightUnit: setting.weightUnit,
 						keepScreenAwake: setting.keepScreenAwake,
 						updatedAt: new Date(setting.updatedAt),
-						syncedAt: new Date()
+						syncedAt
 					})
 					.onConflictDoUpdate({
 						target: s.settings.id,
@@ -711,217 +752,268 @@ class SyncService {
 							weightUnit: setting.weightUnit,
 							keepScreenAwake: setting.keepScreenAwake,
 							updatedAt: new Date(setting.updatedAt),
-							syncedAt: new Date()
+							syncedAt
 						}
 					});
 			}
 		}
 
-		// Exercises
+		const exercisesById = new Map(localExercises.map((row) => [row.id, row]));
+		const exercisesBySlug = new Map(
+			localExercises.filter((row) => row.seedSlug).map((row) => [row.seedSlug!, row])
+		);
+		const exercisesByNameKey = new Map(
+			localExercises.filter((row) => row.nameKey).map((row) => [row.nameKey!, row])
+		);
+
 		for (const exercise of data.exercises) {
 			let conflictingLocalId: string | null = null;
 			const nameKey = exercise.nameKey ?? getCatalogNameKey(exercise.name);
 			if (exercise.seedSlug) {
-				const localBySlug = await db.query.exercises.findFirst({
-					where: eq(s.exercises.seedSlug, exercise.seedSlug),
-					columns: { id: true }
-				});
+				const localBySlug = exercisesBySlug.get(exercise.seedSlug);
 				if (localBySlug && localBySlug.id !== exercise.id) {
 					conflictingLocalId = localBySlug.id;
 					await db
 						.update(s.exercises)
 						.set({ seedSlug: null })
 						.where(eq(s.exercises.id, localBySlug.id));
+					exercisesBySlug.delete(exercise.seedSlug);
 				}
 			}
-			const localByName = await db.query.exercises.findFirst({
-				where: eq(s.exercises.nameKey, nameKey),
-				columns: { id: true }
-			});
+			const localByName = exercisesByNameKey.get(nameKey);
 			if (localByName && localByName.id !== exercise.id) {
 				conflictingLocalId = localByName.id;
 				await db
 					.update(s.exercises)
 					.set({ nameKey: null })
 					.where(eq(s.exercises.id, localByName.id));
+				exercisesByNameKey.delete(nameKey);
 			}
 
-			const existing = await db
-				.select()
-				.from(s.exercises)
-				.where(sql`${s.exercises.id} = ${exercise.id}`);
-			if (existing.length === 0 || new Date(exercise.updatedAt) > existing[0].updatedAt) {
+			const existing = exercisesById.get(exercise.id);
+			if (!existing || new Date(exercise.updatedAt) > existing.updatedAt) {
+				const row = {
+					id: exercise.id,
+					name: exercise.name,
+					nameKey,
+					seedSlug: exercise.seedSlug,
+					createdAt: new Date(exercise.createdAt),
+					updatedAt: new Date(exercise.updatedAt),
+					deletedAt: exercise.deletedAt ? new Date(exercise.deletedAt) : null,
+					syncedAt
+				};
 				await db
 					.insert(s.exercises)
-					.values({
-						id: exercise.id,
-						name: exercise.name,
-						nameKey,
-						seedSlug: exercise.seedSlug,
-						createdAt: new Date(exercise.createdAt),
-						updatedAt: new Date(exercise.updatedAt),
-						deletedAt: exercise.deletedAt ? new Date(exercise.deletedAt) : null,
-						syncedAt: new Date()
-					})
+					.values(row)
 					.onConflictDoUpdate({
 						target: s.exercises.id,
 						set: {
-							name: exercise.name,
-							nameKey,
-							seedSlug: exercise.seedSlug,
-							updatedAt: new Date(exercise.updatedAt),
-							deletedAt: exercise.deletedAt ? new Date(exercise.deletedAt) : null,
-							syncedAt: new Date()
+							name: row.name,
+							nameKey: row.nameKey,
+							seedSlug: row.seedSlug,
+							updatedAt: row.updatedAt,
+							deletedAt: row.deletedAt,
+							syncedAt
 						}
 					});
+				exercisesById.set(exercise.id, {
+					id: row.id,
+					name: row.name,
+					nameKey: row.nameKey,
+					seedSlug: row.seedSlug,
+					createdAt: row.createdAt,
+					updatedAt: row.updatedAt,
+					deletedAt: row.deletedAt,
+					syncedAt: row.syncedAt
+				});
+				if (row.seedSlug) exercisesBySlug.set(row.seedSlug, exercisesById.get(exercise.id)!);
+				exercisesByNameKey.set(nameKey, exercisesById.get(exercise.id)!);
 			}
 
 			if (conflictingLocalId) {
 				await this.remapExerciseId(conflictingLocalId, exercise.id);
 				await db.delete(s.exercises).where(eq(s.exercises.id, conflictingLocalId));
+				exercisesById.delete(conflictingLocalId);
 			}
 		}
 
-		// Workout Templates
+		const templatesById = new Map(localTemplates.map((row) => [row.id, row]));
+		const templatesBySlug = new Map(
+			localTemplates.filter((row) => row.seedSlug).map((row) => [row.seedSlug!, row])
+		);
+		const templatesByNameKey = new Map(
+			localTemplates.filter((row) => row.nameKey).map((row) => [row.nameKey!, row])
+		);
+
 		for (const template of data.workoutTemplates) {
 			let conflictingLocalId: string | null = null;
 			const nameKey = template.nameKey ?? getCatalogNameKey(template.name);
 			if (template.seedSlug) {
-				const localBySlug = await db.query.workoutTemplates.findFirst({
-					where: eq(s.workoutTemplates.seedSlug, template.seedSlug),
-					columns: { id: true }
-				});
+				const localBySlug = templatesBySlug.get(template.seedSlug);
 				if (localBySlug && localBySlug.id !== template.id) {
 					conflictingLocalId = localBySlug.id;
 					await db
 						.update(s.workoutTemplates)
 						.set({ seedSlug: null })
 						.where(eq(s.workoutTemplates.id, localBySlug.id));
+					templatesBySlug.delete(template.seedSlug);
 				}
 			}
-			const localByName = await db.query.workoutTemplates.findFirst({
-				where: eq(s.workoutTemplates.nameKey, nameKey),
-				columns: { id: true }
-			});
+			const localByName = templatesByNameKey.get(nameKey);
 			if (localByName && localByName.id !== template.id) {
 				conflictingLocalId = localByName.id;
 				await db
 					.update(s.workoutTemplates)
 					.set({ nameKey: null })
 					.where(eq(s.workoutTemplates.id, localByName.id));
+				templatesByNameKey.delete(nameKey);
 			}
 
-			const existing = await db
-				.select()
-				.from(s.workoutTemplates)
-				.where(sql`${s.workoutTemplates.id} = ${template.id}`);
-			if (existing.length === 0 || new Date(template.updatedAt) > existing[0].updatedAt) {
+			const existing = templatesById.get(template.id);
+			if (!existing || new Date(template.updatedAt) > existing.updatedAt) {
+				const row = {
+					id: template.id,
+					name: template.name,
+					nameKey,
+					seedSlug: template.seedSlug,
+					createdAt: new Date(template.createdAt),
+					updatedAt: new Date(template.updatedAt),
+					deletedAt: template.deletedAt ? new Date(template.deletedAt) : null,
+					icon: template.icon,
+					sortOrder: template.sortOrder,
+					syncedAt
+				};
 				await db
 					.insert(s.workoutTemplates)
-					.values({
-						id: template.id,
-						name: template.name,
-						nameKey,
-						seedSlug: template.seedSlug,
-						createdAt: new Date(template.createdAt),
-						updatedAt: new Date(template.updatedAt),
-						deletedAt: template.deletedAt ? new Date(template.deletedAt) : null,
-						icon: template.icon,
-						sortOrder: template.sortOrder,
-						syncedAt: new Date()
-					})
+					.values(row)
 					.onConflictDoUpdate({
 						target: s.workoutTemplates.id,
 						set: {
-							name: template.name,
-							nameKey,
-							seedSlug: template.seedSlug,
-							updatedAt: new Date(template.updatedAt),
-							deletedAt: template.deletedAt ? new Date(template.deletedAt) : null,
-							icon: template.icon,
-							sortOrder: template.sortOrder,
-							syncedAt: new Date()
+							name: row.name,
+							nameKey: row.nameKey,
+							seedSlug: row.seedSlug,
+							updatedAt: row.updatedAt,
+							deletedAt: row.deletedAt,
+							icon: row.icon,
+							sortOrder: row.sortOrder,
+							syncedAt
 						}
 					});
+				templatesById.set(template.id, {
+					id: row.id,
+					name: row.name,
+					nameKey: row.nameKey,
+					seedSlug: row.seedSlug,
+					createdAt: row.createdAt,
+					updatedAt: row.updatedAt,
+					deletedAt: row.deletedAt,
+					icon: row.icon,
+					sortOrder: row.sortOrder,
+					syncedAt: row.syncedAt
+				});
+				if (row.seedSlug) templatesBySlug.set(row.seedSlug, templatesById.get(template.id)!);
+				templatesByNameKey.set(nameKey, templatesById.get(template.id)!);
 			}
 
 			if (conflictingLocalId) {
 				await this.remapTemplateId(conflictingLocalId, template.id);
 				await db.delete(s.workoutTemplates).where(eq(s.workoutTemplates.id, conflictingLocalId));
+				templatesById.delete(conflictingLocalId);
 			}
 		}
 
-		// Workout Template Exercises (junction table - simpler upsert)
+		const wtesById = new Map(localWtes.map((row) => [row.id, row]));
+		const wtesBySlug = new Map(
+			localWtes.filter((row) => row.seedSlug).map((row) => [row.seedSlug!, row])
+		);
+		let wteWrote = false;
+
 		for (const wte of data.workoutTemplateExercises) {
 			let conflictingLocalId: string | null = null;
 			if (wte.seedSlug) {
-				const localBySlug = await db.query.workoutTemplateExercises.findFirst({
-					where: eq(s.workoutTemplateExercises.seedSlug, wte.seedSlug),
-					columns: { id: true }
-				});
+				const localBySlug = wtesBySlug.get(wte.seedSlug);
 				if (localBySlug && localBySlug.id !== wte.id) {
 					conflictingLocalId = localBySlug.id;
 					await db
 						.update(s.workoutTemplateExercises)
 						.set({ seedSlug: null })
 						.where(eq(s.workoutTemplateExercises.id, localBySlug.id));
+					wtesBySlug.delete(wte.seedSlug);
 				}
 			}
 
-			await db
-				.insert(s.workoutTemplateExercises)
-				.values({
-					id: wte.id,
-					templateId: wte.templateId,
-					exerciseId: wte.exerciseId,
-					seedSlug: wte.seedSlug,
-					sortOrder: wte.sortOrder,
-					syncedAt: new Date()
-				})
-				.onConflictDoUpdate({
-					target: s.workoutTemplateExercises.id,
-					set: {
+			const existing = wtesById.get(wte.id);
+			const unchanged =
+				existing &&
+				existing.syncedAt != null &&
+				existing.templateId === wte.templateId &&
+				existing.exerciseId === wte.exerciseId &&
+				existing.seedSlug === wte.seedSlug &&
+				existing.sortOrder === wte.sortOrder;
+
+			if (!unchanged) {
+				wteWrote = true;
+				await db
+					.insert(s.workoutTemplateExercises)
+					.values({
+						id: wte.id,
 						templateId: wte.templateId,
 						exerciseId: wte.exerciseId,
 						seedSlug: wte.seedSlug,
 						sortOrder: wte.sortOrder,
-						syncedAt: new Date()
-					}
-				});
+						syncedAt
+					})
+					.onConflictDoUpdate({
+						target: s.workoutTemplateExercises.id,
+						set: {
+							templateId: wte.templateId,
+							exerciseId: wte.exerciseId,
+							seedSlug: wte.seedSlug,
+							sortOrder: wte.sortOrder,
+							syncedAt
+						}
+					});
+			}
 
 			if (conflictingLocalId) {
+				wteWrote = true;
 				await db
 					.delete(s.workoutTemplateExercises)
 					.where(eq(s.workoutTemplateExercises.id, conflictingLocalId));
+				wtesById.delete(conflictingLocalId);
 			}
 		}
 
-		// Drop synced local junctions that the server no longer has (full pull of junctions).
+		// Drop synced local junctions missing from the full server pull.
 		const pulledWteIds = data.workoutTemplateExercises.map((wte) => wte.id);
-		const localSyncedWtes = await db
-			.select({ id: s.workoutTemplateExercises.id })
-			.from(s.workoutTemplateExercises)
-			.where(isNotNull(s.workoutTemplateExercises.syncedAt));
-		const orphanIds = getOrphanSyncedJunctionIds(
-			localSyncedWtes.map((row) => row.id),
-			pulledWteIds
-		);
+		const localSyncedWteIds = (
+			needsWte
+				? localWtes.filter((row) => row.syncedAt != null)
+				: await db
+						.select({ id: s.workoutTemplateExercises.id })
+						.from(s.workoutTemplateExercises)
+						.where(isNotNull(s.workoutTemplateExercises.syncedAt))
+		).map((row) => row.id);
+		const orphanIds = getOrphanSyncedJunctionIds(localSyncedWteIds, pulledWteIds);
 		if (orphanIds.length > 0) {
+			wteWrote = true;
 			await db
 				.delete(s.workoutTemplateExercises)
 				.where(inArray(s.workoutTemplateExercises.id, orphanIds));
 		}
 
-		// Workout Sessions
-		for (const session of data.workoutSessions) {
-			const existing = await db
-				.select()
-				.from(s.workoutSessions)
-				.where(sql`${s.workoutSessions.id} = ${session.id}`);
-			if (existing.length === 0 || new Date(session.updatedAt) > existing[0].updatedAt) {
-				await db
-					.insert(s.workoutSessions)
-					.values({
+		const sessionsById = new Map(localSessions.map((row) => [row.id, row]));
+		const sessionsToWrite = rowsNeedingWrite(
+			data.workoutSessions,
+			sessionsById,
+			(local, row) => local.syncedAt != null && local.updatedAt >= new Date(row.updatedAt)
+		);
+		for (const chunk of chunkArray(sessionsToWrite, UPSERT_CHUNK_SIZE)) {
+			if (chunk.length === 0) continue;
+			await db
+				.insert(s.workoutSessions)
+				.values(
+					chunk.map((session) => ({
 						id: session.id,
 						templateId: session.templateId,
 						startedAt: new Date(session.startedAt),
@@ -929,71 +1021,99 @@ class SyncService {
 						endedAt: session.endedAt ? new Date(session.endedAt) : null,
 						notes: session.notes,
 						plannedExercises: session.plannedExercises,
-						syncedAt: new Date()
-					})
-					.onConflictDoUpdate({
-						target: s.workoutSessions.id,
-						set: {
-							templateId: session.templateId,
-							updatedAt: new Date(session.updatedAt),
-							endedAt: session.endedAt ? new Date(session.endedAt) : null,
-							notes: session.notes,
-							plannedExercises: session.plannedExercises,
-							syncedAt: new Date()
-						}
-					});
-			}
+						syncedAt
+					}))
+				)
+				.onConflictDoUpdate({
+					target: s.workoutSessions.id,
+					set: {
+						templateId: sql`excluded.template_id`,
+						updatedAt: sql`excluded.updated_at`,
+						endedAt: sql`excluded.ended_at`,
+						notes: sql`excluded.notes`,
+						plannedExercises: sql`excluded.planned_exercises`,
+						syncedAt
+					}
+				});
 		}
 
-		// Logged Exercises
-		for (const log of data.loggedExercises) {
+		const logsById = new Map(localLogs.map((row) => [row.id, row]));
+		const logsToWrite = rowsNeedingWrite(
+			data.loggedExercises,
+			logsById,
+			(local, row) =>
+				local.syncedAt != null &&
+				local.sessionId === row.sessionId &&
+				local.exerciseId === row.exerciseId &&
+				local.fullReps === row.fullReps &&
+				local.partialReps === row.partialReps &&
+				local.notes === row.notes &&
+				local.loggedAt.getTime() === new Date(row.loggedAt).getTime()
+		);
+		for (const chunk of chunkArray(logsToWrite, UPSERT_CHUNK_SIZE)) {
+			if (chunk.length === 0) continue;
 			await db
 				.insert(s.loggedExercises)
-				.values({
-					id: log.id,
-					sessionId: log.sessionId,
-					exerciseId: log.exerciseId,
-					fullReps: log.fullReps,
-					partialReps: log.partialReps,
-					notes: log.notes,
-					loggedAt: new Date(log.loggedAt),
-					syncedAt: new Date()
-				})
-				.onConflictDoUpdate({
-					target: s.loggedExercises.id,
-					set: {
+				.values(
+					chunk.map((log) => ({
+						id: log.id,
 						sessionId: log.sessionId,
 						exerciseId: log.exerciseId,
 						fullReps: log.fullReps,
 						partialReps: log.partialReps,
 						notes: log.notes,
 						loggedAt: new Date(log.loggedAt),
-						syncedAt: new Date()
+						syncedAt
+					}))
+				)
+				.onConflictDoUpdate({
+					target: s.loggedExercises.id,
+					set: {
+						sessionId: sql`excluded.session_id`,
+						exerciseId: sql`excluded.exercise_id`,
+						fullReps: sql`excluded.full_reps`,
+						partialReps: sql`excluded.partial_reps`,
+						notes: sql`excluded.notes`,
+						loggedAt: sql`excluded.logged_at`,
+						syncedAt
 					}
 				});
 		}
 
-		// Logged Exercise Bands
-		for (const leb of data.loggedExerciseBands) {
+		const lebsById = new Map(localLebs.map((row) => [row.id, row]));
+		const lebsToWrite = rowsNeedingWrite(
+			data.loggedExerciseBands,
+			lebsById,
+			(local, row) =>
+				local.syncedAt != null &&
+				local.loggedExerciseId === row.loggedExerciseId &&
+				local.bandId === row.bandId
+		);
+		for (const chunk of chunkArray(lebsToWrite, UPSERT_CHUNK_SIZE)) {
+			if (chunk.length === 0) continue;
 			await db
 				.insert(s.loggedExerciseBands)
-				.values({
-					id: leb.id,
-					loggedExerciseId: leb.loggedExerciseId,
-					bandId: leb.bandId,
-					syncedAt: new Date()
-				})
+				.values(
+					chunk.map((leb) => ({
+						id: leb.id,
+						loggedExerciseId: leb.loggedExerciseId,
+						bandId: leb.bandId,
+						syncedAt
+					}))
+				)
 				.onConflictDoUpdate({
 					target: s.loggedExerciseBands.id,
 					set: {
-						loggedExerciseId: leb.loggedExerciseId,
-						bandId: leb.bandId,
-						syncedAt: new Date()
+						loggedExerciseId: sql`excluded.logged_exercise_id`,
+						bandId: sql`excluded.band_id`,
+						syncedAt
 					}
 				});
 		}
 
-		await dedupeTemplateExercisePairs(db);
+		if (wteWrote) {
+			await dedupeTemplateExercisePairs(db);
+		}
 	}
 
 	// Force a manual sync
