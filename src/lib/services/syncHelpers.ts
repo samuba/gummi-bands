@@ -52,3 +52,76 @@ export function resolveExercisesByPlannedIds<T extends { id: string }>(
 
 	return resolved;
 }
+
+/** Collect primary keys from rows that were included in a push payload. */
+export function idsOf<T extends { id: string }>(rows: T[]): string[] {
+	return rows.map((row) => row.id);
+}
+
+/**
+ * Map local IDs through server remaps and dedupe. Used so syncedAt is set on
+ * rows that still exist after catalog merge remaps delete the pushed id.
+ */
+export function resolveRemappedIds(
+	ids: Iterable<string>,
+	remaps?: Record<string, string>
+): string[] {
+	const result: string[] = [];
+	const seen = new Set<string>();
+
+	for (const id of ids) {
+		const resolved = remaps?.[id] ?? id;
+		if (seen.has(resolved)) continue;
+		seen.add(resolved);
+		result.push(resolved);
+	}
+
+	return result;
+}
+
+/**
+ * Mark-as-synced targets after push remaps.
+ * - Non-remapped: keep snapshot updatedAt so a concurrent local edit stays dirty.
+ * - Remapped: mark canonical id unconditionally (pushed local row was deleted).
+ */
+export function resolveSyncedMarkTargets(
+	rows: ReadonlyArray<{ id: string; updatedAt: Date }>,
+	remaps?: Record<string, string>
+): Array<{ id: string; updatedAt: Date | null }> {
+	const result: Array<{ id: string; updatedAt: Date | null }> = [];
+	const seen = new Set<string>();
+
+	for (const row of rows) {
+		const remapped = remaps?.[row.id];
+		const id = remapped ?? row.id;
+		if (seen.has(id)) continue;
+		seen.add(id);
+		const wasRemapped = remapped != null && remapped !== row.id;
+		result.push({ id, updatedAt: wasRemapped ? null : row.updatedAt });
+	}
+
+	return result;
+}
+
+/** Catalog repair is only needed on first pull; later pulls are incremental. */
+export function shouldRepairCatalogOnPull(lastSyncAt: string | null | undefined): boolean {
+	return !lastSyncAt;
+}
+
+/**
+ * Whether a push must run even when junction/row payloads look empty —
+ * e.g. intentional clear-all of a template's exercises.
+ */
+export function hasPushWork(options: {
+	rowCounts: number[];
+	replacementTemplateIds: readonly string[];
+}): boolean {
+	if (options.replacementTemplateIds.length > 0) return true;
+	return options.rowCounts.some((count) => count > 0);
+}
+
+/** Exponential backoff delay for sync retries, capped at maxMs. */
+export function syncRetryDelayMs(attempt: number, baseMs: number, maxMs: number): number {
+	const safeAttempt = Math.max(0, attempt);
+	return Math.min(baseMs * 2 ** safeAttempt, maxMs);
+}

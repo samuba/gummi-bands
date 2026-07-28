@@ -2,7 +2,7 @@ import { browser } from '$app/environment';
 import { db } from '$lib/db/app/client';
 import * as s from '$lib/db/app/schema';
 import { sessionStore } from '$lib/auth-client';
-import { type Column, eq, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
+import { type Column, and, eq, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import { getCatalogNameKey } from '$lib/db/catalog';
 import {
 	dedupeTemplateExercisePairs,
@@ -10,7 +10,14 @@ import {
 	remapLocalExerciseId,
 	remapLocalTemplateId
 } from '$lib/db/app/catalogMerge';
-import { getOrphanSyncedJunctionIds, getSafeReplacementTemplateIds } from './syncHelpers';
+import {
+	getOrphanSyncedJunctionIds,
+	getSafeReplacementTemplateIds,
+	hasPushWork,
+	idsOf,
+	resolveSyncedMarkTargets,
+	syncRetryDelayMs
+} from './syncHelpers';
 
 const isUnsyncedWhere = (table: { syncedAt: Column; updatedAt: Column }) =>
 	or(isNull(table.syncedAt), lt(table.syncedAt, table.updatedAt));
@@ -23,9 +30,14 @@ class SyncService {
 	syncError = $state<string | null>(null);
 	private activeUserId: string | null = null;
 
-	// Debounce timer
+	// Debounce / retry / queue
 	private debounceTimer: ReturnType<typeof setTimeout> | null = null;
-	private readonly DEBOUNCE_MS = 3000;
+	private retryTimer: ReturnType<typeof setTimeout> | null = null;
+	private syncQueued = false;
+	private retryAttempt = 0;
+	private readonly DEBOUNCE_MS = 500;
+	private readonly RETRY_MS = 2000;
+	private readonly RETRY_MAX_MS = 60_000;
 
 	// Track if we're initialized
 	private initialized = false;
@@ -62,19 +74,61 @@ class SyncService {
 		this.lastSyncAt = localStorage.getItem(this.getLastSyncKey(userId));
 	}
 
+	private isLoggedIn() {
+		return !!sessionStore.value?.data?.user;
+	}
+
+	private clearDebounce() {
+		if (!this.debounceTimer) return;
+		clearTimeout(this.debounceTimer);
+		this.debounceTimer = null;
+	}
+
+	private clearRetry() {
+		if (!this.retryTimer) return;
+		clearTimeout(this.retryTimer);
+		this.retryTimer = null;
+	}
+
+	/** Cancel debounce and sync immediately (background/close/online). */
+	private flushSync() {
+		if (!browser || !this.isOnline || !this.isLoggedIn()) return;
+		this.clearDebounce();
+		void this.fullSync();
+	}
+
+	private scheduleRetry() {
+		if (this.retryTimer || !browser || !this.isOnline) return;
+		const delay = syncRetryDelayMs(this.retryAttempt, this.RETRY_MS, this.RETRY_MAX_MS);
+		this.retryAttempt += 1;
+		this.retryTimer = setTimeout(() => {
+			this.retryTimer = null;
+			void this.fullSync();
+		}, delay);
+	}
+
 	// Initialize sync service - call after db is ready
 	initialize() {
 		if (!browser || this.initialized) return;
 		this.initialized = true;
 
-		// Set up online/offline listeners
 		window.addEventListener('online', () => {
 			this.isOnline = true;
-			this.fullSync();
+			this.flushSync();
 		});
 
 		window.addEventListener('offline', () => {
 			this.isOnline = false;
+		});
+
+		document.addEventListener('visibilitychange', () => {
+			if (document.visibilityState === 'hidden') {
+				this.flushSync();
+			}
+		});
+
+		window.addEventListener('pagehide', () => {
+			this.flushSync();
 		});
 
 		// Track previous session state to detect login vs page refresh
@@ -104,6 +158,10 @@ class SyncService {
 				if (!currentUserId) {
 					this.activeUserId = null;
 					this.lastSyncAt = null;
+					this.clearDebounce();
+					this.clearRetry();
+					this.syncQueued = false;
+					this.retryAttempt = 0;
 				}
 
 				previousUserId = currentUserId;
@@ -115,27 +173,24 @@ class SyncService {
 	// Trigger a debounced sync after write operations
 	triggerSync() {
 		if (!browser || !this.isOnline) return;
+		if (!this.isLoggedIn()) return;
 
-		// Only sync if user is logged in
-		const session = sessionStore.value;
-		if (!session?.data?.user) return;
-
-		// Debounce to avoid too many syncs
-		if (this.debounceTimer) {
-			clearTimeout(this.debounceTimer);
-		}
-
+		this.clearDebounce();
 		this.debounceTimer = setTimeout(() => {
 			this.debounceTimer = null;
-			this.fullSync();
+			void this.fullSync();
 		}, this.DEBOUNCE_MS);
 	}
 
 	// Full bidirectional sync
 	async fullSync() {
-		if (!browser || !db || this.isSyncing) return;
+		if (!browser || !db) return;
 
-		// Check if user is logged in
+		if (this.isSyncing) {
+			this.syncQueued = true;
+			return;
+		}
+
 		const session = sessionStore.value;
 		if (!session?.data?.user) return;
 		const userId = session.data.user.id;
@@ -146,6 +201,7 @@ class SyncService {
 
 		this.isSyncing = true;
 		this.syncError = null;
+		this.clearRetry();
 
 		try {
 			await this.runSeedSlugMigrationForUser(userId);
@@ -200,16 +256,19 @@ class SyncService {
 				...unsyncedTemplateExercises.filter((wte) => !replacementTemplateIdSet.has(wte.templateId))
 			];
 
-			// 2. Push local changes to server
-			const hasChangesToPush =
-				unsyncedBands.length > 0 ||
-				unsyncedSettings.length > 0 ||
-				unsyncedExercises.length > 0 ||
-				unsyncedTemplates.length > 0 ||
-				workoutTemplateExercisesToPush.length > 0 ||
-				unsyncedSessions.length > 0 ||
-				unsyncedLoggedExercises.length > 0 ||
-				unsyncedLoggedExerciseBands.length > 0;
+			const hasChangesToPush = hasPushWork({
+				rowCounts: [
+					unsyncedBands.length,
+					unsyncedSettings.length,
+					unsyncedExercises.length,
+					unsyncedTemplates.length,
+					workoutTemplateExercisesToPush.length,
+					unsyncedSessions.length,
+					unsyncedLoggedExercises.length,
+					unsyncedLoggedExerciseBands.length
+				],
+				replacementTemplateIds
+			});
 
 			if (hasChangesToPush) {
 				const pushResponse = await fetch('/api/sync/push', {
@@ -222,9 +281,9 @@ class SyncService {
 							updatedAt: b.updatedAt.toISOString(),
 							deletedAt: b.deletedAt?.toISOString() ?? null
 						})),
-						settings: unsyncedSettings.map((s) => ({
-							...s,
-							updatedAt: s.updatedAt.toISOString()
+						settings: unsyncedSettings.map((row) => ({
+							...row,
+							updatedAt: row.updatedAt.toISOString()
 						})),
 						exercises: unsyncedExercises.map((e) => ({
 							...e,
@@ -240,11 +299,11 @@ class SyncService {
 						})),
 						replaceWorkoutTemplateExercisesForTemplateIds: replacementTemplateIds,
 						workoutTemplateExercises: workoutTemplateExercisesToPush,
-						workoutSessions: unsyncedSessions.map((s) => ({
-							...s,
-							startedAt: s.startedAt.toISOString(),
-							updatedAt: s.updatedAt.toISOString(),
-							endedAt: s.endedAt?.toISOString() ?? null
+						workoutSessions: unsyncedSessions.map((row) => ({
+							...row,
+							startedAt: row.startedAt.toISOString(),
+							updatedAt: row.updatedAt.toISOString(),
+							endedAt: row.endedAt?.toISOString() ?? null
 						})),
 						loggedExercises: unsyncedLoggedExercises.map((le) => ({
 							...le,
@@ -263,54 +322,114 @@ class SyncService {
 
 				for (const templateId of replacementTemplateIds) {
 					this.templateExerciseReplacementIds.delete(templateId);
+					const remapped = pushResult.idRemaps?.workoutTemplates[templateId];
+					if (remapped) this.templateExerciseReplacementIds.delete(remapped);
 				}
 
-				// 3. Mark pushed records as synced
+				// Mark only rows that were included in this push (after remaps).
+				// For updatedAt-tracked tables, require snapshot updatedAt so a
+				// concurrent local edit during the push stays dirty.
+				const now = new Date();
+				const bandTargets = resolveSyncedMarkTargets(
+					unsyncedBands,
+					pushResult.idRemaps?.bands
+				);
+				const exerciseTargets = resolveSyncedMarkTargets(
+					unsyncedExercises,
+					pushResult.idRemaps?.exercises
+				);
+				const templateTargets = resolveSyncedMarkTargets(
+					unsyncedTemplates,
+					pushResult.idRemaps?.workoutTemplates
+				);
+				const settingTargets = resolveSyncedMarkTargets(unsyncedSettings);
+				const sessionTargets = resolveSyncedMarkTargets(unsyncedSessions);
+				const wteIds = idsOf(workoutTemplateExercisesToPush);
+				const loggedExerciseIds = idsOf(unsyncedLoggedExercises);
+				const loggedExerciseBandIds = idsOf(unsyncedLoggedExerciseBands);
+
 				await Promise.all([
-					unsyncedBands.length > 0 &&
+					...bandTargets.map((target) =>
 						db
 							.update(s.bands)
-							.set({ syncedAt: sql`now()` })
-							.where(isUnsyncedWhere(s.bands)),
-					unsyncedSettings.length > 0 &&
+							.set({ syncedAt: target.updatedAt ?? now })
+							.where(
+								target.updatedAt
+									? and(eq(s.bands.id, target.id), eq(s.bands.updatedAt, target.updatedAt))
+									: eq(s.bands.id, target.id)
+							)
+					),
+					...settingTargets.map((target) =>
 						db
 							.update(s.settings)
-							.set({ syncedAt: sql`now()` })
-							.where(isUnsyncedWhere(s.settings)),
-					unsyncedExercises.length > 0 &&
+							.set({ syncedAt: target.updatedAt ?? now })
+							.where(
+								target.updatedAt
+									? and(
+											eq(s.settings.id, target.id),
+											eq(s.settings.updatedAt, target.updatedAt)
+										)
+									: eq(s.settings.id, target.id)
+							)
+					),
+					...exerciseTargets.map((target) =>
 						db
 							.update(s.exercises)
-							.set({ syncedAt: sql`now()` })
-							.where(isUnsyncedWhere(s.exercises)),
-					unsyncedTemplates.length > 0 &&
+							.set({ syncedAt: target.updatedAt ?? now })
+							.where(
+								target.updatedAt
+									? and(
+											eq(s.exercises.id, target.id),
+											eq(s.exercises.updatedAt, target.updatedAt)
+										)
+									: eq(s.exercises.id, target.id)
+							)
+					),
+					...templateTargets.map((target) =>
 						db
 							.update(s.workoutTemplates)
-							.set({ syncedAt: sql`now()` })
-							.where(isUnsyncedWhere(s.workoutTemplates)),
-					workoutTemplateExercisesToPush.length > 0 &&
+							.set({ syncedAt: target.updatedAt ?? now })
+							.where(
+								target.updatedAt
+									? and(
+											eq(s.workoutTemplates.id, target.id),
+											eq(s.workoutTemplates.updatedAt, target.updatedAt)
+										)
+									: eq(s.workoutTemplates.id, target.id)
+							)
+					),
+					wteIds.length > 0 &&
 						db
 							.update(s.workoutTemplateExercises)
-							.set({ syncedAt: sql`now()` })
-							.where(isNull(s.workoutTemplateExercises.syncedAt)),
-					unsyncedSessions.length > 0 &&
+							.set({ syncedAt: now })
+							.where(inArray(s.workoutTemplateExercises.id, wteIds)),
+					...sessionTargets.map((target) =>
 						db
 							.update(s.workoutSessions)
-							.set({ syncedAt: sql`now()` })
-							.where(isUnsyncedWhere(s.workoutSessions)),
-					unsyncedLoggedExercises.length > 0 &&
+							.set({ syncedAt: target.updatedAt ?? now })
+							.where(
+								target.updatedAt
+									? and(
+											eq(s.workoutSessions.id, target.id),
+											eq(s.workoutSessions.updatedAt, target.updatedAt)
+										)
+									: eq(s.workoutSessions.id, target.id)
+							)
+					),
+					loggedExerciseIds.length > 0 &&
 						db
 							.update(s.loggedExercises)
-							.set({ syncedAt: sql`now()` })
-							.where(isNull(s.loggedExercises.syncedAt)),
-					unsyncedLoggedExerciseBands.length > 0 &&
+							.set({ syncedAt: now })
+							.where(inArray(s.loggedExercises.id, loggedExerciseIds)),
+					loggedExerciseBandIds.length > 0 &&
 						db
 							.update(s.loggedExerciseBands)
-							.set({ syncedAt: sql`now()` })
-							.where(isNull(s.loggedExerciseBands.syncedAt))
+							.set({ syncedAt: now })
+							.where(inArray(s.loggedExerciseBands.id, loggedExerciseBandIds))
 				]);
 			}
 
-			// 4. Pull server changes
+			// Pull server changes
 			const pullUrl = new URL('/api/sync/pull', window.location.origin);
 			if (this.lastSyncAt) {
 				pullUrl.searchParams.set('lastSyncAt', this.lastSyncAt);
@@ -323,19 +442,23 @@ class SyncService {
 
 			const pullResult: PullResponse = await pullResponse.json();
 
-			// 5. Apply server changes locally (last-write-wins based on updatedAt)
 			await this.applyServerChanges(pullResult);
 
-			// 6. Update lastSyncAt
 			this.lastSyncAt = pullResult.syncedAt;
 			localStorage.setItem(this.getLastSyncKey(userId), pullResult.syncedAt);
+			this.retryAttempt = 0;
 
 			await this.onSyncComplete?.();
 		} catch (err) {
 			console.error('Sync failed:', err);
 			this.syncError = err instanceof Error ? err.message : 'Sync failed';
+			this.scheduleRetry();
 		} finally {
 			this.isSyncing = false;
+			if (this.syncQueued) {
+				this.syncQueued = false;
+				void this.fullSync();
+			}
 		}
 	}
 
@@ -875,10 +998,9 @@ class SyncService {
 
 	// Force a manual sync
 	async manualSync() {
-		if (this.debounceTimer) {
-			clearTimeout(this.debounceTimer);
-			this.debounceTimer = null;
-		}
+		this.clearDebounce();
+		this.clearRetry();
+		this.retryAttempt = 0;
 		await this.fullSync();
 	}
 }
