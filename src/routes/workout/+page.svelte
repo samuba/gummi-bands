@@ -44,6 +44,8 @@
 			// Start new session
 			await workout.startSession(templateId || undefined);
 		}
+
+		await workout.hydrateSuggestedExercisesFromPlanned();
 	}
 
 	async function handleEndWorkout() {

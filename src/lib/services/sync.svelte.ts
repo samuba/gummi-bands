@@ -10,6 +10,7 @@ import {
 	remapLocalExerciseId,
 	remapLocalTemplateId
 } from '$lib/db/app/catalogMerge';
+import { getOrphanSyncedJunctionIds, getSafeReplacementTemplateIds } from './syncHelpers';
 
 const isUnsyncedWhere = (table: { syncedAt: Column; updatedAt: Column }) =>
 	or(isNull(table.syncedAt), lt(table.syncedAt, table.updatedAt));
@@ -29,9 +30,22 @@ class SyncService {
 	// Track if we're initialized
 	private initialized = false;
 
+	/** Template IDs whose exercise lists were explicitly replaced and need server-side replace-on-push. */
+	private templateExerciseReplacementIds = new Set<string>();
+
+	private onSyncComplete: (() => void | Promise<void>) | null = null;
+
 	constructor() {
 		// Guest mode uses no server sync marker.
 		this.lastSyncAt = null;
+	}
+
+	setOnSyncComplete(callback: () => void | Promise<void>) {
+		this.onSyncComplete = callback;
+	}
+
+	markTemplateExercisesReplaced(templateId: string) {
+		this.templateExerciseReplacementIds.add(templateId);
 	}
 
 	private getLastSyncKey(userId: string) {
@@ -158,15 +172,29 @@ class SyncService {
 				db.select().from(s.loggedExercises).where(isNull(s.loggedExercises.syncedAt)),
 				db.select().from(s.loggedExerciseBands).where(isNull(s.loggedExerciseBands.syncedAt))
 			]);
-			const replacementTemplateIds = unsyncedTemplates.map((template) => template.id);
+			const allLocalTemplateExercises = await db.select().from(s.workoutTemplateExercises);
+			const localExerciseCountsByTemplateId = new Map<string, number>();
+			for (const wte of allLocalTemplateExercises) {
+				localExerciseCountsByTemplateId.set(
+					wte.templateId,
+					(localExerciseCountsByTemplateId.get(wte.templateId) ?? 0) + 1
+				);
+			}
+
+			const replacementTemplateIds = getSafeReplacementTemplateIds({
+				markedTemplateIds: this.templateExerciseReplacementIds,
+				localExerciseCountsByTemplateId,
+				// Marked IDs are intentional edits (including clear-all). Empty skip only
+				// mattered when metadata-dirty templates auto-replaced.
+				allowEmptyReplace: true
+			});
+			const replacementTemplateIdSet = new Set(replacementTemplateIds);
 			const replacementTemplateExercises =
 				replacementTemplateIds.length > 0
-					? await db
-							.select()
-							.from(s.workoutTemplateExercises)
-							.where(inArray(s.workoutTemplateExercises.templateId, replacementTemplateIds))
+					? allLocalTemplateExercises.filter((wte) =>
+							replacementTemplateIdSet.has(wte.templateId)
+						)
 					: [];
-			const replacementTemplateIdSet = new Set(replacementTemplateIds);
 			const workoutTemplateExercisesToPush = [
 				...replacementTemplateExercises,
 				...unsyncedTemplateExercises.filter((wte) => !replacementTemplateIdSet.has(wte.templateId))
@@ -233,6 +261,10 @@ class SyncService {
 				const pushResult: PushResponse = await pushResponse.json();
 				await this.applyPushRemaps(pushResult.idRemaps);
 
+				for (const templateId of replacementTemplateIds) {
+					this.templateExerciseReplacementIds.delete(templateId);
+				}
+
 				// 3. Mark pushed records as synced
 				await Promise.all([
 					unsyncedBands.length > 0 &&
@@ -297,6 +329,8 @@ class SyncService {
 			// 6. Update lastSyncAt
 			this.lastSyncAt = pullResult.syncedAt;
 			localStorage.setItem(this.getLastSyncKey(userId), pullResult.syncedAt);
+
+			await this.onSyncComplete?.();
 		} catch (err) {
 			console.error('Sync failed:', err);
 			this.syncError = err instanceof Error ? err.message : 'Sync failed';
@@ -737,6 +771,22 @@ class SyncService {
 					.delete(s.workoutTemplateExercises)
 					.where(eq(s.workoutTemplateExercises.id, conflictingLocalId));
 			}
+		}
+
+		// Drop synced local junctions that the server no longer has (full pull of junctions).
+		const pulledWteIds = data.workoutTemplateExercises.map((wte) => wte.id);
+		const localSyncedWtes = await db
+			.select({ id: s.workoutTemplateExercises.id })
+			.from(s.workoutTemplateExercises)
+			.where(isNotNull(s.workoutTemplateExercises.syncedAt));
+		const orphanIds = getOrphanSyncedJunctionIds(
+			localSyncedWtes.map((row) => row.id),
+			pulledWteIds
+		);
+		if (orphanIds.length > 0) {
+			await db
+				.delete(s.workoutTemplateExercises)
+				.where(inArray(s.workoutTemplateExercises.id, orphanIds));
 		}
 
 		// Workout Sessions

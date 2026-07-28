@@ -13,6 +13,7 @@ import { eq, desc, and, ne, asc, isNull, isNotNull, max, sql, inArray } from 'dr
 import { loader } from './initialLoader.svelte';
 import { settings } from './settings.svelte';
 import { syncService } from '$lib/services/sync.svelte';
+import { resolveExercisesByPlannedIds } from '$lib/services/syncHelpers';
 import { getCatalogNameKey } from '$lib/db/catalog';
 import {
 	mergeBandIntoExistingName,
@@ -83,47 +84,65 @@ class WorkoutStore {
 			}
 		);
 
-		await liveQuery(
-			db.query.workoutTemplates.findMany({
-				orderBy: asc(s.workoutTemplates.sortOrder),
-				where: isNull(s.workoutTemplates.deletedAt),
-				with: {
-					workoutTemplateExercises: {
-						with: {
-							exercise: true
-						}
-					}
-				}
-			}),
-			(rows) => {
-				// Transform to TemplateWithExercises format
-				this.allTemplates = rows.map((template) => ({
-					id: template.id,
-					name: template.name,
-					seedSlug: template.seedSlug,
-					nameKey: template.nameKey,
-					createdAt: template.createdAt,
-					updatedAt: template.updatedAt,
-					deletedAt: template.deletedAt,
-					icon: template.icon,
-					sortOrder: template.sortOrder,
-					syncedAt: template.syncedAt,
-					exercises: template.workoutTemplateExercises
-						.sort((a, b) => a.sortOrder - b.sortOrder)
-						.map((wte) => wte.exercise)
-						.filter((exercise): exercise is Exercise => exercise != null)
-				}));
-			}
-		);
-
-		// set allTemplates with their exercises using select and joins
+		// Templates use one-shot relational queries (liveQuery does not support `with`)
 		await this.refreshTemplates();
 
 		loader.setLoading('Ready!', 100);
 		this.isInitialized = true;
 
 		// Initialize sync service after database is ready
+		syncService.setOnSyncComplete(() => this.onSyncComplete());
 		syncService.initialize();
+	}
+
+	async onSyncComplete() {
+		await this.refreshTemplates();
+	}
+
+	async getTemplateExercises(templateId: string): Promise<Exercise[]> {
+		if (!browser || !db) return [];
+
+		const rows = await db.query.workoutTemplateExercises.findMany({
+			where: eq(s.workoutTemplateExercises.templateId, templateId),
+			orderBy: asc(s.workoutTemplateExercises.sortOrder),
+			with: {
+				exercise: true
+			}
+		});
+
+		return rows
+			.map((wte) => wte.exercise)
+			.filter((exercise): exercise is Exercise => exercise != null && exercise.deletedAt == null);
+	}
+
+	async hydrateSuggestedExercisesFromPlanned() {
+		if (!browser || !db || !this.currentSession) return;
+		if (this.suggestedExercises.length > 0) return;
+
+		const plannedIds = this.currentSession.plannedExercises ?? [];
+		if (plannedIds.length > 0) {
+			const fromCatalog = resolveExercisesByPlannedIds(
+				plannedIds,
+				new Map(this.allExercises.map((exercise) => [exercise.id, exercise]))
+			);
+			if (fromCatalog.length > 0) {
+				this.suggestedExercises = fromCatalog;
+				return;
+			}
+
+			const rows = await db.query.exercises.findMany({
+				where: and(inArray(s.exercises.id, plannedIds), isNull(s.exercises.deletedAt))
+			});
+			this.suggestedExercises = resolveExercisesByPlannedIds(
+				plannedIds,
+				new Map(rows.map((exercise) => [exercise.id, exercise]))
+			);
+			if (this.suggestedExercises.length > 0) return;
+		}
+
+		if (this.currentSession.templateId) {
+			this.suggestedExercises = await this.getTemplateExercises(this.currentSession.templateId);
+		}
 	}
 
 	async refreshStats() {
@@ -333,6 +352,7 @@ class WorkoutStore {
 	async updateTemplate(id: string, name: string, exerciseIds: string[]) {
 		const mergedId = await mergeTemplateIntoExistingName(db, id, name, exerciseIds);
 		if (mergedId) {
+			syncService.markTemplateExercisesReplaced(mergedId);
 			await this.refreshTemplates();
 			syncService.triggerSync();
 			return;
@@ -344,6 +364,7 @@ class WorkoutStore {
 			.set({ name, nameKey: getCatalogNameKey(name), deletedAt: null })
 			.where(eq(s.workoutTemplates.id, id));
 		await replaceTemplateExercises(db, id, exerciseIds);
+		syncService.markTemplateExercisesReplaced(id);
 
 		await this.refreshTemplates();
 		syncService.triggerSync();
@@ -395,15 +416,8 @@ class WorkoutStore {
 
 	// Start a new workout session
 	async startSession(templateId?: string) {
-		let plannedExercises: string[] = [];
-
-		// If a template was selected, get exercises
-		if (templateId) {
-			const template = this.allTemplates.find((t) => t.id === templateId);
-			if (template) {
-				plannedExercises = template.exercises.map((e) => e.id);
-			}
-		}
+		const templateExercises = templateId ? await this.getTemplateExercises(templateId) : [];
+		const plannedExercises = templateExercises.map((exercise) => exercise.id);
 
 		const [session] = await db
 			.insert(s.workoutSessions)
@@ -414,16 +428,7 @@ class WorkoutStore {
 			.returning();
 		this.currentSession = session;
 		this.sessionLogs = [];
-
-		// If a template was selected, set suggested exercises
-		if (templateId) {
-			const template = this.allTemplates.find((t) => t.id === templateId);
-			if (template) {
-				this.suggestedExercises = template.exercises;
-			}
-		} else {
-			this.suggestedExercises = [];
-		}
+		this.suggestedExercises = templateExercises;
 
 		syncService.triggerSync();
 		return session;
@@ -865,12 +870,7 @@ class WorkoutStore {
 				this.suggestedExercises = suggestedExercises;
 			} else if (session.templateId) {
 				// Fallback to template if no logs (e.g. empty legacy session created from template)
-				const template = this.allTemplates.find((t) => t.id === session.templateId);
-				if (template) {
-					this.suggestedExercises = template.exercises;
-				} else {
-					this.suggestedExercises = [];
-				}
+				this.suggestedExercises = await this.getTemplateExercises(session.templateId);
 			} else {
 				this.suggestedExercises = [];
 			}
